@@ -252,7 +252,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
 
   // 가드레일 벽 (양옆 연속 + 빨강/흰 기둥, 지름길 틈새 제외)
   {
-    const off = ROAD_HALF + 1.5;
+    const off = ROAD_HALF + 2.2; // 물리 LIM과 일치 (범퍼 접촉 시점에 시각 일치)
     const H = 1.1;
     const circDist = (a, b) => {
       const L = circuit.length;

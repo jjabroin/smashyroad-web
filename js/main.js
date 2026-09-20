@@ -205,8 +205,8 @@ function raceOrder() {
 
 function startCountdown() {
   phase = 'countdown';
-  countdownT = 3.999;
-  lastCount = 4;
+  countdownT = 3.0; // 정확히 3초 카운트다운
+  lastCount = 3;
   document.getElementById('hud').style.display = 'block';
   hud.hideResults();
   setSteerHint(true); // 시작 전 반투명 L/R 힌트
@@ -342,14 +342,26 @@ function loop(ts) {
     return;
   }
 
-  // 메시 싱크 + 먼지 (고도 + 점프 반영)
+  // 메시 싱크 + 먼지 (고도 + 점프 + 경사 피치 반영)
   for (const r of racers) {
     const c = r.car;
     const baseY = trackY(circuit, c.dist);
     let airY = 0;
-    if (c.airT > 0) airY = Math.sin(Math.PI * (1 - c.airT / c.airDur)) * 3.2;
+    // 차체 피치: 진행 방향 경사를 따름 (언덕에 묻히지 않게)
+    const fx = Math.cos(c.heading);
+    const fz = Math.sin(c.heading);
+    const yA = trackY(circuit, circuit.project(c.x + fx * 3.5, c.z + fz * 3.5).dist);
+    const yB = trackY(circuit, circuit.project(c.x - fx * 3.5, c.z - fz * 3.5).dist);
+    let pitch = Math.atan2(yA - yB, 7);
+    if (c.airT > 0) {
+      // 점프 포물선: 이륙각 → 착지각
+      airY = Math.sin(Math.PI * (1 - c.airT / c.airDur)) * 3.2;
+      const k = 1 - c.airT / c.airDur;
+      pitch = 0.32 * (1 - k) + pitch * k;
+    }
     r.mesh.position.set(c.x, baseY + airY, c.z);
     r.mesh.rotation.y = -c.heading;
+    r.mesh.rotation.z = pitch;
     const fw = r.mesh.userData.frontWheels || [];
     for (const w of fw) w.rotation.y = -c.steerVis * 0.45;
     const latV = Math.abs(c.vx * -Math.sin(c.heading) + c.vz * Math.cos(c.heading));

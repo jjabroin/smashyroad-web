@@ -321,7 +321,8 @@ export function collideObstacles(car, colliders, dt) {
 }
 
 // 가드레일 벽: 카트라이더처럼 트랙 이탈 불가, 박으면 감속 (+강타 시 대미지)
-// walls = { half, gaps: [{ax,az,bx,bz}] } (gaps: 지름길 틈새, 여기선 벽 없음)
+// ※ 앞/뒤 범퍼 2점 판정 — 무게중심 원판정이 아니라 닿는 점 기준으로 밀어냄
+// walls = { gaps: [{ax,az,bx,bz}] } (gaps: 지름길 틈새, 여기선 벽 없음)
 export function ptSegDist(px, pz, g) {
   const dx = g.bx - g.ax;
   const dz = g.bz - g.az;
@@ -331,30 +332,51 @@ export function ptSegDist(px, pz, g) {
   return Math.hypot(px - (g.ax + dx * t), pz - (g.az + dz * t));
 }
 
+const WALL_LIM = 2.2; // 도로 반폭 + 여유 (차체 반폭 1.8 고려)
+const BUMPER = 3.4; // 앞/뒤 범퍼 거리
+
 export function collideWalls(car, circuit, roadHalf, walls, dt) {
   if (car.out || !walls) return 0;
-  const snap = circuit.project(car.x, car.z);
-  const LIM = roadHalf + 1.5;
-  if (Math.abs(snap.lateral) <= LIM) return 0;
-  // 지름길 틈새 근처면 통과
-  for (const g of walls.gaps) {
-    if (ptSegDist(car.x, car.z, g) < 13) return 0;
+  const LIM = roadHalf + WALL_LIM;
+  const hx = Math.cos(car.heading);
+  const hz = Math.sin(car.heading);
+  let contact = false;
+  // 앞·뒤 범퍼가 벽을 넘었으면 차체를 밀어냄
+  for (const s of [BUMPER, -BUMPER]) {
+    const fx = car.x + hx * s;
+    const fz = car.z + hz * s;
+    const snap = circuit.project(fx, fz);
+    if (Math.abs(snap.lateral) <= LIM) continue;
+    let inGap = false;
+    for (const g of walls.gaps) {
+      if (ptSegDist(fx, fz, g) < 13) {
+        inGap = true;
+        break;
+      }
+    }
+    if (inGap) continue;
+    const p = circuit.pointAt(snap.dist);
+    const sgn = snap.lateral > 0 ? 1 : -1;
+    const pen = Math.abs(snap.lateral) - LIM;
+    car.x -= -p.dz * sgn * pen;
+    car.z -= p.dx * sgn * pen;
+    contact = true;
   }
+  if (!contact) return 0;
+  // 속도 응답 (중앙 기준): 법선은 튕기고, 접선은 감속 (긁힘 감속)
+  const snap = circuit.project(car.x, car.z);
   const p = circuit.pointAt(snap.dist);
-  const s = snap.lateral > 0 ? 1 : -1;
+  const sgn = snap.lateral > 0 ? 1 : -1;
   const px = -p.dz;
   const pz = p.dx;
-  car.x = p.x + px * s * LIM;
-  car.z = p.z + pz * s * LIM;
-  // 속도 분해: 법선은 튕기고, 접선은 감속 (긁힘 감속)
-  const vn = (car.vx * px + car.vz * pz) * s; // 바깥 방향 +
+  const vn = (car.vx * px + car.vz * pz) * sgn; // 바깥 방향 +
   const vt = car.vx * p.dx + car.vz * p.dz;
   let impact = 0;
   if (vn > 0) {
     impact = vn;
     const bounced = -vn * 0.35;
-    car.vx = p.dx * vt * 0.93 + px * s * bounced;
-    car.vz = p.dz * vt * 0.93 + pz * s * bounced;
+    car.vx = p.dx * vt * 0.93 + px * sgn * bounced;
+    car.vz = p.dz * vt * 0.93 + pz * sgn * bounced;
     if (vn > 18 && car.hitCd <= 0) {
       car.hp -= (vn - 15) * 0.5;
       car.hitCd = 0.6;

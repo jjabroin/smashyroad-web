@@ -34,7 +34,7 @@ function ribbonGeometry(circuit, halfW, y) {
   return g;
 }
 
-export function createWorld(scene, circuit, themeId = 'park') {
+export function createWorld(scene, circuit, themeId = 'park', shortcuts = false) {
   const theme = THEMES[themeId] || THEMES.park;
   const SKY = theme.sky;
   scene.background = new THREE.Color(SKY);
@@ -205,6 +205,20 @@ export function createWorld(scene, circuit, themeId = 'park') {
     }
   }
 
+  // 지름길 흙길: 양쪽 180° 코너를 가로지르는 현(chord) — 잔디로 커팅 가능
+  if (shortcuts) {
+    const apexDist = (cmp) => {
+      let bi = 0;
+      for (let i = 0; i < circuit.count; i++) {
+        if (cmp(circuit.pts[i].x, circuit.pts[bi].x)) bi = i;
+      }
+      return circuit.cum[bi];
+    };
+    for (const dC of [apexDist((a, b) => a > b), apexDist((a, b) => a < b)]) {
+      drawDirtChord(scene, circuit, dC, 60, 7);
+    }
+  }
+
   // 장식: 나무/벤치/가로등/타이어 (트랙 바깥에 배치)
   let seed = 1234567;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -281,6 +295,39 @@ export function createWorld(scene, circuit, themeId = 'park') {
   }
 
   return { sun, colliders };
+}
+
+// 두 점 사이 직선 흙 리본 (지름길 표시)
+function drawDirtChord(scene, circuit, dCenter, span, halfW) {
+  const A = circuit.pointAt(dCenter - span);
+  const B = circuit.pointAt(dCenter + span);
+  const SEG = 10;
+  const y = 0.07;
+  const pos = new Float32Array((SEG + 1) * 2 * 3);
+  const idx = [];
+  const dx = B.x - A.x;
+  const dz = B.z - A.z;
+  const m = Math.hypot(dx, dz) || 1;
+  const px = (-dz / m) * halfW;
+  const pz = (dx / m) * halfW;
+  for (let i = 0; i <= SEG; i++) {
+    const t = i / SEG;
+    const x = A.x + dx * t;
+    const z = A.z + dz * t;
+    pos.set([x + px, y, z + pz], i * 6);
+    pos.set([x - px, y, z - pz], i * 6 + 3);
+    if (i < SEG) {
+      const a = i * 2, b = i * 2 + 1, c = i * 2 + 2, d = i * 2 + 3;
+      idx.push(a, b, c, b, d, c);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xb08a5a }));
+  mesh.receiveShadow = true;
+  scene.add(mesh);
 }
 
 // 그리드 슬롯 4대 (2열 × 2행, 스타트라인 뒤)

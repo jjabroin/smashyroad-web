@@ -27,7 +27,7 @@ let colliders = []; // 장애물 {x,z,r}
 function buildWorldTrack(def) {
   for (const o of worldObjs) scene.remove(o);
   const before = new Set(scene.children);
-  const w = createWorld(scene, circuit, def.theme);
+  const w = createWorld(scene, circuit, def.theme, def.id === 'express');
   colliders = w.colliders;
   worldObjs = scene.children.filter((o) => !before.has(o));
 }
@@ -107,8 +107,8 @@ function snapCamera(hard, dt = 0.016) {
   const spd = Math.hypot(p.vx, p.vz);
   const fx = Math.cos(p.heading);
   const fz = Math.sin(p.heading);
-  const back = 26 + spd * 0.14; // 빠를수록 살짝 멀어짐
-  const height = 19 + spd * 0.05;
+  const back = 26 + spd * 0.18; // 빠를수록 살짝 멀어짐
+  const height = 19 + spd * 0.06;
   const desired = new THREE.Vector3(p.x - fx * back, height, p.z - fz * back);
   const lookDes = new THREE.Vector3(p.x + fx * 20, 2, p.z + fz * 20);
   if (hard) {
@@ -125,7 +125,7 @@ function snapCamera(hard, dt = 0.016) {
     shakeT -= dt;
   }
   camera.lookAt(lookSm);
-  const targetFov = 62 + Math.min(9, spd * 0.11); // 속도감 FOV
+  const targetFov = 62 + Math.min(14, spd * 0.16); // 속도감 FOV
   camera.fov += (targetFov - camera.fov) * Math.min(1, 2.5 * dt);
   camera.updateProjectionMatrix();
 }
@@ -347,7 +347,11 @@ function loop(ts) {
   hud.setHp(p.hp, p.maxHp);
   const order = raceOrder();
   hud.setPos(order.indexOf(racers[playerIdx]) + 1, racers.length);
-  hud.setSpeed(Math.hypot(p.vx, p.vz) * 3.4);
+  const spdNow = Math.hypot(p.vx, p.vz);
+  hud.setSpeed(spdNow * 3.4);
+  // 속도 비네팅 (빠를수록 화면 가장자리 압박감)
+  const vig = document.getElementById('speedVig');
+  if (vig) vig.style.opacity = Math.max(0, Math.min(0.85, (spdNow - 28) / 45)).toFixed(2);
 
   renderer.render(scene, camera);
 }
@@ -392,6 +396,11 @@ document.getElementById('muteBtn').addEventListener('click', (e) => {
 document.getElementById('fsBtn').addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   else document.documentElement.requestFullscreen().catch(() => {});
+});
+// 미니맵 탭 → 하단 메뉴 토글
+document.getElementById('minimap').addEventListener('pointerdown', (e) => {
+  e.stopPropagation();
+  document.querySelector('.hud-menu').classList.toggle('open');
 });
 
 // 부트: 차고 → 레이스

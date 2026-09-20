@@ -78,7 +78,7 @@ html, body {
 #game { display: block; touch-action: none; }
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
 .hud-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 10px; align-items: flex-start; }
-#minimap { background: rgba(10,16,24,.72); border: 3px solid #101418; border-radius: 6px; }
+#minimap { background: rgba(10,16,24,.72); border: 3px solid #101418; border-radius: 6px; pointer-events: auto; cursor: pointer; }
 #lapBox {
   background: #fff; color: #111;
   font-family: "Press Start 2P", monospace; font-size: 15px;
@@ -115,6 +115,10 @@ html, body {
   font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap;
   background: rgba(0,0,0,.5); padding: 6px 12px; border-radius: 8px;
 }
+#speedVig {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,.5) 100%);
+}
 .g-track { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
 .arrow.sm { width: 64px; height: 52px; font-size: 20px; }
 .g-tmid { text-align: center; }
@@ -149,7 +153,8 @@ html, body {
 }
 .pedal.gas { background: rgba(46,160,67,.65); }
 .pedal:active { filter: brightness(1.4); }
-.hud-menu { position: absolute; bottom: 64px; left: 14px; display: flex; gap: 8px; }
+.hud-menu { position: absolute; bottom: 64px; left: 14px; display: none; gap: 8px; }
+.hud-menu.open { display: flex; }
 .hud-menu button {
   width: 52px; height: 52px; font-size: 24px; border-radius: 10px;
   background: rgba(20,28,38,.7); color: #fff; border: 2px solid rgba(255,255,255,.5);

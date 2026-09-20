@@ -25,10 +25,14 @@ export function buildCircuit(straight = 260, radius = 75, opts = {}) {
     push(-hx + radius * Math.cos(t), radius * Math.sin(t));
   }
 
-  // 누적 거리 + 진행 방향
+  applyWave(pts, waveAmp, waveK);
+  return finalizeCircuit(pts);
+}
+
+// 웨이브 변형: 법선 방향으로 사인 오프셋 (S자 커브)
+// ※ 원본 좌표 스냅샷 기준으로 계산 (변형 중인 점을 읽으면 오차 증폭됨)
+function applyWave(pts, waveAmp, waveK) {
   const n = pts.length;
-  // 웨이브 변형: 법선 방향으로 사인 오프셋 (S자 커브)
-  // ※ 원본 좌표 스냅샷 기준으로 계산 (변형 중인 점을 읽으면 오차 증폭됨)
   if (waveAmp > 0) {
     const base = pts.map((p) => ({ x: p.x, z: p.z }));
     // 1차 누적거리로 위상 계산
@@ -50,6 +54,11 @@ export function buildCircuit(straight = 260, radius = 75, opts = {}) {
       pts[i].z = base[i].z + (nz / m) * off;
     }
   }
+}
+
+// 중심선 확정: 누적거리·진행방향·투영·곡률 API 생성 (rounded/spline 공통)
+function finalizeCircuit(pts) {
+  const n = pts.length;
   const cum = new Array(n + 1).fill(0);
   for (let i = 0; i < n; i++) {
     const a = pts[i];
@@ -129,13 +138,58 @@ export function buildCircuit(straight = 260, radius = 75, opts = {}) {
   return { pts, cum, length, pointAt, project, curvatureAt, count: n };
 }
 
+// 제어점을 지나는 닫힌 Catmull-Rom 스플라인 서킷
+export function buildSplineCircuit(controls, perSeg = 30) {
+  const m = controls.length;
+  const P = (i) => controls[(i + m) % m];
+  const pts = [];
+  for (let s = 0; s < m; s++) {
+    const p0 = P(s - 1), p1 = P(s), p2 = P(s + 1), p3 = P(s + 2);
+    for (let j = 0; j < perSeg; j++) {
+      const t = j / perSeg;
+      const t2 = t * t, t3 = t2 * t;
+      pts.push({
+        x: 0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t +
+          (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+          (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+        z: 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t +
+          (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+          (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3),
+      });
+    }
+  }
+  return finalizeCircuit(pts);
+}
+
 // 트랙 종류 (차고에서 선택)
 export const TRACK_DEFS = [
-  { id: 'oval', name: '초원 오벌', straight: 260, radius: 75, waveAmp: 0, waveK: 2, theme: 'park', laps: 3 },
-  { id: 'wave', name: '사막 웨이브', straight: 230, radius: 70, waveAmp: 20, waveK: 2, theme: 'desert', laps: 3 },
-  { id: 'hairpin', name: '도심 헤어핀', straight: 220, radius: 45, waveAmp: 0, waveK: 2, theme: 'city', laps: 3 },
+  { id: 'oval', name: '초원 오벌', mode: 'rounded', straight: 260, radius: 75, waveAmp: 0, waveK: 2, theme: 'park', laps: 3 },
+  { id: 'wave', name: '사막 웨이브', mode: 'rounded', straight: 230, radius: 70, waveAmp: 20, waveK: 2, theme: 'desert', laps: 3 },
+  { id: 'hairpin', name: '도심 헤어핀', mode: 'rounded', straight: 220, radius: 45, waveAmp: 0, waveK: 2, theme: 'city', laps: 3 },
+  {
+    id: 'horseshoe', name: '말굽 서킷', mode: 'spline', theme: 'park', laps: 3,
+    points: [
+      [-140, 44], [0, 50], [140, 44], [174, 22], [174, -22], [140, -44],
+      [60, -50], [20, -30], [-20, -30], [-60, -50], [-140, -44], [-174, -22], [-174, 22],
+    ],
+  },
+  {
+    id: 'express', name: '대륙 익스프레스', mode: 'spline', theme: 'desert', laps: 2,
+    points: [
+      [-260, 120], [-80, 132], [120, 132], [260, 120], [330, 60], [330, -60],
+      [260, -120], [80, -132], [-120, -132], [-260, -120], [-330, -60], [-330, 60],
+    ],
+  },
+  {
+    id: 'technical', name: '테크니컬', mode: 'spline', theme: 'city', laps: 3,
+    points: [
+      [-160, 30], [-80, 62], [0, 22], [80, 62], [160, 30], [192, -12],
+      [160, -52], [80, -22], [0, -62], [-80, -22], [-160, -52], [-192, -12],
+    ],
+  },
 ];
 
 export function buildTrack(def) {
+  if (def.mode === 'spline') return buildSplineCircuit(def.points, def.perSeg || 30);
   return buildCircuit(def.straight, def.radius, { waveAmp: def.waveAmp, waveK: def.waveK });
 }

@@ -46,9 +46,50 @@ export const CAR_DEFS = [
     maxSpeed: 48, accel: 28, brake: 58, reverseMax: 14,
     turnRate: 1.9, grip: 6.8, drag: 0.5,
   },
+  {
+    id: 'taxi',
+    name: 'TAXI',
+    grade: '일반',
+    color: 0xf2b90c,
+    accent: 0x1c2733,
+    stats: { speed: 3, handling: 4, durability: 3 },
+    maxSpeed: 52, accel: 34, brake: 64, reverseMax: 16,
+    turnRate: 2.4, grip: 6.2, drag: 0.4,
+  },
+  {
+    id: 'rally',
+    name: 'RALLY',
+    grade: '레어',
+    color: 0x1f6fd6,
+    accent: 0xffffff,
+    stats: { speed: 4, handling: 5, durability: 3 },
+    maxSpeed: 57, accel: 36, brake: 66, reverseMax: 16,
+    turnRate: 2.7, grip: 5.6, drag: 0.38,
+  },
+  {
+    id: 'monster',
+    name: 'MONSTER',
+    grade: '일반',
+    color: 0xe26a1b,
+    accent: 0x23262b,
+    stats: { speed: 3, handling: 2, durability: 5 },
+    maxSpeed: 51, accel: 32, brake: 60, reverseMax: 15,
+    turnRate: 2.0, grip: 7.2, drag: 0.45,
+  },
+  {
+    id: 'police',
+    name: 'POLICE',
+    grade: '레어',
+    color: 0xf2f3f5,
+    accent: 0x1c2733,
+    stats: { speed: 4, handling: 3, durability: 4 },
+    maxSpeed: 58, accel: 35, brake: 66, reverseMax: 16,
+    turnRate: 2.2, grip: 5.8, drag: 0.4,
+  },
 ];
 
 export function makeCarState(def, x, z, heading) {
+  const maxHp = 60 + def.stats.durability * 20;
   return {
     def,
     x, z, heading,
@@ -64,6 +105,10 @@ export function makeCarState(def, x, z, heading) {
     bestLap: Infinity,
     offTrack: false,
     steerVis: 0,   // 렌더용 조향 표시
+    maxHp,
+    hp: maxHp,
+    hitCd: 0,      // 피격 쿨다운(연타 방지)
+    out: false,    // 폭파 탈락
   };
 }
 
@@ -151,13 +196,19 @@ export function checkLap(car, circuit, lapsToWin, now) {
   return null;
 }
 
-// 차량 간 충돌: 원 충돌 → 밀어내기 + 속도 교환 (아케이드 범프)
-export function resolveCollisions(cars) {
+// 차량 간 충돌: 원 충돌 → 밀어내기 + 속도 교환 + 대미지 (아케이드 범프)
+// 반환값: 이번 프레임 최대 충돌 세기 (효과음·카메라 셰이크용)
+export function resolveCollisions(cars, dt) {
   const R = 4.2;
+  let maxImpact = 0;
+  for (const c of cars) {
+    if (c.hitCd > 0) c.hitCd -= dt;
+  }
   for (let i = 0; i < cars.length; i++) {
     for (let j = i + 1; j < cars.length; j++) {
       const a = cars[i];
       const b = cars[j];
+      if (a.out || b.out) continue;
       const dx = b.x - a.x;
       const dz = b.z - a.z;
       const d = Math.hypot(dx, dz);
@@ -169,21 +220,81 @@ export function resolveCollisions(cars) {
         a.z -= nz * overlap * 0.5;
         b.x += nx * overlap * 0.5;
         b.z += nz * overlap * 0.5;
-        // 법선 방향 속도 교환 (내구도가 높을수록 감속 적음)
+        // 법선 방향 속도 교환 (확실히 부딪히는 느낌 + 내구도가 높을수록 감속 적음)
         const avn = a.vx * nx + a.vz * nz;
         const bvn = b.vx * nx + b.vz * nz;
         const rel = avn - bvn;
         if (rel > 0) {
-          const dampA = 0.55 + 0.2 * (a.def.stats.durability / 5);
-          const dampB = 0.55 + 0.2 * (b.def.stats.durability / 5);
+          maxImpact = Math.max(maxImpact, rel);
+          const dampA = 0.85 + 0.1 * (a.def.stats.durability / 5);
+          const dampB = 0.85 + 0.1 * (b.def.stats.durability / 5);
           a.vx -= nx * rel * dampA;
           a.vz -= nz * rel * dampA;
           b.vx += nx * rel * dampB;
           b.vz += nz * rel * dampB;
+          // 대미지 (쿨다운 중이 아닐 때만, 양쪽 다 입음)
+          if (rel > 8) {
+            const dmg = rel * 0.55;
+            if (a.hitCd <= 0) {
+              a.hp -= dmg;
+              a.hitCd = 0.6;
+              if (a.hp <= 0) {
+                a.hp = 0;
+                a.out = true;
+              }
+            }
+            if (b.hitCd <= 0) {
+              b.hp -= dmg;
+              b.hitCd = 0.6;
+              if (b.hp <= 0) {
+                b.hp = 0;
+                b.out = true;
+              }
+            }
+          }
         }
       }
     }
   }
+  return maxImpact;
+}
+
+// 장애물 충돌: 원 vs 원 → 밀어내기 + 반사 + 대미지 (반환: 최대 임팩트)
+export function collideObstacles(car, colliders, dt) {
+  if (car.out) return 0;
+  const R = 3.4;
+  let maxImpact = 0;
+  for (let k = 0; k < colliders.length; k++) {
+    const o = colliders[k];
+    const dx = car.x - o.x;
+    const dz = car.z - o.z;
+    const rr = R + o.r;
+    const d2 = dx * dx + dz * dz;
+    if (d2 >= rr * rr || d2 < 0.0001) continue;
+    const d = Math.sqrt(d2);
+    const nx = dx / d;
+    const nz = dz / d;
+    // 밀어내기
+    car.x = o.x + nx * rr;
+    car.z = o.z + nz * rr;
+    // 법선 속도 반사 (탄성 0.4)
+    const vn = car.vx * nx + car.vz * nz;
+    if (vn < 0) {
+      const spd = Math.hypot(car.vx, car.vz);
+      maxImpact = Math.max(maxImpact, -vn);
+      car.vx -= 1.4 * vn * nx;
+      car.vz -= 1.4 * vn * nz;
+      if (spd > 12 && car.hitCd <= 0) {
+        car.hp -= spd * 0.35;
+        car.hitCd = 0.6;
+        if (car.hp <= 0) {
+          car.hp = 0;
+          car.out = true;
+        }
+      }
+    }
+  }
+  return maxImpact;
 }
 
 // AI: 퓨어퍼슈트(전방 목표점 추적) + 커브 감속 + 러버밴딩

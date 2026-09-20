@@ -1,16 +1,14 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { buildCircuit } from './track.js';
+import { TRACK_DEFS, buildTrack } from './track.js';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap,
-  resolveCollisions, aiInput, progressOf,
+  resolveCollisions, collideObstacles, aiInput, progressOf,
 } from './race.js';
 import { CAR_BUILDERS } from './voxel.js';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js';
-import { createHUD, createInput, createBeeper } from './hud.js';
+import { createHUD, createInput, createBeeper, setSteerHint } from './hud.js';
 import { createGarage } from './garage.js';
-
-const LAPS = 3;
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -20,19 +18,32 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 2000);
 
-const circuit = buildCircuit(260, 75);
-createWorld(scene, circuit);
+let circuit = buildTrack(TRACK_DEFS[0]);
+let trackDef = TRACK_DEFS[0];
+let LAPS = trackDef.laps;
+let worldObjs = []; // 현 트랙 월드 오브젝트 (교체 시 제거)
+let colliders = []; // 장애물 {x,z,r}
 
-const hud = createHUD(circuit);
-const input = createInput();
+function buildWorldTrack(def) {
+  for (const o of worldObjs) scene.remove(o);
+  const before = new Set(scene.children);
+  const w = createWorld(scene, circuit, def.theme);
+  colliders = w.colliders;
+  worldObjs = scene.children.filter((o) => !before.has(o));
+}
+buildWorldTrack(trackDef);
+
+let hud = createHUD(circuit);
+const input = createInput(canvas);
 const beeper = createBeeper();
 
 function resize() {
-  const w = Math.min(window.innerWidth - 12, 1100);
-  const h = Math.min(window.innerHeight - 130, 700);
-  const cw = Math.max(320, w);
-  const ch = Math.max(240, h);
+  // 풀스크린: 뷰포트 전체 사용
+  const cw = window.innerWidth;
+  const ch = window.innerHeight;
   renderer.setSize(cw, ch, false);
+  canvas.style.width = cw + 'px';
+  canvas.style.height = ch + 'px';
   camera.aspect = cw / ch;
   camera.updateProjectionMatrix();
 }
@@ -52,8 +63,15 @@ function clearRacers() {
   racers = [];
 }
 
-function buildRace(playerDef) {
+function buildRace(playerDef, tdef) {
+  if (tdef && tdef.id !== trackDef.id) {
+    trackDef = tdef;
+    circuit = buildTrack(tdef);
+    LAPS = tdef.laps;
+    hud = createHUD(circuit);
+  }
   clearRacers();
+  buildWorldTrack(trackDef);
   const slots = gridSlots(circuit);
   const defs = [playerDef];
   const pool = CAR_DEFS.filter((d) => d.id !== playerDef.id);
@@ -81,15 +99,35 @@ function buildRace(playerDef) {
   snapCamera(true);
 }
 
-function snapCamera(hard) {
+// 카메라: 위치·주시점·FOV 모두 지수 댐핑(관성) — 뚝뚝 끊김 방지
+const lookSm = new THREE.Vector3();
+let shakeT = 0;
+function snapCamera(hard, dt = 0.016) {
   const p = racers[playerIdx].car;
+  const spd = Math.hypot(p.vx, p.vz);
   const fx = Math.cos(p.heading);
   const fz = Math.sin(p.heading);
-  const desired = new THREE.Vector3(p.x - fx * 26, 19, p.z - fz * 26);
-  if (hard) camPos.copy(desired);
-  else camPos.lerp(desired, 0.08);
+  const back = 26 + spd * 0.14; // 빠를수록 살짝 멀어짐
+  const height = 19 + spd * 0.05;
+  const desired = new THREE.Vector3(p.x - fx * back, height, p.z - fz * back);
+  const lookDes = new THREE.Vector3(p.x + fx * 20, 2, p.z + fz * 20);
+  if (hard) {
+    camPos.copy(desired);
+    lookSm.copy(lookDes);
+  } else {
+    camPos.lerp(desired, 1 - Math.exp(-4.0 * dt)); // 위치 관성
+    lookSm.lerp(lookDes, 1 - Math.exp(-6.5 * dt)); // 시선 관성
+  }
   camera.position.copy(camPos);
-  camera.lookAt(p.x + fx * 20, 2, p.z + fz * 20);
+  if (shakeT > 0) {
+    camera.position.x += (Math.random() - 0.5) * shakeT * 3;
+    camera.position.y += (Math.random() - 0.5) * shakeT * 2;
+    shakeT -= dt;
+  }
+  camera.lookAt(lookSm);
+  const targetFov = 62 + Math.min(9, spd * 0.11); // 속도감 FOV
+  camera.fov += (targetFov - camera.fov) * Math.min(1, 2.5 * dt);
+  camera.updateProjectionMatrix();
 }
 
 // 드리프트/잔디 먼지 (간단 박스 풀)
@@ -105,30 +143,64 @@ const puffPool = [];
   }
 }
 let puffIdx = 0;
-function puff(x, z) {
+const FIRE_COLORS = [0xe25822, 0xf2a007, 0xf2e007, 0x3a3a3a, 0xcfc8bd];
+function puff(x, z, color = 0xcfc8bd, big = 1) {
   const p = puffPool[puffIdx++ % puffPool.length];
   p.mesh.visible = true;
+  p.mesh.material.color.setHex(color);
   p.mesh.position.set(x, 0.8, z);
-  p.mesh.scale.set(1.4, 1.4, 1.4);
+  p.mesh.scale.set(1.4 * big, 1.4 * big, 1.4 * big);
   p.life = 1;
+  p.big = big;
 }
 function updatePuffs(dt) {
   for (const p of puffPool) {
     if (p.life <= 0) continue;
     p.life -= dt * 1.6;
     p.mesh.position.y += dt * 2;
-    const s = 1.4 + (1 - p.life) * 2.2;
+    const b = p.big || 1;
+    const s = (1.4 + (1 - p.life) * 2.2) * b;
     p.mesh.scale.set(s, s, s);
     p.mesh.material.opacity = Math.max(0, p.life) * 0.6;
     if (p.life <= 0) p.mesh.visible = false;
   }
 }
 
+// 폭파: 불꽃 버스트 + 메시 숨김
+function explode(r) {
+  const c = r.car;
+  for (let i = 0; i < 14; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const d = 1 + Math.random() * 5;
+    puff(
+      c.x + Math.cos(a) * d,
+      c.z + Math.sin(a) * d,
+      FIRE_COLORS[i % FIRE_COLORS.length],
+      1.6
+    );
+  }
+  r.mesh.visible = false;
+  beeper.crash();
+  const p = racers[playerIdx].car;
+  const dp = Math.hypot(c.x - p.x, c.z - p.z);
+  if (r.isPlayer) shakeT = 0.7;
+  else if (dp < 90) shakeT = Math.max(shakeT, 0.3);
+}
+
+function rankKey(r) {
+  return r.car.out ? -1 : progressOf(r.car, circuit);
+}
+function raceOrder() {
+  return [...racers].sort((a, b) => rankKey(b) - rankKey(a));
+}
+
 function startCountdown() {
   phase = 'countdown';
   countdownT = 3.999;
+  lastCount = 4;
   document.getElementById('hud').style.display = 'block';
   hud.hideResults();
+  setSteerHint(true); // 시작 전 반투명 L/R 힌트
   hud.message('3');
   beeper.count();
 }
@@ -153,10 +225,11 @@ function loop(ts) {
     if (countdownT <= 0) {
       phase = 'racing';
       for (const r of racers) r.car.lapStart = 0;
+      setSteerHint(false); // 시작하면 L/R 힌트 제거 (화면 탭 조향)
       hud.message('GO!', '', 900);
       beeper.go();
     }
-    snapCamera(false);
+    snapCamera(false, dt);
     renderer.render(scene, camera);
     return;
   }
@@ -180,9 +253,9 @@ function loop(ts) {
       : aiInput(r.car, circuit, ROAD_HALF, dt, pProg, progressOf(r.car, circuit), r.ai)
   );
 
-  // 물리 + 랩
+  // 물리 + 랩 (완주·탈락 차량 제외)
   racers.forEach((r, i) => {
-    if (r.car.finished) return;
+    if (r.car.finished || r.car.out) return;
     stepCar(r.car, inputs[i], dt, circuit, ROAD_HALF);
     const ev = checkLap(r.car, circuit, LAPS, raceTime);
     if (r.isPlayer) {
@@ -191,11 +264,36 @@ function loop(ts) {
         else hud.message(`LAP ${r.car.lap + 1}`, '', 1200);
         beeper.count();
       } else if (ev === 'finished') {
-        onPlayerFinish();
+        onRaceEnd('finished');
       }
     }
   });
-  resolveCollisions(racers.map((r) => r.car));
+
+  // 차량끼리 + 장애물 충돌 (대미지 포함)
+  let impact = resolveCollisions(
+    racers.map((r) => r.car),
+    dt
+  );
+  for (const r of racers) {
+    if (r.car.out || r.car.finished) continue;
+    impact = Math.max(impact, collideObstacles(r.car, colliders, dt));
+  }
+  if (impact > 8) {
+    beeper.crash();
+    shakeT = Math.max(shakeT, Math.min(0.45, impact * 0.015));
+  }
+  // 새로 탈락한 차량 폭파 연출
+  for (const r of racers) {
+    if (r.car.out && r.mesh.visible) {
+      explode(r);
+      if (r.isPlayer) onRaceEnd('wrecked');
+    }
+  }
+  if (phase !== 'racing') {
+    updatePuffs(dt);
+    renderer.render(scene, camera);
+    return;
+  }
 
   // 메시 싱크 + 먼지
   for (const r of racers) {
@@ -212,7 +310,7 @@ function loop(ts) {
   updatePuffs(dt);
 
   // 카메라
-  snapCamera(false);
+  snapCamera(false, dt);
   // 태양·그림자 범위를 플레이어 따라 이동
   const sun = scene.getObjectByProperty('type', 'DirectionalLight');
   if (sun) {
@@ -225,27 +323,28 @@ function loop(ts) {
   hud.drawMinimap(racers.map((r) => r.car), playerIdx);
   hud.setLap(p.lap, LAPS);
   hud.setTimer(raceTime);
-  const order = [...racers].sort(
-    (a, b) => progressOf(b.car, circuit) - progressOf(a.car, circuit)
-  );
+  hud.setHp(p.hp, p.maxHp);
+  const order = raceOrder();
   hud.setPos(order.indexOf(racers[playerIdx]) + 1, racers.length);
   hud.setSpeed(Math.hypot(p.vx, p.vz) * 3.4);
 
   renderer.render(scene, camera);
 }
 
-function onPlayerFinish() {
+function onRaceEnd(reason) {
   phase = 'done';
-  beeper.finish();
-  const order = [...racers].sort(
-    (a, b) => progressOf(b.car, circuit) - progressOf(a.car, circuit)
-  );
+  const order = raceOrder();
   const pos = order.indexOf(racers[playerIdx]) + 1;
-  hud.message(pos === 1 ? '🏆 WINNER!' : `${pos}nd FINISH`, '', 2000);
+  if (reason === 'wrecked') {
+    hud.message('💥 WRECKED!', '차량이 폭파됐습니다', 2500);
+  } else {
+    beeper.finish();
+    hud.message(pos === 1 ? '🏆 WINNER!' : `${pos}nd FINISH`, '', 2000);
+  }
   hud.showResults(
     order.map((r) => ({
-      name: r.name,
-      totalTime: r.car.finished ? r.car.finishTime : raceTime,
+      name: r.name + (r.car.out ? ' (OUT)' : ''),
+      totalTime: r.car.finished ? r.car.finishTime : r.car.out ? Infinity : raceTime,
       bestLap: r.car.bestLap,
       isPlayer: r.isPlayer,
     })),
@@ -255,24 +354,29 @@ function onPlayerFinish() {
 
 // 버튼들
 document.getElementById('restartBtn').addEventListener('click', () => {
-  buildRace(racers[playerIdx].car.def);
+  buildRace(racers[playerIdx].car.def, trackDef);
   startCountdown();
 });
 document.getElementById('garageBtn').addEventListener('click', () => {
   document.getElementById('hud').style.display = 'none';
   document.getElementById('garage').style.display = 'flex';
   hud.hideResults();
+  setSteerHint(false);
   phase = 'garage';
 });
 document.getElementById('muteBtn').addEventListener('click', (e) => {
   const m = beeper.toggle();
   e.target.textContent = m ? '🔇' : '🔊';
 });
+document.getElementById('fsBtn').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else document.documentElement.requestFullscreen().catch(() => {});
+});
 
 // 부트: 차고 → 레이스
-createGarage((def) => {
+createGarage((def, track) => {
   document.getElementById('garage').style.display = 'none';
-  buildRace(def);
+  buildRace(def, track);
   startCountdown();
 });
 requestAnimationFrame((t) => {

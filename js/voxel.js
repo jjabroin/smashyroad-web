@@ -74,7 +74,7 @@ export function makeSports(color = 0xf2f3f5, accent = 0x1c2733) {
   part(g, color, 5.6, 0.9, 2.6, 0, 0.85, 0);
   part(g, color, 2.2, 0.7, 2.2, 2.6, 0.8, 0); // 보닛
   part(g, accent, 2.0, 0.7, 2.0, -0.2, 1.45, 0); // 캐빈
-  part(g, 0x9fd8ef, 1.1, 0.5, 2.02, 0.35, 1.45, 0); // 윈드실드
+  part(g, 0x9fd8ef, 1.1, 0.5, 2.08, 0.35, 1.45, 0); // 윈드실드
   part(g, accent, 0.5, 0.5, 2.8, -2.9, 1.3, 0); // 스포일러
   part(g, color, 1.4, 0.35, 2.2, -1.9, 1.35, 0);
   const w = wheels(g, dark, [[1.9, 1.35, true], [1.9, -1.35, true], [-1.9, 1.35, false], [-1.9, -1.35, false]], 0.8, 0.7);
@@ -101,16 +101,120 @@ export function makeTruck(color = 0x1f4fa8, accent = 0xdfe6f2) {
   const g = new THREE.Group();
   const dark = 0x141519;
   part(g, color, 2.2, 1.9, 2.7, 2.4, 1.55, 0); // 캡
-  part(g, 0x9fd8ef, 0.8, 0.8, 2.5, 2.7, 1.9, 0);
+  part(g, 0x9fd8ef, 0.25, 0.8, 2.5, 3.45, 1.9, 0); // 윈드실드(캡 앞면에 돌출)
   part(g, accent, 0.5, 0.4, 2.0, 3.55, 0.9, 0); // 그릴
   part(g, accent, 4.6, 2.2, 2.8, -1.4, 1.7, 0); // 화물칸
-  part(g, color, 4.62, 0.4, 2.82, -1.4, 2.6, 0);
+  // 장식帯: 면이 겹치면 깜빡이므로 0.05씩 바깥으로 돌출
+  part(g, color, 4.7, 0.4, 2.9, -1.4, 2.6, 0);
   const w = wheels(g, dark, [[2.4, 1.45, true], [2.4, -1.45, true], [-1.2, 1.45, false], [-1.2, -1.45, false], [-2.6, 1.45, false], [-2.6, -1.45, false]], 0.95, 0.8);
   g.userData.frontWheels = w.front;
   return g;
 }
 
 export const CAR_BUILDERS = { f1: makeF1, sports: makeSports, pickup: makePickup, truck: makeTruck };
+
+// 노랑 택시 (체커帯 + 루프 사인)
+export function makeTaxi(color = 0xf2b90c, accent = 0x1c2733) {
+  const g = new THREE.Group();
+  const dark = 0x141519;
+  part(g, color, 5.4, 0.9, 2.6, 0, 0.85, 0);
+  part(g, color, 2.2, 0.75, 2.3, -0.3, 1.6, 0); // 캐빈
+  part(g, 0x9fd8ef, 1.0, 0.55, 2.34, 0.35, 1.6, 0);
+  part(g, accent, 0.9, 0.5, 1.2, -0.3, 2.2, 0); // 택시 사인
+  part(g, 0xffe9a3, 0.94, 0.2, 1.24, -0.3, 2.2, 0);
+  // 체커帯 (옆면 돌출)
+  for (let i = 0; i < 6; i++) {
+    part(g, i % 2 ? 0x111111 : 0xffffff, 0.8, 0.3, 0.06, -1.5 + i * 0.85, 0.85, 1.33);
+    part(g, i % 2 ? 0x111111 : 0xffffff, 0.8, 0.3, 0.06, -1.5 + i * 0.85, 0.85, -1.33);
+  }
+  const w = wheels(g, dark, [[1.9, 1.35, true], [1.9, -1.35, true], [-1.9, 1.35, false], [-1.9, -1.35, false]], 0.8, 0.7);
+  g.userData.frontWheels = w.front;
+  return g;
+}
+
+// 랠리카 (빅 스포일러 + 루프 스쿱 + 머드가드)
+export function makeRally(color = 0x1f6fd6, accent = 0xffffff) {
+  const g = new THREE.Group();
+  const dark = 0x141519;
+  part(g, color, 5.2, 0.95, 2.6, 0, 0.9, 0);
+  part(g, color, 2.0, 0.7, 2.2, -0.4, 1.65, 0);
+  part(g, 0x9fd8ef, 1.0, 0.5, 2.24, 0.25, 1.65, 0);
+  part(g, accent, 1.1, 0.35, 1.0, -0.4, 2.15, 0); // 루프 스쿱
+  part(g, accent, 2.2, 0.25, 2.5, 1.6, 1.25, 0); // 보닛 스트라이프
+  part(g, accent, 0.45, 1.0, 3.0, -2.8, 1.6, 0); // 빅 윙
+  part(g, color, 0.9, 0.25, 3.0, -2.6, 2.1, 0);
+  part(g, dark, 0.5, 0.5, 0.6, 1.9, 0.5, 1.35); // 머드가드
+  part(g, dark, 0.5, 0.5, 0.6, 1.9, 0.5, -1.35);
+  const w = wheels(g, dark, [[1.9, 1.35, true], [1.9, -1.35, true], [-1.9, 1.35, false], [-1.9, -1.35, false]], 0.85, 0.8);
+  g.userData.frontWheels = w.front;
+  return g;
+}
+
+// 몬스터트럭 (리프트업 + 왕바퀴)
+export function makeMonster(color = 0xe26a1b, accent = 0x23262b) {
+  const g = new THREE.Group();
+  const dark = 0x0e0f12;
+  part(g, color, 2.8, 1.2, 2.8, 1.4, 2.3, 0); // 캡 (높게)
+  part(g, 0x9fd8ef, 1.0, 0.7, 2.5, 1.9, 2.5, 0);
+  part(g, accent, 3.2, 1.0, 2.8, -1.4, 2.1, 0); // 적재함
+  part(g, accent, 1.0, 0.5, 2.9, -3.1, 1.9, 0); // 롤바
+  part(g, accent, 1.0, 0.5, 2.9, 3.1, 1.9, 0);
+  part(g, dark, 6.4, 0.5, 2.2, 0, 1.35, 0); // 섀시
+  const w = wheels(g, dark, [[2.1, 1.6, true], [2.1, -1.6, true], [-1.9, 1.6, false], [-1.9, -1.6, false]], 1.5, 1.1);
+  g.userData.frontWheels = w.front;
+  return g;
+}
+
+// 경찰차 (흑백 도어 + 경광등)
+export function makePolice(color = 0xf2f3f5, accent = 0x1c2733) {
+  const g = new THREE.Group();
+  const dark = 0x141519;
+  part(g, color, 5.4, 0.9, 2.6, 0, 0.85, 0);
+  part(g, accent, 2.0, 0.92, 2.64, -0.6, 0.85, 0); // 검정 도어帯 (돌출)
+  part(g, color, 2.2, 0.75, 2.3, -0.3, 1.6, 0);
+  part(g, 0x9fd8ef, 1.0, 0.55, 2.34, 0.35, 1.6, 0);
+  part(g, 0xf00, 0.7, 0.35, 0.8, -0.3, 2.15, -0.5); // 경광등 적
+  part(g, 0x14b4f5, 0.7, 0.35, 0.8, -0.3, 2.15, 0.5); // 경광등 청
+  const w = wheels(g, dark, [[1.9, 1.35, true], [1.9, -1.35, true], [-1.9, 1.35, false], [-1.9, -1.35, false]], 0.8, 0.7);
+  g.userData.frontWheels = w.front;
+  return g;
+}
+
+const _builders = { taxi: makeTaxi, rally: makeRally, monster: makeMonster, police: makePolice };
+Object.assign(CAR_BUILDERS, _builders);
+
+// --- 사막/도심 소품 ---
+export function makeCactus() {
+  const g = new THREE.Group();
+  part(g, 0x2f9e5f, 0.9, 3.4, 0.9, 0, 1.7, 0);
+  part(g, 0x2f9e5f, 0.6, 1.4, 0.6, 0.8, 2.2, 0);
+  part(g, 0x2f9e5f, 1.1, 0.6, 0.6, 0.55, 1.6, 0);
+  part(g, 0x37b56c, 0.94, 0.5, 0.94, 0, 3.5, 0);
+  return g;
+}
+
+export function makeRock() {
+  const g = new THREE.Group();
+  const m = part(g, 0x8d8d94, 2.2, 1.4, 1.8, 0, 0.7, 0);
+  m.rotation.y = 0.5;
+  const m2 = part(g, 0x7a7a82, 1.2, 0.9, 1.1, 1.2, 0.45, 0.5);
+  m2.rotation.y = -0.3;
+  return g;
+}
+
+export function makeBuilding() {
+  const g = new THREE.Group();
+  const h = 10 + Math.random() * 14;
+  const w = 6 + Math.random() * 5;
+  part(g, 0xb9bec7, w, h, w, 0, h / 2, 0);
+  part(g, 0x6d7480, w + 0.12, 1.0, w + 0.12, 0, h - 0.5, 0);
+  // 창문帯 (돌출시켜 깜빡임 방지)
+  const floors = Math.floor(h / 3);
+  for (let i = 0; i < floors; i++) {
+    part(g, 0x2e3d4d, w + 0.1, 0.9, 0.12, 0, 2.2 + i * 3, w / 2);
+  }
+  return g;
+}
 
 // 복셀 드라이버 (차고 전시용)
 export function makeDriver(shirt = 0xc9a227, pants = 0x23262b, skin = 0xf0c8a0) {

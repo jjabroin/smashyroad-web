@@ -1,12 +1,14 @@
 // 차고(차량 선택 화면, 사진 2 스타일): 3D 턴테이블 + 스탯바 + 좌우 화살표
 import * as THREE from 'three';
 import { CAR_DEFS } from './race.js';
+import { TRACK_DEFS, buildTrack } from './track.js';
 import { CAR_BUILDERS, makeDriver } from './voxel.js';
 
 const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };
 
 export function createGarage(onStart) {
   let idx = 0;
+  let trackIdx = 0;
   const canvas = document.getElementById('garageCanvas');
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -83,7 +85,47 @@ export function createGarage(onStart) {
   document.getElementById('carPrev').addEventListener('click', () => render(idx - 1));
   document.getElementById('carNext').addEventListener('click', () => render(idx + 1));
   document.getElementById('raceBtn').addEventListener('click', () => {
-    onStart(CAR_DEFS[idx]);
+    onStart(CAR_DEFS[idx], TRACK_DEFS[trackIdx]);
+  });
+
+  // 트랙 선택 + 미니 프리뷰
+  function renderTrack() {
+    const t = TRACK_DEFS[trackIdx];
+    document.getElementById('trackName').textContent = `${t.name} · ${t.laps}LAP`;
+    const c = document.getElementById('trackPreview');
+    const ctx = c.getContext('2d');
+    const cir = buildTrack(t);
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of cir.pts) {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+    }
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = '#41454e';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    cir.pts.forEach((p, i) => {
+      const x = 14 + ((p.x - minX) / (maxX - minX)) * (c.width - 28);
+      const y = 14 + ((p.z - minZ) / (maxZ - minZ)) * (c.height - 28);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#f2c230';
+    ctx.stroke();
+    document.getElementById('trackDots').textContent =
+      `${trackIdx + 1} / ${TRACK_DEFS.length}`;
+  }
+  document.getElementById('trackPrev').addEventListener('click', () => {
+    trackIdx = (trackIdx + TRACK_DEFS.length - 1) % TRACK_DEFS.length;
+    renderTrack();
+  });
+  document.getElementById('trackNext').addEventListener('click', () => {
+    trackIdx = (trackIdx + 1) % TRACK_DEFS.length;
+    renderTrack();
   });
 
   // 키보드 좌우로 차량 변경, Enter로 시작
@@ -94,7 +136,7 @@ export function createGarage(onStart) {
     }
     if (e.code === 'ArrowLeft') render(idx - 1);
     if (e.code === 'ArrowRight') render(idx + 1);
-    if (e.code === 'Enter' || e.code === 'Space') onStart(CAR_DEFS[idx]);
+    if (e.code === 'Enter' || e.code === 'Space') onStart(CAR_DEFS[idx], TRACK_DEFS[trackIdx]);
   });
 
   let raf = 0;
@@ -106,6 +148,7 @@ export function createGarage(onStart) {
 
   resize();
   render(0);
+  renderTrack();
   loop();
 
   return {

@@ -65,6 +65,13 @@ export function createHUD(circuit) {
   function setSpeed(kmh) {
     el('speedBox').textContent = `${Math.round(kmh)}`;
   }
+  function setHp(hp, maxHp) {
+    const bar = el('hpFill');
+    if (!bar) return;
+    const r = Math.max(0, hp / maxHp);
+    bar.style.width = `${Math.round(r * 100)}%`;
+    bar.style.background = r > 0.5 ? '#3ddc5f' : r > 0.25 ? '#ffb300' : '#ff3b30';
+  }
   function message(text, sub = '', ms = 0) {
     const m = el('centerMsg');
     m.innerHTML = text + (sub ? `<span>${sub}</span>` : '');
@@ -95,11 +102,12 @@ export function createHUD(circuit) {
     el('results').style.display = 'none';
   }
 
-  return { drawMinimap, setLap, setTimer, setPos, setSpeed, message, showResults, hideResults };
+  return { drawMinimap, setLap, setTimer, setPos, setSpeed, setHp, message, showResults, hideResults };
 }
 
-// 입력: 키보드 + L/R 터치 버튼
-export function createInput() {
+// 입력: 키보드 + 화면 좌/우 탭 조향 (멀티터치: 양쪽 동시=브레이크/후진)
+// L/R 버튼은 시작 전 힌트용 표시물(pointer-events 없음), 실제 입력은 화면 분할 탭
+export function createInput(canvas) {
   const state = { left: false, right: false, up: false, down: false };
   const keymap = {
     ArrowLeft: 'left', KeyA: 'left',
@@ -121,30 +129,62 @@ export function createInput() {
       e.preventDefault();
     }
   });
-  const bindHold = (id, name) => {
-    const b = document.getElementById(id);
-    const on = (e) => { e.preventDefault(); state[name] = true; };
-    const off = (e) => { e.preventDefault(); state[name] = false; };
-    b.addEventListener('pointerdown', on);
-    b.addEventListener('pointerup', off);
-    b.addEventListener('pointerleave', off);
-    b.addEventListener('pointercancel', off);
-  };
-  bindHold('btnLeft', 'left');
-  bindHold('btnRight', 'right');
-  bindHold('btnGas', 'up');
-  bindHold('btnBrake', 'down');
 
-  // 사진 1처럼 자동 가속이 기본: 위 키가 없어도 직진 가속
+  // 화면 탭 조향: 왼쪽 45% = 좌회전, 오른쪽 45% = 우회전, 둘 동시 = 후진
+  const touches = new Map(); // pointerId → 'left' | 'right'
+  let zoneL = false;
+  let zoneR = false;
+  const sideOf = (clientX) => {
+    const r = canvas.getBoundingClientRect();
+    const fx = (clientX - r.left) / r.width;
+    if (fx < 0.45) return 'left';
+    if (fx > 0.55) return 'right';
+    return null;
+  };
+  const refresh = () => {
+    zoneL = false;
+    zoneR = false;
+    for (const s of touches.values()) {
+      if (s === 'left') zoneL = true;
+      if (s === 'right') zoneR = true;
+    }
+  };
+  canvas.addEventListener('pointerdown', (e) => {
+    const s = sideOf(e.clientX);
+    if (s) {
+      touches.set(e.pointerId, s);
+      refresh();
+    }
+  });
+  const release = (e) => {
+    if (touches.delete(e.pointerId)) refresh();
+  };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+  canvas.addEventListener('pointerleave', release);
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
   function toRaceInput() {
+    const left = state.left || zoneL;
+    const right = state.right || zoneR;
+    const both = (zoneL && zoneR) || state.down;
     return {
-      steer: (state.left ? -1 : 0) + (state.right ? 1 : 0),
-      throttle: state.up || (!state.down && autoGas) ? 1 : 0,
-      brake: state.down ? 1 : 0,
+      steer: (left ? -1 : 0) + (right ? 1 : 0),
+      throttle: both ? 0 : 1, // 자동 가속 (가만히 있어도 전진)
+      brake: both ? 1 : 0,
     };
   }
-  let autoGas = true;
-  return { state, toRaceInput, setAutoGas: (v) => (autoGas = v) };
+  return { state, toRaceInput };
+}
+
+// 시작 전 L/R 힌트 표시/숨김
+export function setSteerHint(visible) {
+  for (const id of ['btnLeft', 'btnRight']) {
+    const b = document.getElementById(id);
+    if (b) b.style.display = visible ? 'block' : 'none';
+  }
+  const h = document.getElementById('zoneHint');
+  if (h) h.style.display = visible ? 'none' : 'block';
 }
 
 // WebAudio 효과음 (에셋 없이 카운트다운·골인음)
@@ -175,6 +215,7 @@ export function createBeeper() {
     count: () => beep(440, 0.15),
     go: () => beep(880, 0.4),
     finish: () => { beep(660, 0.15); setTimeout(() => beep(880, 0.3), 160); },
+    crash: () => beep(130, 0.22, 'sawtooth', 0.2),
     toggle: () => (muted = !muted),
     get muted() { return muted; },
   };

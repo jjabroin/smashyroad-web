@@ -1,9 +1,15 @@
 // three.js 월드: 도로 리본·연석·간트리·장식·조명 (사진 1 스타일)
 import * as THREE from 'three';
 import { mat } from './voxel.js';
-import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry } from './voxel.js';
+import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js';
 
 export const ROAD_HALF = 11;
+
+export const THEMES = {
+  park: { sky: 0xa8dcf0, ground: 0x7fd08a, patch: 0x74c47f },
+  desert: { sky: 0xf6d9a0, ground: 0xe3c48d, patch: 0xd9b67f },
+  city: { sky: 0xffc98a, ground: 0x8f959d, patch: 0x848a93 },
+};
 
 function ribbonGeometry(circuit, halfW, y) {
   const n = circuit.count;
@@ -28,8 +34,9 @@ function ribbonGeometry(circuit, halfW, y) {
   return g;
 }
 
-export function createWorld(scene, circuit) {
-  const SKY = 0xa8dcf0;
+export function createWorld(scene, circuit, themeId = 'park') {
+  const theme = THEMES[themeId] || THEMES.park;
+  const SKY = theme.sky;
   scene.background = new THREE.Color(SKY);
   scene.fog = new THREE.Fog(SKY, 260, 800);
 
@@ -47,10 +54,12 @@ export function createWorld(scene, circuit) {
   scene.add(sun);
   scene.add(sun.target);
 
+  const colliders = []; // {x, z, r} — 장애물 충돌 + 대미지용 (간트리·장식 공통)
+
   // 잔디
   const grass = new THREE.Mesh(
     new THREE.PlaneGeometry(1400, 1400),
-    new THREE.MeshLambertMaterial({ color: 0x7fd08a })
+    new THREE.MeshLambertMaterial({ color: theme.ground })
   );
   grass.rotation.x = -Math.PI / 2;
   grass.receiveShadow = true;
@@ -59,7 +68,7 @@ export function createWorld(scene, circuit) {
   // 잔디 질감 패치
   {
     const g = new THREE.BoxGeometry(1, 0.04, 1);
-    const m = new THREE.MeshLambertMaterial({ color: 0x74c47f });
+    const m = new THREE.MeshLambertMaterial({ color: theme.patch });
     const inst = new THREE.InstancedMesh(g, m, 60);
     const M = new THREE.Matrix4();
     let seed = 7;
@@ -188,12 +197,24 @@ export function createWorld(scene, circuit) {
     gantry.position.set(p0.x, 0, p0.z);
     gantry.rotation.y = ang + Math.PI / 2;
     scene.add(gantry);
+    // 간트리 기둥도 장애물 (도로 양옆)
+    for (const s of [-1, 1]) {
+      const v = new THREE.Vector3(0, 0, (s * (ROAD_HALF * 2 + 6)) / 2);
+      gantry.localToWorld(v);
+      colliders.push({ x: v.x, z: v.z, r: 1.4 });
+    }
   }
 
   // 장식: 나무/벤치/가로등/타이어 (트랙 바깥에 배치)
   let seed = 1234567;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const placed = [];
+  const registerCollider = (obj) => {
+    const box = new THREE.Box3().setFromObject(obj);
+    const s = new THREE.Vector3();
+    box.getSize(s);
+    colliders.push({ x: obj.position.x, z: obj.position.z, r: Math.max(s.x, s.z) / 2 });
+  };
   const tryPlace = (obj, minOff, maxOff) => {
     for (let t = 0; t < 24; t++) {
       const d = rnd() * circuit.length;
@@ -210,17 +231,28 @@ export function createWorld(scene, circuit) {
       obj.rotation.y = rnd() * Math.PI * 2;
       scene.add(obj);
       placed.push({ x, z });
+      registerCollider(obj);
       return true;
     }
     return false;
   };
-  for (let i = 0; i < 26; i++) tryPlace(makeTree(), 26, 120);
-  for (let i = 0; i < 10; i++) tryPlace(makeBench(), 18, 30);
-  for (let i = 0; i < 12; i++) tryPlace(makeLamp(), 16, 24);
-  for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 15, 22);
+  if (themeId === 'park') {
+    for (let i = 0; i < 26; i++) tryPlace(makeTree(), 26, 120);
+    for (let i = 0; i < 10; i++) tryPlace(makeBench(), 18, 30);
+    for (let i = 0; i < 12; i++) tryPlace(makeLamp(), 16, 24);
+    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 15, 22);
+  } else if (themeId === 'desert') {
+    for (let i = 0; i < 22; i++) tryPlace(makeCactus(), 24, 110);
+    for (let i = 0; i < 16; i++) tryPlace(makeRock(), 20, 90);
+    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 15, 22);
+  } else {
+    for (let i = 0; i < 20; i++) tryPlace(makeBuilding(), 34, 130);
+    for (let i = 0; i < 14; i++) tryPlace(makeLamp(), 16, 24);
+    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 15, 22);
+  }
 
-  // 물 + 목재 부두 (남쪽 바깥)
-  {
+  // 물 + 목재 부두 (공원 테마만, 남쪽 바깥)
+  if (themeId === 'park') {
     const water = new THREE.Mesh(
       new THREE.BoxGeometry(700, 0.1, 120),
       new THREE.MeshLambertMaterial({ color: 0x54d6e8 })
@@ -248,7 +280,7 @@ export function createWorld(scene, circuit) {
     }
   }
 
-  return { sun };
+  return { sun, colliders };
 }
 
 // 그리드 슬롯 4대 (2열 × 2행, 스타트라인 뒤)

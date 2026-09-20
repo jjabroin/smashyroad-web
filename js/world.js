@@ -193,15 +193,15 @@ export function createWorld(scene, circuit, themeId = 'park') {
         scene.add(m);
       }
     }
-    const gantry = makeGantry(ROAD_HALF * 2);
+    const gantry = makeGantry(ROAD_HALF * 2 + 8);
     gantry.position.set(p0.x, 0, p0.z);
-    gantry.rotation.y = ang + Math.PI / 2;
+    gantry.rotation.y = ang; // 도로를 가로지르게 (로컬 Z = 측면 방향)
     scene.add(gantry);
-    // 간트리 기둥도 장애물 (도로 양옆)
+    // 간트리 기둥도 장애물 (도로 양옆, 주행선에서 충분히 벗어남)
     for (const s of [-1, 1]) {
-      const v = new THREE.Vector3(0, 0, (s * (ROAD_HALF * 2 + 6)) / 2);
+      const v = new THREE.Vector3(0, 0, (s * (ROAD_HALF * 2 + 8)) / 2);
       gantry.localToWorld(v);
-      colliders.push({ x: v.x, z: v.z, r: 1.4 });
+      colliders.push({ x: v.x, z: v.z, r: 1.2 });
     }
   }
 
@@ -238,17 +238,17 @@ export function createWorld(scene, circuit, themeId = 'park') {
   };
   if (themeId === 'park') {
     for (let i = 0; i < 26; i++) tryPlace(makeTree(), 26, 120);
-    for (let i = 0; i < 10; i++) tryPlace(makeBench(), 18, 30);
-    for (let i = 0; i < 12; i++) tryPlace(makeLamp(), 16, 24);
-    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 15, 22);
+    for (let i = 0; i < 10; i++) tryPlace(makeBench(), 20, 32);
+    for (let i = 0; i < 12; i++) tryPlace(makeLamp(), 19, 27);
+    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 20, 28);
   } else if (themeId === 'desert') {
     for (let i = 0; i < 22; i++) tryPlace(makeCactus(), 24, 110);
-    for (let i = 0; i < 16; i++) tryPlace(makeRock(), 20, 90);
-    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 15, 22);
+    for (let i = 0; i < 16; i++) tryPlace(makeRock(), 22, 90);
+    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 20, 28);
   } else {
     for (let i = 0; i < 20; i++) tryPlace(makeBuilding(), 34, 130);
-    for (let i = 0; i < 14; i++) tryPlace(makeLamp(), 16, 24);
-    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 15, 22);
+    for (let i = 0; i < 14; i++) tryPlace(makeLamp(), 19, 27);
+    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 20, 28);
   }
 
   // 물 + 목재 부두 (공원 테마만, 남쪽 바깥)

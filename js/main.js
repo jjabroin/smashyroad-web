@@ -135,7 +135,7 @@ const puffPool = [];
 {
   const geo = new THREE.BoxGeometry(1, 1, 1);
   const m = new THREE.MeshLambertMaterial({ color: 0xcfc8bd, transparent: true, opacity: 0.7 });
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 90; i++) {
     const mesh = new THREE.Mesh(geo, m.clone());
     mesh.visible = false;
     scene.add(mesh);
@@ -253,10 +253,11 @@ function loop(ts) {
       : aiInput(r.car, circuit, ROAD_HALF, dt, pProg, progressOf(r.car, circuit), r.ai)
   );
 
-  // 물리 + 랩 (완주·탈락 차량 제외)
+  // 물리 + 랩 (탈락 차량 제외, 완주 차량은 쿨다운 주행 계속)
   racers.forEach((r, i) => {
-    if (r.car.finished || r.car.out) return;
+    if (r.car.out) return;
     stepCar(r.car, inputs[i], dt, circuit, ROAD_HALF);
+    if (r.car.finished) return;
     const ev = checkLap(r.car, circuit, LAPS, raceTime);
     if (r.isPlayer) {
       if (ev === 'lap') {
@@ -305,6 +306,26 @@ function loop(ts) {
     const latV = Math.abs(c.vx * -Math.sin(c.heading) + c.vz * Math.cos(c.heading));
     if ((latV > 14 || c.offTrack) && Math.hypot(c.vx, c.vz) > 12 && Math.random() < 0.5) {
       puff(c.x - Math.cos(c.heading) * 3, c.z - Math.sin(c.heading) * 3);
+    }
+    // 대미지 연기: HP 60% 이하부터, 25% 이하는 불꽃 섞임
+    if (!c.out && c.hp < c.maxHp * 0.6) {
+      r.smokeAcc = (r.smokeAcc || 0) + dt * (c.hp < c.maxHp * 0.25 ? 26 : 10);
+      while (r.smokeAcc >= 1) {
+        r.smokeAcc -= 1;
+        let col = 0x8a8a8a;
+        if (c.hp < c.maxHp * 0.25) {
+          const roll = Math.random();
+          col = roll < 0.3 ? 0xe25822 : roll < 0.55 ? 0x3a3a3a : 0x8a8a8a;
+        }
+        puff(
+          c.x - Math.cos(c.heading) * 2 + (Math.random() - 0.5) * 2.5,
+          c.z - Math.sin(c.heading) * 2 + (Math.random() - 0.5) * 2.5,
+          col,
+          1
+        );
+      }
+    } else {
+      r.smokeAcc = 0;
     }
   }
   updatePuffs(dt);

@@ -14,7 +14,7 @@ export const CAR_DEFS = [
     accent: 0xffffff,
     stats: { speed: 5, handling: 4, durability: 2 },
     maxSpeed: 62, accel: 40, brake: 70, reverseMax: 18,
-    turnRate: 2.5, grip: 5.2, drag: 0.35,
+    turnRate: 2.2, grip: 5.2, drag: 0.35,
   },
   {
     id: 'sports',
@@ -24,7 +24,7 @@ export const CAR_DEFS = [
     accent: 0x1c2733,
     stats: { speed: 4, handling: 3, durability: 3 },
     maxSpeed: 56, accel: 34, brake: 64, reverseMax: 16,
-    turnRate: 2.3, grip: 6.0, drag: 0.4,
+    turnRate: 2.0, grip: 6.0, drag: 0.4,
   },
   {
     id: 'pickup',
@@ -34,7 +34,7 @@ export const CAR_DEFS = [
     accent: 0x3a3f47,
     stats: { speed: 3, handling: 3, durability: 5 },
     maxSpeed: 50, accel: 30, brake: 60, reverseMax: 15,
-    turnRate: 2.1, grip: 6.4, drag: 0.45,
+    turnRate: 1.9, grip: 6.4, drag: 0.45,
   },
   {
     id: 'truck',
@@ -44,7 +44,7 @@ export const CAR_DEFS = [
     accent: 0xdfe6f2,
     stats: { speed: 3, handling: 2, durability: 5 },
     maxSpeed: 48, accel: 28, brake: 58, reverseMax: 14,
-    turnRate: 1.9, grip: 6.8, drag: 0.5,
+    turnRate: 1.7, grip: 6.8, drag: 0.5,
   },
   {
     id: 'taxi',
@@ -54,7 +54,7 @@ export const CAR_DEFS = [
     accent: 0x1c2733,
     stats: { speed: 3, handling: 4, durability: 3 },
     maxSpeed: 52, accel: 34, brake: 64, reverseMax: 16,
-    turnRate: 2.4, grip: 6.2, drag: 0.4,
+    turnRate: 2.1, grip: 6.2, drag: 0.4,
   },
   {
     id: 'rally',
@@ -64,7 +64,7 @@ export const CAR_DEFS = [
     accent: 0xffffff,
     stats: { speed: 4, handling: 5, durability: 3 },
     maxSpeed: 57, accel: 36, brake: 66, reverseMax: 16,
-    turnRate: 2.7, grip: 5.6, drag: 0.38,
+    turnRate: 2.4, grip: 5.6, drag: 0.38,
   },
   {
     id: 'monster',
@@ -74,7 +74,7 @@ export const CAR_DEFS = [
     accent: 0x23262b,
     stats: { speed: 3, handling: 2, durability: 5 },
     maxSpeed: 51, accel: 32, brake: 60, reverseMax: 15,
-    turnRate: 2.0, grip: 7.2, drag: 0.45,
+    turnRate: 1.8, grip: 7.2, drag: 0.45,
   },
   {
     id: 'police',
@@ -84,7 +84,7 @@ export const CAR_DEFS = [
     accent: 0x1c2733,
     stats: { speed: 4, handling: 3, durability: 4 },
     maxSpeed: 58, accel: 35, brake: 66, reverseMax: 16,
-    turnRate: 2.2, grip: 5.8, drag: 0.4,
+    turnRate: 2.0, grip: 5.8, drag: 0.4,
   },
 ];
 
@@ -105,6 +105,7 @@ export function makeCarState(def, x, z, heading) {
     bestLap: Infinity,
     offTrack: false,
     steerVis: 0,   // 렌더용 조향 표시
+    steerSm: 0,    // 스무딩된 조향 입력
     maxHp,
     hp: maxHp,
     hitCd: 0,      // 피격 쿨다운(연타 방지)
@@ -134,19 +135,25 @@ export function stepCar(car, input, dt, circuit, roadHalf) {
   }
 
   const tough = d.stats.durability / 5; // 0.4~1
-  let cap = d.maxSpeed;
-  if (car.offTrack) cap = d.maxSpeed * (0.45 + 0.25 * tough);
+  const hpRatio = car.hp / car.maxHp;
+  // HP가 낮을수록 최고속도 저하 (0% → 78%)
+  let cap = d.maxSpeed * (0.78 + 0.22 * hpRatio);
+  if (car.offTrack) cap *= 0.45 + 0.25 * tough;
   if (fwd > cap) fwd = cap + (fwd - cap) * Math.exp(-3 * dt);
   // 공기저항
   fwd *= Math.exp(-d.drag * dt);
   if (Math.abs(fwd) < 0.15 && input.throttle === 0 && input.brake === 0) fwd = 0;
 
+  // 조향 스무딩 (꺾는 순간 휙 돌아가는 현상 방지)
+  car.steerSm += (input.steer - car.steerSm) * Math.min(1, 7 * dt);
   // 조향 (속도가 있어야 돌아감, 후진 시 반대)
   const spd = Math.abs(fwd);
   const spdFactor = Math.min(1, spd / 18);
   const dirSign = fwd >= 0 ? 1 : -1;
+  // 고속일수록 회전 둔화 (저속 민첩 · 고속 안정)
+  const highSpeedDamp = 1 / (1 + spd * 0.018);
   const turn =
-    input.steer * d.turnRate * (0.35 + 0.65 * spdFactor) * dirSign;
+    car.steerSm * d.turnRate * (0.35 + 0.65 * spdFactor) * highSpeedDamp * dirSign;
   car.heading += turn * dt;
   car.steerVis += (input.steer - car.steerVis) * Math.min(1, 10 * dt);
 
@@ -199,7 +206,7 @@ export function checkLap(car, circuit, lapsToWin, now) {
 // 차량 간 충돌: 원 충돌 → 밀어내기 + 속도 교환 + 대미지 (아케이드 범프)
 // 반환값: 이번 프레임 최대 충돌 세기 (효과음·카메라 셰이크용)
 export function resolveCollisions(cars, dt) {
-  const R = 4.2;
+  const R = 3.5; // 차체 길이 7 기준: 옆칸(8) 오판 방지, 앞뒤 접촉 시점에 판정
   let maxImpact = 0;
   for (const c of cars) {
     if (c.hitCd > 0) c.hitCd -= dt;
@@ -262,7 +269,7 @@ export function resolveCollisions(cars, dt) {
 // 장애물 충돌: 원 vs 원 → 밀어내기 + 반사 + 대미지 (반환: 최대 임팩트)
 export function collideObstacles(car, colliders, dt) {
   if (car.out) return 0;
-  const R = 3.4;
+  const R = 2.4; // 차체 중심 기준: 시각적 접촉 시점에 판정 (과민 반응 방지)
   let maxImpact = 0;
   for (let k = 0; k < colliders.length; k++) {
     const o = colliders[k];

@@ -2,16 +2,18 @@
 import * as THREE from 'three';
 import { mat } from './voxel.js';
 import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js';
+import { trackY } from './track.js';
 
 export const ROAD_HALF = 11;
 
 export const THEMES = {
-  park: { sky: 0xa8dcf0, ground: 0x7fd08a, patch: 0x74c47f },
-  desert: { sky: 0xf6d9a0, ground: 0xe3c48d, patch: 0xd9b67f },
-  city: { sky: 0xffc98a, ground: 0x8f959d, patch: 0x848a93 },
+  park: { sky: 0xa8dcf0, ground: 0x7fd08a, patch: 0x74c47f, fog: [260, 800] },
+  desert: { sky: 0xf6d9a0, ground: 0xe3c48d, patch: 0xd9b67f, fog: [260, 800] },
+  city: { sky: 0xffc98a, ground: 0x8f959d, patch: 0x848a93, fog: [260, 800] },
+  forest: { sky: 0xa8d8e8, ground: 0x55a862, patch: 0x4c9a58, fog: [170, 620] },
 };
 
-function ribbonGeometry(circuit, halfW, y) {
+function ribbonGeometry(circuit, halfW, yFn) {
   const n = circuit.count;
   const pos = new Float32Array(n * 2 * 3);
   const idx = [];
@@ -19,6 +21,7 @@ function ribbonGeometry(circuit, halfW, y) {
     const p = circuit.pts[i];
     const px = -p.dz;
     const pz = p.dx;
+    const y = yFn(circuit.cum[i]);
     pos.set([p.x + px * halfW, y, p.z + pz * halfW], i * 6);
     pos.set([p.x - px * halfW, y, p.z - pz * halfW], i * 6 + 3);
     const a = i * 2;
@@ -34,11 +37,11 @@ function ribbonGeometry(circuit, halfW, y) {
   return g;
 }
 
-export function createWorld(scene, circuit, themeId = 'park', shortcuts = false) {
+export function createWorld(scene, circuit, themeId = 'park', shortcuts = false, feat = {}) {
   const theme = THEMES[themeId] || THEMES.park;
   const SKY = theme.sky;
   scene.background = new THREE.Color(SKY);
-  scene.fog = new THREE.Fog(SKY, 260, 800);
+  scene.fog = new THREE.Fog(SKY, theme.fog[0], theme.fog[1]);
 
   // 조명
   scene.add(new THREE.HemisphereLight(0xffffff, 0x3f7a4e, 0.95));
@@ -56,12 +59,32 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
 
   const colliders = []; // {x, z, r} — 장애물 충돌 + 대미지용 (간트리·장식 공통)
 
-  // 잔디
+  // 지형 높이: 트랙 고도를 따라가되 멀어질수록 0으로 (언덕 추종)
+  const groundHeightAt = (x, z) => {
+    const pr = circuit.project(x, z);
+    return trackY(circuit, pr.dist) * Math.exp(-Math.pow(Math.abs(pr.lateral) / 70, 2));
+  };
+  const registerCollider = (obj) => {
+    const box = new THREE.Box3().setFromObject(obj);
+    const s = new THREE.Vector3();
+    box.getSize(s);
+    colliders.push({ x: obj.position.x, z: obj.position.z, r: Math.max(s.x, s.z) / 2 });
+  };
+
+  // 잔디 (지형 변위)
+  const grassGeo = new THREE.PlaneGeometry(1400, 1400, 100, 100);
+  grassGeo.rotateX(-Math.PI / 2);
+  {
+    const posA = grassGeo.attributes.position;
+    for (let i = 0; i < posA.count; i++) {
+      posA.setY(i, groundHeightAt(posA.getX(i), posA.getZ(i)));
+    }
+    grassGeo.computeVertexNormals();
+  }
   const grass = new THREE.Mesh(
-    new THREE.PlaneGeometry(1400, 1400),
+    grassGeo,
     new THREE.MeshLambertMaterial({ color: theme.ground })
   );
-  grass.rotation.x = -Math.PI / 2;
   grass.receiveShadow = true;
   scene.add(grass);
 
@@ -78,16 +101,16 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
       const z = (rnd() - 0.5) * 480;
       const s = 12 + rnd() * 26;
       M.makeScale(s, 1, s * (0.6 + rnd() * 0.8));
-      M.setPosition(x, 0.02, z);
+      M.setPosition(x, groundHeightAt(x, z) + 0.03, z);
       inst.setMatrixAt(i, M);
     }
     inst.receiveShadow = true;
     scene.add(inst);
   }
 
-  // 아스팔트
+  // 아스팔트 (고도 추종)
   const road = new THREE.Mesh(
-    ribbonGeometry(circuit, ROAD_HALF, 0.05),
+    ribbonGeometry(circuit, ROAD_HALF, (d) => trackY(circuit, d) + 0.05),
     new THREE.MeshLambertMaterial({ color: 0x41454e })
   );
   road.receiveShadow = true;
@@ -105,7 +128,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
     );
     for (let i = 0; i < count; i++) {
       const p = circuit.pointAt(i * 14);
-      dummy.position.set(p.x, 0.09, p.z);
+      dummy.position.set(p.x, trackY(circuit, i * 14) + 0.09, p.z);
       dummy.rotation.set(0, -Math.atan2(p.dz, p.dx), 0);
       dummy.updateMatrix();
       inst.setMatrixAt(i, dummy.matrix);
@@ -125,8 +148,9 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
       const pz = p.dx;
       const cx = p.x + px * off * side;
       const cz = p.z + pz * off * side;
-      pos.set([cx + px * 0.28, 0.09, cz + pz * 0.28], i * 6);
-      pos.set([cx - px * 0.28, 0.09, cz - pz * 0.28], i * 6 + 3);
+      const yy = trackY(circuit, circuit.cum[i]) + 0.09;
+      pos.set([cx + px * 0.28, yy, cz + pz * 0.28], i * 6);
+      pos.set([cx - px * 0.28, yy, cz - pz * 0.28], i * 6 + 3);
       const a = i * 2;
       const b = i * 2 + 1;
       const c = ((i + 1) % n) * 2;
@@ -156,7 +180,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
         const useRed = (i + (side > 0 ? 0 : 1)) % 2 === 0;
         dummy.position.set(
           p.x + -p.dz * side * (ROAD_HALF + 1.4),
-          0.18,
+          trackY(circuit, i * step) + 0.18,
           p.z + p.dx * side * (ROAD_HALF + 1.4)
         );
         dummy.rotation.set(0, ang, 0);
@@ -206,6 +230,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
   }
 
   // 지름길 흙길: 양쪽 180° 코너를 가로지르는 현(chord) — 잔디로 커팅 가능
+  const wallGaps = []; // 물리 벽 틈새 (지름길 출입구)
   if (shortcuts) {
     const apexDist = (cmp) => {
       let bi = 0;
@@ -215,7 +240,161 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
       return circuit.cum[bi];
     };
     for (const dC of [apexDist((a, b) => a > b), apexDist((a, b) => a < b)]) {
-      drawDirtChord(scene, circuit, dC, 60, 7);
+      const L = circuit.length;
+      const dA = (((dC - 60) % L) + L) % L;
+      const dB = (((dC + 60) % L) + L) % L;
+      const A = circuit.pointAt(dA);
+      const B = circuit.pointAt(dB);
+      drawDirtChord(scene, circuit, A, B, dA, dB, 7);
+      wallGaps.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z });
+    }
+  }
+
+  // 가드레일 벽 (양옆 연속 + 빨강/흰 기둥, 지름길 틈새 제외)
+  {
+    const off = ROAD_HALF + 1.5;
+    const H = 1.1;
+    const circDist = (a, b) => {
+      const L = circuit.length;
+      const d = Math.abs(a - b) % L;
+      return Math.min(d, L - d);
+    };
+    const gapDists = [];
+    for (const g of wallGaps) {
+      const pa = circuit.project(g.ax, g.az);
+      const pb = circuit.project(g.bx, g.bz);
+      gapDists.push(pa.dist, pb.dist);
+    }
+    const wallMat = new THREE.MeshLambertMaterial({ color: 0xe8ecf1, side: THREE.DoubleSide });
+    const n = circuit.count;
+    for (const side of [1, -1]) {
+      const pos = [];
+      const idx = [];
+      for (let i = 0; i < n; i++) {
+        const mid = (circuit.cum[i] + circuit.cum[i + 1]) / 2;
+        if (gapDists.some((g) => circDist(mid, g) < 16)) continue;
+        const p0 = circuit.pts[i];
+        const p1 = circuit.pts[(i + 1) % n];
+        const y0 = trackY(circuit, circuit.cum[i]);
+        const y1 = trackY(circuit, circuit.cum[i + 1]);
+        const e0x = p0.x + -p0.dz * side * off;
+        const e0z = p0.z + p0.dx * side * off;
+        const e1x = p1.x + -p1.dz * side * off;
+        const e1z = p1.z + p1.dx * side * off;
+        const b = pos.length / 3;
+        pos.push(e0x, y0, e0z, e0x, y0 + H, e0z, e1x, y1, e1z, e1x, y1 + H, e1z);
+        idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+      g.setIndex(idx);
+      g.computeVertexNormals();
+      const mesh = new THREE.Mesh(g, wallMat);
+      mesh.castShadow = true;
+      scene.add(mesh);
+    }
+    // 기둥 (12유닛 간격, 빨강/흰 교대)
+    const step = 12;
+    const count = Math.floor(circuit.length / step);
+    const posts = [];
+    for (let i = 0; i < count; i++) {
+      const d = i * step;
+      if (gapDists.some((g) => circDist(d, g) < 14)) continue;
+      posts.push(d);
+    }
+    const mkPosts = (color, filter) => {
+      const list = posts.filter(filter);
+      const inst = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(0.55, 1.7, 0.55),
+        new THREE.MeshLambertMaterial({ color }),
+        Math.max(1, list.length * 2)
+      );
+      let k = 0;
+      for (const d of list) {
+        const p = circuit.pointAt(d);
+        const y = trackY(circuit, d);
+        for (const side of [1, -1]) {
+          dummy.position.set(p.x + -p.dz * side * off, y + 0.85, p.z + p.dx * side * off);
+          dummy.rotation.set(0, 0, 0);
+          dummy.updateMatrix();
+          inst.setMatrixAt(k++, dummy.matrix);
+        }
+      }
+      inst.count = k;
+      inst.castShadow = true;
+      scene.add(inst);
+    };
+    mkPosts(0xd63a2f, (_, i) => i % 2 === 0);
+    mkPosts(0xf4f6f8, (_, i) => i % 2 === 1);
+  }
+
+  // 부스터 패드 + 점프대 + 도로 장애물 (트랙 정의 분율 위치)
+  const pads = [];
+  const jumps = [];
+  for (const f of feat.boosts || []) {
+    const d = (((f % 1) + 1) % 1) * circuit.length;
+    const p = circuit.pointAt(d);
+    const y = trackY(circuit, d);
+    const yaw = -Math.atan2(p.dz, p.dx);
+    const pad = new THREE.Mesh(
+      new THREE.BoxGeometry(7, 0.18, 7),
+      new THREE.MeshBasicMaterial({ color: 0x27e0f5 })
+    );
+    pad.position.set(p.x, y + 0.12, p.z);
+    pad.rotation.y = yaw;
+    scene.add(pad);
+    for (let s = 0; s < 2; s++) {
+      const dd = d + 1.8 + s * 1.8;
+      const pp = circuit.pointAt(dd);
+      const ch = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 0.2, 5),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      ch.position.set(pp.x, trackY(circuit, dd) + 0.14, pp.z);
+      ch.rotation.y = -Math.atan2(pp.dz, pp.dx);
+      scene.add(ch);
+    }
+    pads.push({ x: p.x, z: p.z });
+  }
+  for (const f of feat.jumps || []) {
+    const d = (((f % 1) + 1) % 1) * circuit.length;
+    const p = circuit.pointAt(d);
+    const grp = new THREE.Group();
+    grp.position.set(p.x, trackY(circuit, d), p.z);
+    grp.rotation.y = -Math.atan2(p.dz, p.dx);
+    const ramp = new THREE.Mesh(
+      new THREE.BoxGeometry(7, 0.7, 7),
+      new THREE.MeshLambertMaterial({ color: 0xf58a1f })
+    );
+    ramp.position.y = 0.4;
+    ramp.rotation.z = 0.3;
+    ramp.castShadow = true;
+    grp.add(ramp);
+    const stripe = new THREE.Mesh(
+      new THREE.BoxGeometry(7.1, 0.2, 1.4),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    stripe.position.y = 1.15;
+    stripe.rotation.z = 0.3;
+    grp.add(stripe);
+    scene.add(grp);
+    jumps.push({ x: p.x, z: p.z });
+  }
+  {
+    let bi = 0;
+    for (const f of feat.blocks || []) {
+      const d = (((f % 1) + 1) % 1) * circuit.length;
+      const p = circuit.pointAt(d);
+      const lat = bi % 2 === 0 ? 6.5 : -6.5;
+      bi++;
+      const stack = makeTireStack();
+      stack.position.set(
+        p.x + -p.dz * lat,
+        trackY(circuit, d),
+        p.z + p.dx * lat
+      );
+      scene.add(stack);
+      registerCollider(stack);
     }
   }
 
@@ -223,12 +402,6 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
   let seed = 1234567;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const placed = [];
-  const registerCollider = (obj) => {
-    const box = new THREE.Box3().setFromObject(obj);
-    const s = new THREE.Vector3();
-    box.getSize(s);
-    colliders.push({ x: obj.position.x, z: obj.position.z, r: Math.max(s.x, s.z) / 2 });
-  };
   const tryPlace = (obj, minOff, maxOff) => {
     for (let t = 0; t < 24; t++) {
       const d = rnd() * circuit.length;
@@ -240,8 +413,8 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
       if (placed.some((q) => Math.hypot(q.x - x, q.z - z) < 18)) continue;
       // 다른 샘플과도 너무 가깝지 않게
       const pr = circuit.project(x, z);
-      if (Math.abs(pr.lateral) < ROAD_HALF + 8) continue;
-      obj.position.set(x, 0, z);
+      if (Math.abs(pr.lateral) < ROAD_HALF + 3) continue;
+      obj.position.set(x, groundHeightAt(x, z), z);
       obj.rotation.y = rnd() * Math.PI * 2;
       scene.add(obj);
       placed.push({ x, z });
@@ -259,6 +432,10 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
     for (let i = 0; i < 22; i++) tryPlace(makeCactus(), 24, 110);
     for (let i = 0; i < 16; i++) tryPlace(makeRock(), 22, 90);
     for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 20, 28);
+  } else if (themeId === 'forest') {
+    for (let i = 0; i < 64; i++) tryPlace(makeTree(), 15, 70);
+    for (let i = 0; i < 12; i++) tryPlace(makeRock(), 16, 50);
+    for (let i = 0; i < 6; i++) tryPlace(makeTireStack(), 20, 28);
   } else {
     for (let i = 0; i < 20; i++) tryPlace(makeBuilding(), 34, 130);
     for (let i = 0; i < 14; i++) tryPlace(makeLamp(), 19, 27);
@@ -294,15 +471,14 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false)
     }
   }
 
-  return { sun, colliders };
+  return { sun, colliders, wallGaps, pads, jumps };
 }
 
 // 두 점 사이 직선 흙 리본 (지름길 표시)
-function drawDirtChord(scene, circuit, dCenter, span, halfW) {
-  const A = circuit.pointAt(dCenter - span);
-  const B = circuit.pointAt(dCenter + span);
+function drawDirtChord(scene, circuit, A, B, dA, dB, halfW) {
   const SEG = 10;
-  const y = 0.07;
+  const yA = trackY(circuit, dA);
+  const yB = trackY(circuit, dB);
   const pos = new Float32Array((SEG + 1) * 2 * 3);
   const idx = [];
   const dx = B.x - A.x;
@@ -314,6 +490,7 @@ function drawDirtChord(scene, circuit, dCenter, span, halfW) {
     const t = i / SEG;
     const x = A.x + dx * t;
     const z = A.z + dz * t;
+    const y = yA + (yB - yA) * t + 0.07;
     pos.set([x + px, y, z + pz], i * 6);
     pos.set([x - px, y, z - pz], i * 6 + 3);
     if (i < SEG) {

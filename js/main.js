@@ -1,9 +1,9 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack } from './track.js';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap,
-  resolveCollisions, collideObstacles, aiInput, progressOf,
+  resolveCollisions, collideObstacles, collideWalls, aiInput, progressOf,
 } from './race.js';
 import { CAR_BUILDERS } from './voxel.js';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js';
@@ -23,12 +23,20 @@ let trackDef = TRACK_DEFS[0];
 let LAPS = trackDef.laps;
 let worldObjs = []; // 현 트랙 월드 오브젝트 (교체 시 제거)
 let colliders = []; // 장애물 {x,z,r}
+let wallGaps = []; // 벽 틈새(지름길 출입구)
+let pads = []; // 부스터 패드 {x,z}
+let jumps = []; // 점프대 {x,z}
 
 function buildWorldTrack(def) {
   for (const o of worldObjs) scene.remove(o);
   const before = new Set(scene.children);
-  const w = createWorld(scene, circuit, def.theme, def.id === 'express');
+  const w = createWorld(scene, circuit, def.theme, def.id === 'express', {
+    boosts: def.boosts, jumps: def.jumps, blocks: def.blocks,
+  });
   colliders = w.colliders;
+  wallGaps = w.wallGaps;
+  pads = w.pads;
+  jumps = w.jumps;
   worldObjs = scene.children.filter((o) => !before.has(o));
 }
 buildWorldTrack(trackDef);
@@ -109,8 +117,9 @@ function snapCamera(hard, dt = 0.016) {
   const fz = Math.sin(p.heading);
   const back = 26 + spd * 0.18; // 빠를수록 살짝 멀어짐
   const height = 19 + spd * 0.06;
-  const desired = new THREE.Vector3(p.x - fx * back, height, p.z - fz * back);
-  const lookDes = new THREE.Vector3(p.x + fx * 20, 2, p.z + fz * 20);
+  const baseY = trackY(circuit, p.dist);
+  const desired = new THREE.Vector3(p.x - fx * back, baseY + height, p.z - fz * back);
+  const lookDes = new THREE.Vector3(p.x + fx * 20, baseY + 2, p.z + fz * 20);
   if (hard) {
     camPos.copy(desired);
     lookSm.copy(lookDes);
@@ -253,6 +262,37 @@ function loop(ts) {
       : aiInput(r.car, circuit, ROAD_HALF, dt, pProg, progressOf(r.car, circuit), r.ai)
   );
 
+  // 부스터/점프 타이머 + 패드 트리거
+  for (const r of racers) {
+    const c = r.car;
+    if (c.out) continue;
+    if (c.boostT > 0) c.boostT -= dt;
+    const wasAir = c.airT > 0;
+    if (c.airT > 0) c.airT -= dt;
+    if (wasAir && c.airT <= 0 && phase === 'racing') {
+      beeper.land();
+      for (let k = 0; k < 6; k++) {
+        puff(c.x + (Math.random() - 0.5) * 4, c.z + (Math.random() - 0.5) * 4, 0xcfc8bd, 1);
+      }
+    }
+    if (c.finished) continue;
+    for (const pd of pads) {
+      const dx = c.x - pd.x;
+      const dz = c.z - pd.z;
+      if (dx * dx + dz * dz < 49 && c.boostT <= 0) {
+        c.boostT = 1.3;
+        if (r.isPlayer) beeper.boost();
+      }
+    }
+    for (const j of jumps) {
+      const dx = c.x - j.x;
+      const dz = c.z - j.z;
+      if (dx * dx + dz * dz < 49 && c.airT <= 0) {
+        c.airT = c.airDur;
+      }
+    }
+  }
+
   // 물리 + 랩 (탈락 차량 제외, 완주 차량은 쿨다운 주행 계속)
   racers.forEach((r, i) => {
     if (r.car.out) return;
@@ -270,14 +310,20 @@ function loop(ts) {
     }
   });
 
-  // 차량끼리 + 장애물 충돌 (대미지 포함)
+  // 차량끼리 + 벽 + 장애물 충돌 (대미지 포함, 점프 중엔 장애물 통과)
   let impact = resolveCollisions(
     racers.map((r) => r.car),
     dt
   );
   for (const r of racers) {
     if (r.car.out || r.car.finished) continue;
-    impact = Math.max(impact, collideObstacles(r.car, colliders, dt));
+    impact = Math.max(
+      impact,
+      collideWalls(r.car, circuit, ROAD_HALF, { gaps: wallGaps }, dt)
+    );
+    if (r.car.airT <= 0) {
+      impact = Math.max(impact, collideObstacles(r.car, colliders, dt));
+    }
   }
   if (impact > 8) {
     beeper.crash();
@@ -296,10 +342,13 @@ function loop(ts) {
     return;
   }
 
-  // 메시 싱크 + 먼지
+  // 메시 싱크 + 먼지 (고도 + 점프 반영)
   for (const r of racers) {
     const c = r.car;
-    r.mesh.position.set(c.x, 0, c.z);
+    const baseY = trackY(circuit, c.dist);
+    let airY = 0;
+    if (c.airT > 0) airY = Math.sin(Math.PI * (1 - c.airT / c.airDur)) * 3.2;
+    r.mesh.position.set(c.x, baseY + airY, c.z);
     r.mesh.rotation.y = -c.heading;
     const fw = r.mesh.userData.frontWheels || [];
     for (const w of fw) w.rotation.y = -c.steerVis * 0.45;

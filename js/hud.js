@@ -211,11 +211,66 @@ export function createBeeper() {
       o.stop(a.currentTime + dur);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
+  function thud(vol = 0.3, freq = 90) {
+    // 쾅: 저주파 노이즈 버스트 + 피치 하강 사인
+    if (muted) return;
+    try {
+      const a = ac();
+      const dur = 0.28;
+      const buf = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < ch.length; i++) {
+        ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / ch.length, 2);
+      }
+      const src = a.createBufferSource();
+      src.buffer = buf;
+      const lp = a.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 400;
+      const g = a.createGain();
+      g.gain.value = vol;
+      src.connect(lp);
+      lp.connect(g);
+      g.connect(a.destination);
+      src.start();
+      const o = a.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq + 60, a.currentTime);
+      o.frequency.exponentialRampToValueAtTime(38, a.currentTime + dur);
+      const g2 = a.createGain();
+      g2.gain.setValueAtTime(vol * 0.8, a.currentTime);
+      g2.gain.exponentialRampToValueAtTime(0.01, a.currentTime + dur);
+      o.connect(g2);
+      g2.connect(a.destination);
+      o.start();
+      o.stop(a.currentTime + dur);
+    } catch (e) { /* 오디오 미지원 무시 */ }
+  }
+  function sweep() {
+    // 부스터: 상승 sweep
+    if (muted) return;
+    try {
+      const a = ac();
+      const o = a.createOscillator();
+      const g = a.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(220, a.currentTime);
+      o.frequency.exponentialRampToValueAtTime(880, a.currentTime + 0.5);
+      g.gain.setValueAtTime(0.1, a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, a.currentTime + 0.55);
+      o.connect(g);
+      g.connect(a.destination);
+      o.start();
+      o.stop(a.currentTime + 0.55);
+    } catch (e) { /* 오디오 미지원 무시 */ }
+  }
   return {
     count: () => beep(440, 0.15),
     go: () => beep(880, 0.4),
     finish: () => { beep(660, 0.15); setTimeout(() => beep(880, 0.3), 160); },
-    crash: () => beep(130, 0.22, 'sawtooth', 0.2),
+    crash: () => thud(0.32, 90),
+    land: () => thud(0.18, 70),
+    boost: () => sweep(),
     toggle: () => (muted = !muted),
     get muted() { return muted; },
   };

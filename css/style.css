@@ -6,6 +6,11 @@ html, body {
   font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   overflow: hidden;
   height: 100%;
+  /* 조종 중 텍스트 선택·파란 하이라이트·콜아웃 방지 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .pix { font-family: "Press Start 2P", monospace; }
 

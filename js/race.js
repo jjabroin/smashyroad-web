@@ -1,4 +1,5 @@
-// 경주 로직: 아케이드 관성 물리 + AI + 랩/순위 (순수 수학, three.js 없음 → node 테스트 가능)
+// 경주 로직: 아케이드 관성 물리 + AI + 랩/순위 + 벽/부스터 (three.js 없음 → node 테스트 가능)
+import { trackSlope } from './track.js';
 //
 // 물리 모델 (관성 체감용 속도벡터 방식):
 // - vel 벡터가 실제 이동, heading은 차 머리 방향
@@ -110,6 +111,9 @@ export function makeCarState(def, x, z, heading) {
     hp: maxHp,
     hitCd: 0,      // 피격 쿨다운(연타 방지)
     out: false,    // 폭파 탈락
+    boostT: 0,     // 부스터 잔여 시간
+    airT: 0,       // 점프 체공 잔여 시간
+    airDur: 0.75,
   };
 }
 
@@ -134,12 +138,24 @@ export function stepCar(car, input, dt, circuit, roadHalf) {
     else fwd = Math.max(-d.reverseMax, fwd - d.accel * 0.7 * input.brake * dt);
   }
 
+  // 부스터: 출력 증가
+  if (car.boostT > 0) {
+    fwd += d.accel * 2.2 * dt;
+  }
+
+  // 경사: 오르막 감속 · 내리막 가속
+  fwd -= trackSlope(circuit, car.dist) * 40 * dt;
+
   const tough = d.stats.durability / 5; // 0.4~1
   const hpRatio = car.hp / car.maxHp;
   // HP가 낮을수록 최고속도 저하 (0% → 78%)
   let cap = d.maxSpeed * (0.78 + 0.22 * hpRatio);
+  if (car.boostT > 0) cap = Math.max(cap, d.maxSpeed * 1.35);
   if (car.offTrack) cap *= 0.45 + 0.25 * tough;
-  if (fwd > cap) fwd = cap + (fwd - cap) * Math.exp(-3 * dt);
+  if (fwd > cap) {
+    // 부스트 중엔 단단한 상한 (무한 가속 방지), 평소엔 부드러운 상한
+    fwd = car.boostT > 0 ? cap : cap + (fwd - cap) * Math.exp(-3 * dt);
+  }
   // 공기저항
   fwd *= Math.exp(-d.drag * dt);
   if (Math.abs(fwd) < 0.15 && input.throttle === 0 && input.brake === 0) fwd = 0;
@@ -302,6 +318,56 @@ export function collideObstacles(car, colliders, dt) {
     }
   }
   return maxImpact;
+}
+
+// 가드레일 벽: 카트라이더처럼 트랙 이탈 불가, 박으면 감속 (+강타 시 대미지)
+// walls = { half, gaps: [{ax,az,bx,bz}] } (gaps: 지름길 틈새, 여기선 벽 없음)
+export function ptSegDist(px, pz, g) {
+  const dx = g.bx - g.ax;
+  const dz = g.bz - g.az;
+  const L2 = dx * dx + dz * dz || 1;
+  let t = ((px - g.ax) * dx + (pz - g.az) * dz) / L2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (g.ax + dx * t), pz - (g.az + dz * t));
+}
+
+export function collideWalls(car, circuit, roadHalf, walls, dt) {
+  if (car.out || !walls) return 0;
+  const snap = circuit.project(car.x, car.z);
+  const LIM = roadHalf + 1.5;
+  if (Math.abs(snap.lateral) <= LIM) return 0;
+  // 지름길 틈새 근처면 통과
+  for (const g of walls.gaps) {
+    if (ptSegDist(car.x, car.z, g) < 13) return 0;
+  }
+  const p = circuit.pointAt(snap.dist);
+  const s = snap.lateral > 0 ? 1 : -1;
+  const px = -p.dz;
+  const pz = p.dx;
+  car.x = p.x + px * s * LIM;
+  car.z = p.z + pz * s * LIM;
+  // 속도 분해: 법선은 튕기고, 접선은 감속 (긁힘 감속)
+  const vn = (car.vx * px + car.vz * pz) * s; // 바깥 방향 +
+  const vt = car.vx * p.dx + car.vz * p.dz;
+  let impact = 0;
+  if (vn > 0) {
+    impact = vn;
+    const bounced = -vn * 0.35;
+    car.vx = p.dx * vt * 0.93 + px * s * bounced;
+    car.vz = p.dz * vt * 0.93 + pz * s * bounced;
+    if (vn > 18 && car.hitCd <= 0) {
+      car.hp -= (vn - 15) * 0.5;
+      car.hitCd = 0.6;
+      if (car.hp <= 0) {
+        car.hp = 0;
+        car.out = true;
+      }
+    }
+  } else {
+    car.vx *= Math.exp(-1.5 * dt);
+    car.vz *= Math.exp(-1.5 * dt);
+  }
+  return impact;
 }
 
 // AI: 퓨어퍼슈트(전방 목표점 추적) + 커브 감속 + 러버밴딩

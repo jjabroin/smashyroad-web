@@ -1,0 +1,120 @@
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #101418;
+  color: #eef2f5;
+  font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", SansSerif, sans-serif;
+}
+.topbar {
+  text-align: center;
+  padding: 18px 12px 6px;
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 2px;
+}
+.badge {
+  font-size: 14px;
+  background: #2ecc71;
+  color: #06130b;
+  border-radius: 6px;
+  padding: 2px 8px;
+  vertical-align: middle;
+}
+.sub {
+  margin: 6px 0 0;
+  color: #9fb0bd;
+  font-size: 13px;
+}
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 10px 12px 24px;
+}
+.canvas-holder {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+canvas#game {
+  background: rgb(61, 217, 102);
+  border: 3px solid #243140;
+  border-radius: 10px;
+  touch-action: none;
+  outline: none;
+  max-width: 100%;
+}
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+}
+.overlay .card {
+  background: rgba(12, 18, 24, 0.92);
+  border: 1px solid #2c3a48;
+  border-radius: 12px;
+  padding: 22px 26px;
+  max-width: 440px;
+  text-align: center;
+}
+.overlay h2 { margin: 0 0 8px; letter-spacing: 3px; }
+.overlay p { color: #c6d3de; font-size: 14px; line-height: 1.6; }
+.overlay ul { text-align: left; font-size: 14px; color: #dbe6ef; }
+#startBtn {
+  margin-top: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 12px 26px;
+  border: 0;
+  border-radius: 10px;
+  background: #2ecc71;
+  color: #06130b;
+  cursor: pointer;
+}
+#startBtn:hover { filter: brightness(1.08); }
+.tiny { font-size: 11px; color: #7e8fa0; }
+.touch {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin-top: 14px;
+}
+.tbtn {
+  width: 84px;
+  height: 64px;
+  font-size: 26px;
+  border-radius: 14px;
+  border: 1px solid #33414f;
+  background: #1a232e;
+  color: #fff;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tbtn:active { background: #2b3a4b; }
+.ports {
+  margin-top: 16px;
+  background: #161d26;
+  border: 1px solid #26313e;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #b9c7d4;
+}
+.ports summary { cursor: pointer; font-weight: 700; color: #eaf1f7; }
+.foot {
+  text-align: center;
+  padding: 14px;
+  color: #71808f;
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .topbar h1 { font-size: 22px; }
+}

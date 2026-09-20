@@ -1,120 +1,168 @@
-* { box-sizing: border-box; }
 html, body {
   margin: 0;
   padding: 0;
   background: #101418;
-  color: #eef2f5;
-  font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", SansSerif, sans-serif;
+  color: #fff;
+  font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  overflow: hidden;
+  height: 100%;
 }
-.topbar {
-  text-align: center;
-  padding: 18px 12px 6px;
-}
-.topbar h1 {
-  margin: 0;
-  font-size: 28px;
-  letter-spacing: 2px;
-}
-.badge {
-  font-size: 14px;
-  background: #2ecc71;
-  color: #06130b;
-  border-radius: 6px;
-  padding: 2px 8px;
-  vertical-align: middle;
-}
-.sub {
-  margin: 6px 0 0;
-  color: #9fb0bd;
-  font-size: 13px;
-}
-.wrap {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 10px 12px 24px;
-}
-.canvas-holder {
-  position: relative;
-  display: flex;
-  justify-content: center;
-}
-canvas#game {
-  background: rgb(61, 217, 102);
-  border: 3px solid #243140;
-  border-radius: 10px;
-  touch-action: none;
-  outline: none;
-  max-width: 100%;
-}
-.overlay {
-  position: absolute;
+.pix { font-family: "Press Start 2P", monospace; }
+
+/* ============ 차고 (사진 2: 황금 배경) ============ */
+#garage {
+  position: fixed;
   inset: 0;
+  background: #c9a24b;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 10px;
+  z-index: 10;
+  padding: 12px;
+  overflow-y: auto;
 }
-.overlay .card {
-  background: rgba(12, 18, 24, 0.92);
-  border: 1px solid #2c3a48;
-  border-radius: 12px;
-  padding: 22px 26px;
-  max-width: 440px;
-  text-align: center;
+.g-head {
+  display: flex;
+  gap: 26px;
+  align-items: flex-start;
+  width: min(680px, 94vw);
+  margin-top: 8px;
 }
-.overlay h2 { margin: 0 0 8px; letter-spacing: 3px; }
-.overlay p { color: #c6d3de; font-size: 14px; line-height: 1.6; }
-.overlay ul { text-align: left; font-size: 14px; color: #dbe6ef; }
-#startBtn {
-  margin-top: 10px;
-  font-size: 18px;
+#carName {
+  font-family: "Press Start 2P", monospace;
+  font-size: 30px;
+  color: #fff;
+  text-shadow: 3px 3px 0 #7a5f22;
+}
+#carGrade {
+  font-size: 20px;
   font-weight: 800;
-  letter-spacing: 1px;
-  padding: 12px 26px;
-  border: 0;
-  border-radius: 10px;
-  background: #2ecc71;
-  color: #06130b;
+  margin-top: 6px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.4);
+}
+.g-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.srow { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: #fff; }
+.srow span { width: 92px; }
+.stat { flex: 1; height: 14px; background: rgba(0,0,0,.35); border-radius: 3px; overflow: hidden; }
+.stat i { display: block; height: 100%; background: #fff; border-radius: 3px; }
+#garageCanvas {
+  width: min(680px, 94vw);
+  height: min(46vh, 380px);
+  border-radius: 12px;
+  margin: 14px 0;
+  box-shadow: 0 8px 30px rgba(0,0,0,.35);
+}
+.g-foot { display: flex; align-items: center; gap: 18px; }
+.arrow {
+  width: 84px; height: 64px;
+  font-size: 26px;
+  background: #2e3d4d; color: #fff;
+  border: 3px solid #fff; border-radius: 8px;
   cursor: pointer;
 }
-#startBtn:hover { filter: brightness(1.08); }
-.tiny { font-size: 11px; color: #7e8fa0; }
-.touch {
-  display: flex;
-  gap: 14px;
-  justify-content: center;
-  margin-top: 14px;
+.arrow:active { transform: scale(.95); }
+.g-mid { text-align: center; }
+#carDots { font-family: "Press Start 2P", monospace; font-size: 14px; color: #fff; margin-bottom: 8px; }
+#raceBtn {
+  font-size: 22px; font-weight: 900;
+  background: #e23b2e; color: #fff;
+  border: 3px solid #fff; border-radius: 10px;
+  padding: 12px 30px; cursor: pointer;
+  box-shadow: 0 4px 0 #7a1f18;
 }
-.tbtn {
-  width: 84px;
-  height: 64px;
-  font-size: 26px;
-  border-radius: 14px;
-  border: 1px solid #33414f;
-  background: #1a232e;
-  color: #fff;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
+#raceBtn:active { transform: translateY(3px); box-shadow: none; }
+.g-hint { color: #6d5423; font-size: 13px; margin-top: 12px; }
+
+/* ============ 경주 스테이지 (사진 1) ============ */
+#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#game { border-radius: 6px; touch-action: none; }
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+.hud-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 10px; align-items: flex-start; }
+#minimap { background: rgba(10,16,24,.72); border: 3px solid #101418; border-radius: 6px; }
+#lapBox {
+  background: #fff; color: #111;
+  font-family: "Press Start 2P", monospace; font-size: 15px;
+  border: 3px solid #101418; border-radius: 4px;
+  padding: 8px 10px; text-align: center; line-height: 1.5;
 }
-.tbtn:active { background: #2b3a4b; }
-.ports {
-  margin-top: 16px;
-  background: #161d26;
-  border: 1px solid #26313e;
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 13px;
-  color: #b9c7d4;
+#lapBox b { font-size: 19px; }
+.spacer { flex: 1; }
+#posBox {
+  font-family: "Press Start 2P", monospace; font-size: 26px; color: #fff;
+  text-shadow: 3px 3px 0 #101418;
 }
-.ports summary { cursor: pointer; font-weight: 700; color: #eaf1f7; }
-.foot {
-  text-align: center;
-  padding: 14px;
-  color: #71808f;
-  font-size: 12px;
+#posBox small { font-size: 13px; }
+#raceTimer {
+  font-family: "Press Start 2P", monospace; font-size: 30px; color: #5dff5d;
+  text-shadow: 3px 3px 0 #101418;
+  background: rgba(10,16,24,.55); padding: 4px 10px; border-radius: 6px;
 }
+.hud-speed {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  font-family: "Press Start 2P", monospace; font-size: 22px; color: #fff;
+  text-shadow: 2px 2px 0 #101418;
+}
+.hud-speed small { font-size: 11px; margin-left: 4px; }
+.steer {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 110px; height: 130px;
+  font-size: 56px; color: rgba(255,255,255,.75);
+  background: rgba(200,200,200,.28);
+  border: 3px solid rgba(255,255,255,.5); border-radius: 10px;
+  pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.steer.left { left: 12px; }
+.steer.right { right: 12px; }
+.steer:active { background: rgba(255,255,255,.45); }
+.hud-pedals { position: absolute; bottom: 64px; right: 14px; display: flex; gap: 10px; }
+.pedal {
+  width: 64px; height: 64px; border-radius: 50%;
+  font-size: 24px; color: #fff;
+  background: rgba(20,28,38,.6); border: 2px solid rgba(255,255,255,.5);
+  pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.pedal.gas { background: rgba(46,160,67,.65); }
+.pedal:active { filter: brightness(1.4); }
+.hud-menu { position: absolute; bottom: 64px; left: 14px; display: flex; gap: 8px; }
+.hud-menu button {
+  width: 52px; height: 52px; font-size: 24px; border-radius: 10px;
+  background: rgba(20,28,38,.7); color: #fff; border: 2px solid rgba(255,255,255,.5);
+  pointer-events: auto; cursor: pointer;
+}
+#centerMsg {
+  position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%);
+  font-family: "Press Start 2P", monospace; font-size: 52px; color: #fff;
+  text-shadow: 4px 4px 0 #101418;
+  text-align: center; white-space: nowrap;
+}
+#centerMsg span { display: block; font-size: 20px; margin-top: 10px; }
+#results {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.55); pointer-events: auto;
+}
+.rcard {
+  background: #141b24; border: 3px solid #fff; border-radius: 14px;
+  padding: 22px 28px; min-width: min(480px, 90vw); text-align: center;
+}
+.rcard h2 { font-family: "Press Start 2P", monospace; font-size: 20px; margin: 0 0 14px; }
+.rrow {
+  display: flex; justify-content: space-between; gap: 16px;
+  font-size: 15px; padding: 8px 10px; border-radius: 8px; margin-bottom: 6px;
+  background: #1f2833; color: #dbe4ee;
+}
+.rrow.me { background: #e23b2e; color: #fff; font-weight: 800; }
+.rbtns { display: flex; gap: 10px; margin-top: 14px; }
+.rbtns button {
+  flex: 1; font-size: 16px; font-weight: 800; padding: 12px;
+  border-radius: 10px; border: 2px solid #fff; cursor: pointer;
+  background: #2ea043; color: #fff;
+}
+.rbtns button:last-child { background: #2e3d4d; }
 @media (max-width: 640px) {
-  .topbar h1 { font-size: 22px; }
+  #raceTimer { font-size: 20px; }
+  #posBox { font-size: 18px; }
+  #minimap { width: 104px; height: 104px; }
+  .steer { width: 84px; height: 104px; font-size: 42px; }
+  #centerMsg { font-size: 34px; }
 }

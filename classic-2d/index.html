@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Smashy Road Web — 레이싱 체이스</title>
+  <meta name="description" content="SmashyRoad(Java) 원본 15개 클래스를 1:1 포팅한 GitHub Pages용トップ다운 경찰 체이스 레이싱 게임" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>SMASHY ROAD <span class="badge">WEB</span></h1>
+    <p class="sub">원본 Java 모델 15종 1:1 포팅 · GitHub Pages 대응</p>
+  </header>
+
+  <main class="wrap">
+    <div class="canvas-holder">
+      <canvas id="game" width="1000" height="700" tabindex="0"></canvas>
+      <div id="overlay" class="overlay">
+        <div class="card">
+          <h2>SMASHY ROAD</h2>
+          <p>자동으로 가속됩니다. 경찰을 피해 오래 살아남으세요.<br />
+             세게 부딪히면 경찰을 파괴(+5점)하지만 내구도(HP)가 닳습니다.</p>
+          <ul>
+            <li>◀ ▶ : 좌 / 우 회전 (A / D)</li>
+            <li>▼ : 후진 브레이크 (S)</li>
+            <li>SPACE : 게임오버 후 재시작</li>
+          </ul>
+          <button id="startBtn">START ENGINE</button>
+          <p class="tiny">원본: SmashyRoadMain 1000×700 · standardCar HP1000 · cop HP200/최고속도14</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="touch" aria-label="모바일 컨트롤">
+      <button id="btnLeft" class="tbtn">◀</button>
+      <button id="btnDown" class="tbtn">▼</button>
+      <button id="btnRight" class="tbtn">▶</button>
+    </div>
+
+    <details class="ports">
+      <summary>포팅된 원본 모델 목록 (15개)</summary>
+      <ul>
+        <li><b>Vector</b> ← vector.java</li>
+        <li><b>Entity</b> ← Entity.java (abstract)</li>
+        <li><b>NonLivingEntity</b> ← NonLivingEntity.java (hitBox)</li>
+        <li><b>MapGridSquare</b> ← mapGridSquare.java (초록 격자 100px)</li>
+        <li><b>GameMap</b> ← map.java (※ JS 내장 Map과 충돌 방지改名)</li>
+        <li><b>Particle</b> ← Particle.java (연기/불꽃)</li>
+        <li><b>ParticleGenerator</b> ← ParticleGenerator.java</li>
+        <li><b>LivingEntity</b> ← LivingEntity.java (충돌·넉백·무적5프레임)</li>
+        <li><b>PlayerCar</b> ← playerCar.java (드리프트)</li>
+        <li><b>StandardCar</b> ← standardCar.java (플레이어 차)</li>
+        <li><b>Cop</b> ← cop.java (추격 AI·스턴60·시체120프레임)</li>
+        <li><b>SmashyRoadPanel</b> ← SmashyRoadPanel.java</li>
+        <li><b>GameTimer</b> ← GameTimer.java (17ms 고정스텝, 점수 버그 수정)</li>
+        <li><b>SmashyRoadPanelListener</b> ← SmashyRoadPanelListener.java</li>
+        <li><b>main</b> ← SmashyRoadMain.java</li>
+      </ul>
+    </details>
+  </main>
+
+  <footer class="foot">
+    <span>조작: 방향키 / WASD · GitHub Pages 정적 파일만으로 동작</span>
+  </footer>
+
+  <!-- 원본 클래스 구조 그대로 로드 (순서 중요: 의존성 순) -->
+  <script src="js/Vector.js"></script>
+  <script src="js/Entity.js"></script>
+  <script src="js/NonLivingEntity.js"></script>
+  <script src="js/MapGridSquare.js"></script>
+  <script src="js/GameMap.js"></script>
+  <script src="js/Particle.js"></script>
+  <script src="js/ParticleGenerator.js"></script>
+  <script src="js/LivingEntity.js"></script>
+  <script src="js/PlayerCar.js"></script>
+  <script src="js/StandardCar.js"></script>
+  <script src="js/Cop.js"></script>
+  <script src="js/SmashyRoadPanel.js"></script>
+  <script src="js/GameTimer.js"></script>
+  <script src="js/SmashyRoadPanelListener.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -11,6 +11,7 @@
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
   <!-- ============ 차고 (차량 선택, 사진 2) ============ -->
@@ -32,6 +33,7 @@
       <div class="g-mid">
         <div id="carDots">1 / 8</div>
         <button id="raceBtn">🏁 RACE START</button>
+        <button id="onlineBtn">🌐 ONLINE P2P</button>
       </div>
       <button id="carNext" class="arrow">▶</button>
     </div>
@@ -45,6 +47,33 @@
       <button id="trackNext" class="arrow sm">▶</button>
     </div>
     <p class="g-hint">◀ ▶ 키로 차량 변경 · Enter로 시작 · 4대 경주 · 부딪히면 대미지, HP 0이면 폭파!</p>
+  </div>
+
+  <!-- ============ 온라인 로비 (P2P) ============ -->
+  <div id="onlinePanel" style="display:none">
+    <div id="onlineCard">
+      <div class="o-head">
+        <b>🌐 ONLINE P2P</b>
+        <button id="onlineClose">✕</button>
+      </div>
+      <div id="onlineHome">
+        <button id="createBtn" class="obtn">방 만들기</button>
+        <div class="ojoin">
+          <input id="joinCode" maxlength="4" placeholder="코드 4글자" autocomplete="off" />
+          <button id="joinBtn" class="obtn">참가</button>
+        </div>
+        <p class="o-hint">같은 코드를 입력한 친구와 직접 연결됩니다 (서버 없음)</p>
+      </div>
+      <div id="onlineLobby" style="display:none">
+        <div class="ocode">CODE <b id="roomCode">----</b></div>
+        <div id="lobbyTrack">TRACK: -</div>
+        <div id="playerList"></div>
+        <div id="lobbyHint" class="o-hint"></div>
+        <button id="startOnlineBtn" class="obtn go">🏁 START</button>
+        <button id="leaveBtn" class="obtn dim">나가기</button>
+      </div>
+      <div id="onlineStatus"></div>
+    </div>
   </div>
 
   <!-- ============ 경주 화면 (사진 1) ============ -->
@@ -86,12 +115,12 @@
 
   <script type="module" src="js/main.js"></script>
   <script>
-    // 결과 화면 버튼 (모듈 스코프 밖에서 연결)
+    // 결과 화면 버튼 (온라인 모드에서 main.js가 오버라이드)
+    window.__raceAgain = () => document.getElementById('restartBtn').click();
+    window.__raceChange = () => document.getElementById('garageBtn').click();
     window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('againBtn').addEventListener('click', () =>
-        document.getElementById('restartBtn').click());
-      document.getElementById('changeBtn').addEventListener('click', () =>
-        document.getElementById('garageBtn').click());
+      document.getElementById('againBtn').addEventListener('click', () => window.__raceAgain());
+      document.getElementById('changeBtn').addEventListener('click', () => window.__raceChange());
     });
   </script>
 </body>

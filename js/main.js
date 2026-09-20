@@ -9,6 +9,8 @@ import { CAR_BUILDERS } from './voxel.js';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js';
 import { createHUD, createInput, createBeeper, setSteerHint } from './hud.js';
 import { createGarage } from './garage.js';
+import { carSnapshot, applySnapshot, STATE_HZ } from './net.js';
+import { createOnlinePanel } from './online.js';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -59,11 +61,13 @@ window.addEventListener('resize', resize);
 resize();
 
 // --- 레이저 상태 ---
-let racers = []; // {car, mesh, isPlayer, name, ai}
+let racers = []; // {car, mesh, isPlayer, local, ai, name, slot, peerId, smokeAcc}
 let phase = 'garage';
 let raceTime = 0;
 let countdownT = 0;
 let playerIdx = 0;
+let netAcc = 0;
+let onlineCtl = null; // {room, players, ai, track, myId} | null (solo면 null)
 const camPos = new THREE.Vector3();
 
 function clearRacers() {
@@ -98,8 +102,12 @@ function buildRace(playerDef, tdef) {
     racers.push({
       car, mesh,
       isPlayer: i === 0,
+      local: true,
       name: i === 0 ? `YOU (${def.name})` : `CPU ${i} (${def.name})`,
       ai: i === 0 ? null : { pace: paces[i % paces.length], lane: lanes[i % lanes.length] },
+      slot: i,
+      peerId: null,
+      smokeAcc: 0,
     });
   });
   playerIdx = 0;
@@ -254,18 +262,21 @@ function loop(ts) {
   // 플레이어 입력 (자동 가속 ON: 사진 1처럼 가만히 있어도 전진)
   const pin = input.toRaceInput();
 
-  // AI 입력
+  // AI 입력 (로컬 AI만, 원격은 스냅샷)
+  const DUMMY = { steer: 0, throttle: 0, brake: 0 };
   const pProg = progressOf(p, circuit);
   const inputs = racers.map((r) =>
     r.isPlayer
       ? pin
-      : aiInput(r.car, circuit, ROAD_HALF, dt, pProg, progressOf(r.car, circuit), r.ai)
+      : r.local && r.ai
+        ? aiInput(r.car, circuit, ROAD_HALF, dt, pProg, progressOf(r.car, circuit), r.ai)
+        : DUMMY
   );
 
-  // 부스터/점프 타이머 + 패드 트리거
+  // 부스터/점프 타이머 + 패드 트리거 (로컬 차량만)
   for (const r of racers) {
     const c = r.car;
-    if (c.out) continue;
+    if (c.out || !r.local) continue;
     if (c.boostT > 0) c.boostT -= dt;
     const wasAir = c.airT > 0;
     if (c.airT > 0) c.airT -= dt;
@@ -293,9 +304,9 @@ function loop(ts) {
     }
   }
 
-  // 물리 + 랩 (탈락 차량 제외, 완주 차량은 쿨다운 주행 계속)
+  // 물리 + 랩 (로컬 차량만; 탈락 제외, 완주 차량은 쿨다운 주행 계속)
   racers.forEach((r, i) => {
-    if (r.car.out) return;
+    if (r.car.out || !r.local) return;
     stepCar(r.car, inputs[i], dt, circuit, ROAD_HALF);
     if (r.car.finished) return;
     const ev = checkLap(r.car, circuit, LAPS, raceTime);
@@ -345,23 +356,39 @@ function loop(ts) {
   // 메시 싱크 + 먼지 (고도 + 점프 + 경사 피치 반영)
   for (const r of racers) {
     const c = r.car;
-    const baseY = trackY(circuit, c.dist);
-    let airY = 0;
-    // 차체 피치: 진행 방향 경사를 따름 (언덕에 묻히지 않게)
-    const fx = Math.cos(c.heading);
-    const fz = Math.sin(c.heading);
-    const yA = trackY(circuit, circuit.project(c.x + fx * 3.5, c.z + fz * 3.5).dist);
-    const yB = trackY(circuit, circuit.project(c.x - fx * 3.5, c.z - fz * 3.5).dist);
-    let pitch = Math.atan2(yA - yB, 7);
-    if (c.airT > 0) {
-      // 점프 포물선: 이륙각 → 착지각
-      airY = Math.sin(Math.PI * (1 - c.airT / c.airDur)) * 3.2;
-      const k = 1 - c.airT / c.airDur;
-      pitch = 0.32 * (1 - k) + pitch * k;
+    if (!r.local) {
+      // 원격 차량: 스냅샷으로 부드럽게 보간
+      const k = 1 - Math.exp(-14 * dt);
+      const ty =
+        trackY(circuit, c.dist) +
+        (c.airT > 0 ? Math.sin(Math.PI * (1 - c.airT / c.airDur)) * 3.2 : 0);
+      r.mesh.position.x += (c.x - r.mesh.position.x) * k;
+      r.mesh.position.y += (ty - r.mesh.position.y) * k;
+      r.mesh.position.z += (c.z - r.mesh.position.z) * k;
+      const want = -c.heading;
+      const cur = r.mesh.rotation.y;
+      const dh = ((want - cur + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      r.mesh.rotation.y = cur + dh * k;
+      r.mesh.rotation.z = 0;
+    } else {
+      const baseY = trackY(circuit, c.dist);
+      let airY = 0;
+      // 차체 피치: 진행 방향 경사를 따름 (언덕에 묻히지 않게)
+      const fx = Math.cos(c.heading);
+      const fz = Math.sin(c.heading);
+      const yA = trackY(circuit, circuit.project(c.x + fx * 3.5, c.z + fz * 3.5).dist);
+      const yB = trackY(circuit, circuit.project(c.x - fx * 3.5, c.z - fz * 3.5).dist);
+      let pitch = Math.atan2(yA - yB, 7);
+      if (c.airT > 0) {
+        // 점프 포물선: 이륙각 → 착지각
+        airY = Math.sin(Math.PI * (1 - c.airT / c.airDur)) * 3.2;
+        const kk = 1 - c.airT / c.airDur;
+        pitch = 0.32 * (1 - kk) + pitch * kk;
+      }
+      r.mesh.position.set(c.x, baseY + airY, c.z);
+      r.mesh.rotation.y = -c.heading;
+      r.mesh.rotation.z = pitch;
     }
-    r.mesh.position.set(c.x, baseY + airY, c.z);
-    r.mesh.rotation.y = -c.heading;
-    r.mesh.rotation.z = pitch;
     const fw = r.mesh.userData.frontWheels || [];
     for (const w of fw) w.rotation.y = -c.steerVis * 0.45;
     const latV = Math.abs(c.vx * -Math.sin(c.heading) + c.vz * Math.cos(c.heading));
@@ -414,6 +441,22 @@ function loop(ts) {
   const vig = document.getElementById('speedVig');
   if (vig) vig.style.opacity = Math.max(0, Math.min(0.85, (spdNow - 28) / 45)).toFixed(2);
 
+  // 온라인 상태 브로드캐스트 (15Hz, 로컬 차량만)
+  if (onlineCtl) {
+    netAcc += dt;
+    if (netAcc >= 1 / STATE_HZ) {
+      netAcc = 0;
+      const room = onlineCtl.room;
+      const local = [];
+      for (const r of racers) {
+        if (!r.local) continue;
+        local.push({ slot: r.slot, ...carSnapshot(r.car) });
+      }
+      if (room.isHost) room.sendState(local);
+      else room.sendToHost(local);
+    }
+  }
+
   renderer.render(scene, camera);
 }
 
@@ -440,10 +483,25 @@ function onRaceEnd(reason) {
 
 // 버튼들
 document.getElementById('restartBtn').addEventListener('click', () => {
+  if (onlineCtl) {
+    // 온라인: 호스트만 재시작 가능, 게스트는 대기
+    if (onlineCtl.room.isHost) {
+      const msg = onlineCtl.room.startRace(onlineCtl.ai);
+      startOnlineRace({
+        room: onlineCtl.room, players: msg.players, ai: msg.ai,
+        track: onlineCtl.track, myId: onlineCtl.room.myId,
+      });
+    }
+    return;
+  }
   buildRace(racers[playerIdx].car.def, trackDef);
   startCountdown();
 });
 document.getElementById('garageBtn').addEventListener('click', () => {
+  if (onlineCtl) {
+    backToOnlineLobby();
+    return;
+  }
   document.getElementById('hud').style.display = 'none';
   document.getElementById('garage').style.display = 'flex';
   hud.hideResults();
@@ -464,12 +522,181 @@ document.getElementById('minimap').addEventListener('pointerdown', (e) => {
   document.querySelector('.hud-menu').classList.toggle('open');
 });
 
-// 부트: 차고 → 레이스
-createGarage((def, track) => {
+// ---- 온라인 P2P ----
+let pendingCar = null;
+let pendingTrack = null;
+let onlinePanel = null;
+
+function startOnlineRace(info) {
+  onlineCtl = {
+    room: info.room, players: info.players, ai: info.ai,
+    track: info.track, myId: info.myId,
+  };
+  info.room.onEvent = onRaceNetEvent;
   document.getElementById('garage').style.display = 'none';
-  buildRace(def, track);
+  buildRaceOnline(info);
   startCountdown();
+  netAcc = 0;
+}
+
+function buildRaceOnline(info) {
+  const tdef = info.track;
+  trackDef = tdef;
+  circuit = buildTrack(tdef);
+  LAPS = tdef.laps;
+  hud = createHUD(circuit);
+  clearRacers();
+  buildWorldTrack(trackDef);
+  const slots = gridSlots(circuit);
+  const mySlot = info.players.findIndex((pl) => pl.id === info.myId);
+  playerIdx = mySlot;
+  const defOf = (carId) => CAR_DEFS.find((d) => d.id === carId) || CAR_DEFS[0];
+  const entries = [
+    ...info.players.map((pl, i) => {
+      const def = defOf(pl.carId);
+      const mine = pl.id === info.myId;
+      return {
+        def, local: mine, ai: null, slot: i, peerId: mine ? null : pl.id,
+        name: (mine ? 'YOU' : `P${i + 1}`) + ` (${def.name})`,
+      };
+    }),
+    ...info.ai.map((carId, k) => {
+      const def = defOf(carId);
+      const mine = info.room.isHost;
+      return {
+        def, local: mine,
+        ai: mine ? { pace: [0.94, 0.965, 0.92][k % 3], lane: [1, -1, 0.5][k % 3] } : null,
+        slot: info.players.length + k, peerId: null,
+        name: `CPU (${def.name})`,
+      };
+    }),
+  ];
+  entries.forEach((e, i) => {
+    const s = slots[i % slots.length];
+    const car = makeCarState(e.def, s.x, s.z, s.heading);
+    car.lapStart = 0;
+    const mesh = CAR_BUILDERS[e.def.id](e.def.color, e.def.accent);
+    mesh.position.set(s.x, 0, s.z);
+    mesh.rotation.y = -s.heading;
+    scene.add(mesh);
+    racers.push({
+      car, mesh, isPlayer: e.slot === mySlot,
+      local: e.local, ai: e.ai, name: e.name,
+      slot: e.slot, peerId: e.peerId, smokeAcc: 0,
+    });
+  });
+  raceTime = 0;
+  snapCamera(true);
+}
+
+function onRaceNetEvent(ev) {
+  if (!onlineCtl) return;
+  const room = onlineCtl.room;
+  if (ev.type === 'state') {
+    for (const s of ev.cars) {
+      const r = racers[s.slot];
+      if (!r || r.local) continue;
+      applySnapshot(r.car, s);
+    }
+  } else if (ev.type === 'peer-left') {
+    const r = racers.find((x) => x.peerId === ev.id);
+    if (r && !r.car.out && !r.car.finished) {
+      if (room.isHost) {
+        // 호스트가 AI로 인수 (경주 계속)
+        r.ai = { pace: 0.93, lane: 0 };
+        r.local = true;
+        r.peerId = null;
+        r.name = `CPU (${r.car.def.name})`;
+        hud.message('연결 끊김 — CPU가 이어받음', '', 2000);
+      } else {
+        r.car.out = true;
+        hud.message('상대 연결 끊김', '', 2000);
+      }
+    }
+  } else if (ev.type === 'host-left') {
+    hud.message('호스트 연결 종료', '', 2000);
+    setTimeout(() => {
+      if (onlineCtl) onlineCtl.room.destroy();
+      onlineCtl = null;
+      document.getElementById('hud').style.display = 'none';
+      document.getElementById('garage').style.display = 'flex';
+      hud.hideResults();
+      phase = 'garage';
+    }, 2000);
+  } else if (ev.type === 'lobby') {
+    backToOnlineLobby();
+  } else if (ev.type === 'start') {
+    startOnlineRace({
+      room, players: ev.players, ai: ev.ai,
+      track: TRACK_DEFS.find((t) => t.id === ev.trackId) || TRACK_DEFS[0],
+      myId: room.myId,
+    });
+  } else if (ev.type === 'error') {
+    hud.message(ev.msg, '', 2000);
+  }
+}
+
+function backToOnlineLobby() {
+  if (!onlineCtl) return;
+  if (onlineCtl.room.isHost) {
+    onlineCtl.room.phase = 'lobby';
+    onlineCtl.room.broadcastLobby();
+  } else {
+    try { onlineCtl.room.quitRace(); } catch (e) { /* 무시 */ }
+  }
+  phase = 'garage';
+  hud.hideResults();
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('garage').style.display = 'flex';
+  if (onlinePanel) onlinePanel.backToLobby();
+}
+
+// 결과 화면 버튼 오버라이드 (온라인에선 로비/재시작 흐름)
+window.__raceAgain = () => {
+  if (onlineCtl) {
+    if (onlineCtl.room.isHost) {
+      const msg = onlineCtl.room.startRace(onlineCtl.ai);
+      startOnlineRace({
+        room: onlineCtl.room, players: msg.players, ai: msg.ai,
+        track: onlineCtl.track, myId: onlineCtl.room.myId,
+      });
+    }
+  } else {
+    document.getElementById('restartBtn').click();
+  }
+};
+window.__raceChange = () => {
+  if (onlineCtl) backToOnlineLobby();
+  else document.getElementById('garageBtn').click();
+};
+
+// 부트: 차고 → 레이스 (솔로) / 온라인 패널
+onlinePanel = createOnlinePanel({
+  getCar: () => pendingCar || CAR_DEFS[0],
+  getTrack: () => pendingTrack || TRACK_DEFS[0],
+  onStartOnline: (info) => startOnlineRace(info),
+  onLobbyClosed: () => {
+    onlineCtl = null;
+  },
 });
+createGarage(
+  (def, track) => {
+    document.getElementById('garage').style.display = 'none';
+    buildRace(def, track);
+    startCountdown();
+  },
+  {
+    onCar: (def) => {
+      pendingCar = def;
+      if (onlineCtl && onlineCtl.room) onlineCtl.room.setMyCar(def.id);
+    },
+    onTrack: (def) => {
+      pendingTrack = def;
+      const r = onlineCtl && onlineCtl.room;
+      if (r && r.isHost) r.setTrack(def.id);
+    },
+  }
+);
 requestAnimationFrame((t) => {
   lastTs = t;
   loop(t);

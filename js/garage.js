@@ -6,7 +6,7 @@ import { CAR_BUILDERS, makeDriver } from './voxel.js';
 
 const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };
 
-export function createGarage(onStart) {
+export function createGarage(onStart, hooks = {}) {
   let idx = 0;
   let trackIdx = 0;
   const canvas = document.getElementById('garageCanvas');
@@ -80,6 +80,7 @@ export function createGarage(onStart) {
     document.getElementById('statTough').innerHTML = statBar(def.stats.durability);
     document.getElementById('carDots').textContent =
       `${idx + 1} / ${CAR_DEFS.length}`;
+    if (hooks.onCar) hooks.onCar(CAR_DEFS[idx]);
   }
 
   document.getElementById('carPrev').addEventListener('click', () => render(idx - 1));
@@ -118,6 +119,7 @@ export function createGarage(onStart) {
     ctx.stroke();
     document.getElementById('trackDots').textContent =
       `${trackIdx + 1} / ${TRACK_DEFS.length}`;
+    if (hooks.onTrack) hooks.onTrack(TRACK_DEFS[trackIdx]);
   }
   document.getElementById('trackPrev').addEventListener('click', () => {
     trackIdx = (trackIdx + TRACK_DEFS.length - 1) % TRACK_DEFS.length;

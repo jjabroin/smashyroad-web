@@ -77,6 +77,62 @@ html, body {
 }
 #raceBtn:active { transform: translateY(3px); box-shadow: none; }
 .g-hint { color: #6d5423; font-size: 13px; margin-top: 12px; }
+#onlineBtn {
+  display: block;
+  margin: 10px auto 0;
+  font-size: 16px; font-weight: 900;
+  background: #1f6fd6; color: #fff;
+  border: 3px solid #fff; border-radius: 10px;
+  padding: 10px 22px; cursor: pointer;
+}
+#onlineBtn:active { transform: scale(.96); }
+
+/* 온라인 패널: 우측 사이드 카드 (차고 조작 가능하게 비워둠) */
+#onlinePanel {
+  position: fixed; inset: 0; z-index: 20;
+  display: flex; justify-content: flex-end; align-items: stretch;
+  pointer-events: none;
+}
+#onlineCard {
+  pointer-events: auto;
+  width: 300px; max-width: 86vw;
+  background: rgba(12,18,24,.96);
+  border-left: 3px solid #1f6fd6;
+  padding: 14px;
+  overflow-y: auto;
+}
+.o-head { display: flex; justify-content: space-between; align-items: center; font-size: 17px; margin-bottom: 12px; }
+.o-head button { background: none; border: 0; color: #8fa0b3; font-size: 18px; cursor: pointer; }
+.obtn {
+  width: 100%; font-size: 16px; font-weight: 800;
+  background: #2ea043; color: #fff;
+  border: 2px solid #fff; border-radius: 10px;
+  padding: 11px; margin-top: 8px; cursor: pointer;
+}
+.obtn.go { background: #e23b2e; }
+.obtn.dim { background: #2e3d4d; }
+.obtn:disabled { opacity: .45; cursor: default; }
+.ojoin { display: flex; gap: 8px; margin-top: 8px; }
+#joinCode {
+  flex: 1; font-size: 20px; font-weight: 900; text-align: center; text-transform: uppercase;
+  background: #0d141c; color: #fff; border: 2px solid #3a4a5c; border-radius: 10px;
+  padding: 9px 4px; letter-spacing: 4px; min-width: 0;
+}
+.ojoin .obtn { width: auto; margin-top: 0; padding: 9px 16px; }
+.o-hint { color: #8fa0b3; font-size: 12px; margin: 10px 0 0; line-height: 1.5; }
+.ocode { font-size: 15px; color: #8fa0b3; }
+.ocode b { font-family: "Press Start 2P", monospace; font-size: 26px; color: #5dff5d; letter-spacing: 4px; }
+#lobbyTrack { font-size: 14px; font-weight: 800; margin: 8px 0; color: #ffd75d; }
+#playerList { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.prow {
+  display: flex; justify-content: space-between;
+  background: #1f2833; border-radius: 8px; padding: 8px 10px; font-size: 14px;
+}
+.prow.me { background: #1f6fd6; font-weight: 800; }
+#onlineStatus { color: #ffb300; font-size: 13px; margin-top: 10px; min-height: 18px; }
+@media (max-width: 640px) {
+  #onlineCard { width: 250px; }
+}
 
 /* ============ 경주 스테이지 (사진 1) ============ */
 #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; }

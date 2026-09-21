@@ -130,6 +130,7 @@ html, body {
 }
 .prow.me { background: #1f6fd6; font-weight: 800; }
 #onlineStatus { color: #ffb300; font-size: 13px; margin-top: 10px; min-height: 18px; }
+#netDiag { color: #7dff9b; font-size: 12px; margin-top: 4px; min-height: 16px; }
 @media (max-width: 640px) {
   #onlineCard { width: 250px; }
 }

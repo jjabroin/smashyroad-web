@@ -9,7 +9,22 @@
 //  host→guest: {t:'deny'}
 
 export const ROOM_PREFIX = 'blockyracer-v1-';
-export const STATE_HZ = 15;
+export const STATE_HZ = 20; // 상태 브로드캐스트 (부드러움 개선)
+
+// ICE 설정: 직접 연결 우선, 막히면 TURN 중계로 우회 (모바일 CGNAT 대응)
+// ※ TURN 자격증명은 공개 무료 릴레이 기준. 막히면 같은 와이파이 권장.
+export const RTC_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    {
+      urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+  ],
+  iceCandidatePoolSize: 4,
+};
 
 function randCode() {
   const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -44,9 +59,34 @@ export function applySnapshot(car, s) {
   if (s.shield !== undefined) car.shieldT = s.shield ? 999 : 0;
 }
 
-// 온라인 그리드 배치 (순수 함수 → 테스트 가능)
+// 원격 차량 데드레커닝: 스냅샷 사이를 속도로 예측 전진 (끊김 완화)
+export function extrapolateRemote(car, dt) {
+  car.x += car.vx * dt;
+  car.z += car.vz * dt;
+}
+
+// 스냅샷 부분 합성 (뚝 끊김 대신 alpha만큼 보정 → 수렴)
+export function blendSnapshot(car, s, a) {
+  car.x += (s.x - car.x) * a;
+  car.z += (s.z - car.z) * a;
+  let dh = (s.heading - car.heading) % (Math.PI * 2);
+  if (dh > Math.PI) dh -= Math.PI * 2;
+  if (dh < -Math.PI) dh += Math.PI * 2;
+  car.heading += dh * a;
+  car.heading = ((car.heading % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  car.vx += (s.vx - car.vx) * a;
+  car.vz += (s.vz - car.vz) * a;
+  car.dist += (s.dist - car.dist) * a;
+  // 이산 상태는 직접 복사
+  car.hp = s.hp; car.lap = s.lap; car.lateral = s.lateral;
+  car.finished = s.finished; car.out = s.out;
+  car.boostT = s.boostT; car.airT = s.airT;
+  car.steerVis = s.steerVis;
+  if (s.shield !== undefined) car.shieldT = s.shield ? 999 : 0;
+}
 // 반환: [{slot, carId, local, isMine, isAI, peerId}]
 // ※ 내 슬롯이 없으면 0번을 로컬로 강제 (전체 CPU/동결 방지)
+// 온라인 그리드 배치 (순수 함수 → 테스트 가능)
 export function planOnlineGrid(players, aiCarIds, myId, isHost) {
   const entries = [];
   players.forEach((pl, i) => {
@@ -111,9 +151,11 @@ export class NetRoom {
       peer.on('error', (err) => {
         const type = err && err.type;
         if (type === 'peer-unavailable') {
-          this._emit({ type: 'error', msg: '방 코드를 확인해주세요.' });
-        } else if (type === 'network' || type === 'server-error' || type === 'socket-error') {
-          this._emit({ type: 'error', msg: '시그널링 서버 연결 실패. 인터넷을 확인해주세요.' });
+          this._emit({ type: 'error', msg: '방을 찾을 수 없음: 코드 4글자 + 호스트가 방을 연 상태인지 확인해주세요.' });
+        } else if (type === 'webrtc') {
+          this._emit({ type: 'error', msg: '이 브라우저는 WebRTC 미지원: 크롬/사파리 앱으로 직접 열어주세요. (카톡 인앱브라우저 등에서는 안 됩니다)' });
+        } else if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
+          this._emit({ type: 'error', msg: `시그널링 연결 문제(${type}): 인터넷 확인 후 재시도해주세요.` });
         }
       });
       peer.on('disconnected', () => {
@@ -140,6 +182,36 @@ export class NetRoom {
     conn.on('data', (msg) => this._onData(peerId, msg));
     conn.on('close', () => this._onClose(peerId));
     conn.on('error', () => this._onClose(peerId));
+    // 연결 진단: ICE 상태 전이 + 선택된 후보 종류 보고
+    try {
+      const pc = conn.peerConnection;
+      if (pc) {
+        pc.addEventListener('iceconnectionstatechange', () => {
+          this._emit({ type: 'conn-state', id: peerId, state: pc.iceConnectionState });
+        });
+        pc.addEventListener('icegatheringstatechange', () => {
+          if (pc.iceGatheringState === 'complete') this._reportNetKind(conn, peerId);
+        });
+      }
+    } catch (e) { /* 구형 브라우저 무시 */ }
+  }
+
+  async _reportNetKind(conn, peerId) {
+    // host=같은망 직접 / srflx=인터넷 직접 / relay=TURN 중계
+    try {
+      await new Promise((r) => setTimeout(r, 1500));
+      const pc = conn.peerConnection;
+      if (!pc || !pc.getStats) return;
+      const stats = await pc.getStats();
+      let kind = '?';
+      stats.forEach((s) => {
+        if (s.type === 'candidate-pair' && (s.nominated || s.selected)) {
+          const local = typeof stats.get === 'function' ? stats.get(s.localCandidateId) : null;
+          if (local && local.candidateType) kind = local.candidateType;
+        }
+      });
+      this._emit({ type: 'net-kind', id: peerId, kind });
+    } catch (e) { /* 무시 */ }
   }
 
   async hostRoom() {
@@ -242,6 +314,8 @@ export class NetRoom {
         this._emit({ type: 'state', from: msg.from || peerId, cars: msg.cars });
       } else if (msg.t === 'deny') {
         this._emit({ type: 'error', msg: '이미 경주 중인 방입니다.' });
+      } else if (msg.t === 'sync') {
+        if (!this.isHost) this._emit({ type: 'sync', cars: msg.cars });
       } else if (msg.t === 'pong') {
         this._emit({ type: 'pong', rtt: Date.now() - msg.t0 });
       } else if (msg.t === 'mine' || msg.t === 'minehit' || msg.t === 'shock') {
@@ -321,6 +395,15 @@ export class NetRoom {
 
   sendState(cars) {
     const msg = { t: 'state', cars };
+    for (const [, c] of this.conns) {
+      try { c.send(msg); } catch (e) { /* 무시 */ }
+    }
+  }
+
+  // 호스트 전체 동기화 (0.5초 간격, 위치 수렴용)
+  sendSync(cars) {
+    if (!this.isHost) return;
+    const msg = { t: 'sync', cars };
     for (const [, c] of this.conns) {
       try { c.send(msg); } catch (e) { /* 무시 */ }
     }

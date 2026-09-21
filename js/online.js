@@ -1,5 +1,5 @@
 // 온라인 로비 패널: 방 생성/참가·플레이어 목록·출발 (P2P, 호스트 권위)
-import { NetRoom, STATE_HZ } from './net.js';
+import { NetRoom, RTC_CONFIG } from './net.js';
 import { TRACK_DEFS } from './track.js';
 import { CAR_DEFS } from './race.js';
 
@@ -20,8 +20,12 @@ export function createOnlinePanel(api) {
 
   const peerFactory = (id) => {
     if (!window.Peer) throw new Error('PeerJS CDN 로드 실패');
-    return new window.Peer(id, { debug: 0 });
+    return new window.Peer(id, { debug: 0, config: RTC_CONFIG });
   };
+
+  function diag(msg) {
+    el('netDiag').textContent = msg;
+  }
 
   function show(view) {
     el('onlinePanel').style.display = 'flex';
@@ -74,6 +78,16 @@ export function createOnlinePanel(api) {
         });
       } else if (ev.type === 'error') {
         status(ev.msg);
+      } else if (ev.type === 'conn-state') {
+        if (ev.state === 'connected' || ev.state === 'completed') diag('');
+        else if (ev.state === 'failed') diag('직접 연결 실패 → 중계 시도 중...');
+        else if (ev.state === 'disconnected') diag('연결 끊김 감지 → 복구 시도 중...');
+        else diag(`연결 중... (${ev.state})`);
+      } else if (ev.type === 'net-kind') {
+        const label = ev.kind === 'host' ? '같은 네트워크 직접 연결'
+          : ev.kind === 'srflx' ? '인터넷 직접 연결'
+          : ev.kind === 'relay' ? '중계서버 경유 연결' : `연결 (${ev.kind})`;
+        diag('✅ ' + label);
       } else if (ev.type === 'host-left') {
         status('호스트 연결이 끊겼습니다.');
         setTimeout(() => leave(), 1500);

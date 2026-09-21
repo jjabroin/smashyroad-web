@@ -9,7 +9,7 @@ import { CAR_BUILDERS } from './voxel.js';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js';
 import { createHUD, createInput, createBeeper, setSteerHint } from './hud.js';
 import { createGarage } from './garage.js';
-import { carSnapshot, applySnapshot, planOnlineGrid, STATE_HZ } from './net.js';
+import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js';
 import { createOnlinePanel } from './online.js';
 
 const canvas = document.getElementById('game');
@@ -128,6 +128,7 @@ let raceTime = 0;
 let countdownT = 0;
 let playerIdx = 0;
 let netAcc = 0;
+let syncAcc = 0;
 let onlineCtl = null; // {room, players, ai, track, myId} | null (solo면 null)
 const camPos = new THREE.Vector3();
 
@@ -587,7 +588,8 @@ function loop(ts) {
       }
     }
     if (!r.local) {
-      // 원격 차량: 스냅샷으로 부드럽게 보간
+      // 원격 차량: 데드레커닝 예측 + 스냅샷으로 부드럽게 보간
+      extrapolateRemote(c, dt);
       const k = 1 - Math.exp(-14 * dt);
       const ty =
         trackY(circuit, c.dist) +
@@ -691,7 +693,7 @@ function loop(ts) {
   const vig = document.getElementById('speedVig');
   if (vig) vig.style.opacity = Math.max(0, Math.min(0.85, (spdNow - 28) / 45)).toFixed(2);
 
-  // 온라인 상태 브로드캐스트 (15Hz, 로컬 차량만)
+  // 온라인 상태 브로드캐스트 (20Hz, 로컬 차량만) + 호스트 전체 싱크 (0.5초)
   if (onlineCtl) {
     netAcc += dt;
     if (netAcc >= 1 / STATE_HZ) {
@@ -704,6 +706,13 @@ function loop(ts) {
       }
       if (room.isHost) room.sendState(local);
       else room.sendToHost(local);
+    }
+    if (onlineCtl.room.isHost) {
+      syncAcc += dt;
+      if (syncAcc >= 0.5) {
+        syncAcc = 0;
+        onlineCtl.room.sendSync(racers.map((r) => ({ slot: r.slot, ...carSnapshot(r.car) })));
+      }
     }
     // 핑 (게스트만 2초 간격, 호스트는 HOST 표시)
     const box = document.getElementById('pingBox');
@@ -949,7 +958,14 @@ function onRaceNetEvent(ev) {
     for (const s of ev.cars) {
       const r = racers[s.slot];
       if (!r || r.local) continue;
-      applySnapshot(r.car, s);
+      blendSnapshot(r.car, s, 0.45); // 하드 스냅 대신 부분 보정
+    }
+  } else if (ev.type === 'sync') {
+    // 호스트 전체 동기화: 내 차 제외하고 살짝 수렴 (위치 발산 방지)
+    for (const s of ev.cars) {
+      const r = racers[s.slot];
+      if (!r || r.local) continue;
+      blendSnapshot(r.car, s, 0.3);
     }
   } else if (ev.type === 'peer-left') {
     const r = racers.find((x) => x.peerId === ev.id);

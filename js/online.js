@@ -1,5 +1,5 @@
 // 온라인 로비 패널: 방 생성/참가·플레이어 목록·출발 (P2P, 호스트 권위)
-import { NetRoom, RTC_CONFIG } from './net.js';
+import { NetRoom, RTC_CONFIG, getTurnSettings, saveTurnSettings } from './net.js';
 import { TRACK_DEFS } from './track.js';
 import { CAR_DEFS } from './race.js';
 
@@ -18,9 +18,9 @@ export function createOnlinePanel(api) {
   let room = null;
   let checkTimer = 0;
 
-  const peerFactory = (id) => {
+  const peerFactory = (id, config) => {
     if (!window.Peer) throw new Error('PeerJS CDN 로드 실패');
-    return new window.Peer(id, { debug: 0, config: RTC_CONFIG });
+    return new window.Peer(id, { debug: 0, config: config || RTC_CONFIG });
   };
 
   function diag(msg) {
@@ -99,6 +99,20 @@ export function createOnlinePanel(api) {
     show('home');
     status('');
     el('joinCode').value = '';
+    const t = getTurnSettings();
+    el('turnApp').value = t ? t.app : '';
+    el('turnKey').value = t ? t.key : '';
+    el('turnState').textContent = t ? '✅ 중계 키 설정됨' : '미설정 (직접 연결만 시도)';
+  });
+  el('turnSave').addEventListener('click', () => {
+    const app = el('turnApp').value.trim();
+    const key = el('turnKey').value.trim();
+    if (!app || !key) {
+      el('turnState').textContent = '앱 주소와 API 키를 모두 입력하세요.';
+      return;
+    }
+    saveTurnSettings(app, key);
+    el('turnState').textContent = '✅ 저장됨 (다음 방 만들기/참가부터 적용)';
   });
   el('onlineClose').addEventListener('click', () => hide());
 

@@ -64,6 +64,14 @@
           <button id="joinBtn" class="obtn">참가</button>
         </div>
         <p class="o-hint">같은 코드를 입력한 친구와 직접 연결됩니다 (서버 없음)</p>
+        <details class="o-adv">
+          <summary>중계 서버(TURN) 설정 — 모바일 데이터에서 안 붙을 때</summary>
+          <p class="o-hint">metered.ca 무료 가입 → 앱 주소와 API 키를 입력하면 통신사망 뒤에서도 중계로 연결됩니다.</p>
+          <input id="turnApp" placeholder="앱 주소 (예: xxx.metered.live)" autocomplete="off" autocorrect="off" spellcheck="false" />
+          <input id="turnKey" placeholder="API 키" autocomplete="off" autocorrect="off" spellcheck="false" />
+          <button id="turnSave" class="obtn">저장</button>
+          <div id="turnState" class="o-hint"></div>
+        </details>
       </div>
       <div id="onlineLobby" style="display:none">
         <div class="ocode">CODE <b id="roomCode">----</b></div>
@@ -103,9 +111,21 @@
       </div>
       <div class="hud-speed"><span id="speedBox">0</span><small>km/h</small></div>
       <div id="hpBar"><i id="hpFill"></i></div>
-      <button id="btnDrift">DRIFT</button>
-      <button id="btnItem">🎁</button>
+      <button id="btnDriftL" class="ctlbtn drift">DRIFT</button>
+      <button id="btnDriftR" class="ctlbtn drift">DRIFT</button>
+      <button id="btnItemL" class="ctlbtn item">🎁</button>
+      <button id="btnItemR" class="ctlbtn item">🎁</button>
       <div id="itemBox" style="display:none">-</div>
+      <div id="layoutCard" style="display:none">
+        <b>버튼 배치</b>
+        <p>버튼을 드래그로 옮기세요</p>
+        <label>DRIFT 크기 <input id="sizeDrift" type="range" min="56" max="130" step="2" /></label>
+        <label>ITEM 크기 <input id="sizeItem" type="range" min="48" max="110" step="2" /></label>
+        <div class="lc-row">
+          <button id="layoutReset">초기화</button>
+          <button id="layoutDone">완료</button>
+        </div>
+      </div>
       <div id="zoneHint" style="display:none">◀ 왼쪽 터치 = 좌회전 · 오른쪽 터치 = 우회전 · 양쪽 동시 = 후진 ▶</div>
       <button id="btnLeft" class="steer left">◀</button>
       <button id="btnRight" class="steer right">▶</button>
@@ -114,6 +134,7 @@
         <button id="garageBtn" title="차고로">🚗</button>
         <button id="muteBtn" title="음소거">🔊</button>
         <button id="fsBtn" title="전체화면">⛶</button>
+        <button id="layoutBtn" title="버튼 배치">✏️</button>
       </div>
       <div id="centerMsg" style="display:none"></div>
       <div id="speedVig"></div>

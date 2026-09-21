@@ -11,20 +11,57 @@
 export const ROOM_PREFIX = 'blockyracer-v1-';
 export const STATE_HZ = 20; // 상태 브로드캐스트 (부드러움 개선)
 
-// ICE 설정: 직접 연결 우선, 막히면 TURN 중계로 우회 (모바일 CGNAT 대응)
-// ※ TURN 자격증명은 공개 무료 릴레이 기준. 막히면 같은 와이파이 권장.
+// ICE 설정: STUN 2종 (직접 연결용)
+// ※ 공개 무료 TURN 자격증명은 2026년 기준 동작하지 않음 — 통신사망 뒤에서는
+//    아래 TURN 키 설정(Metered 무료 가입)으로 중계 자격을 가져와야 함
 export const RTC_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun.cloudflare.com:3478' },
-    {
-      urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'],
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
   ],
   iceCandidatePoolSize: 4,
 };
+
+const TURN_STORE_KEY = 'blockyracer-turn-v1';
+export function getTurnSettings() {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const s = JSON.parse(localStorage.getItem(TURN_STORE_KEY));
+    if (s && s.app && s.key) return s;
+  } catch (e) { /* 무시 */ }
+  return null;
+}
+export function saveTurnSettings(app, key) {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(TURN_STORE_KEY, JSON.stringify({ app, key }));
+  } catch (e) { /* 무시 */ }
+}
+
+let cachedTurn = null; // {at, iceServers}
+export async function resolveRTCConfig() {
+  const t = getTurnSettings();
+  if (!t) return RTC_CONFIG;
+  if (cachedTurn && Date.now() - cachedTurn.at < 5 * 60 * 1000) {
+    return { iceServers: [...RTC_CONFIG.iceServers, ...cachedTurn.iceServers] };
+  }
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 8000);
+    const app = t.app.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    const res = await fetch(
+      `https://${app}/api/v1/turn/credentials?apiKey=${encodeURIComponent(t.key)}`,
+      { signal: ctrl.signal }
+    );
+    clearTimeout(to);
+    const ice = await res.json();
+    if (Array.isArray(ice) && ice.length > 0) {
+      cachedTurn = { at: Date.now(), iceServers: ice };
+      return { iceServers: [...RTC_CONFIG.iceServers, ...ice] };
+    }
+  } catch (e) { /* 실패 시 기본값 */ }
+  return RTC_CONFIG;
+}
 
 function randCode() {
   const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -138,8 +175,16 @@ export class NetRoom {
 
   _newPeer(id) {
     return new Promise((resolve, reject) => {
-      const peer = this.peerFactory(id);
-      const timer = setTimeout(() => reject(new Error('signaling timeout')), 30000);
+      (async () => {
+        let peer;
+        try {
+          const config = await resolveRTCConfig();
+          peer = this.peerFactory(id, config);
+        } catch (e) {
+          reject(e);
+          return;
+        }
+        const timer = setTimeout(() => reject(new Error('signaling timeout')), 30000);
       peer.on('open', (pid) => {
         clearTimeout(timer);
         const first = !this.peer;
@@ -161,6 +206,7 @@ export class NetRoom {
       peer.on('disconnected', () => {
         try { peer.reconnect(); } catch (e) { /* 무시 */ }
       });
+      })();
     });
   }
 

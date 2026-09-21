@@ -120,6 +120,14 @@ html, body {
 }
 .ojoin .obtn { width: auto; margin-top: 0; padding: 9px 16px; }
 .o-hint { color: #8fa0b3; font-size: 12px; margin: 10px 0 0; line-height: 1.5; }
+.o-adv { margin-top: 10px; font-size: 13px; color: #c6d3de; }
+.o-adv summary { cursor: pointer; font-weight: 700; }
+.o-adv input {
+  width: 100%; margin-top: 6px; font-size: 13px;
+  background: #0d141c; color: #fff; border: 2px solid #3a4a5c; border-radius: 8px;
+  padding: 8px; box-sizing: border-box;
+}
+#turnState { min-height: 16px; }
 .ocode { font-size: 15px; color: #8fa0b3; }
 .ocode b { font-family: "Press Start 2P", monospace; font-size: 26px; color: #5dff5d; letter-spacing: 4px; }
 #lobbyTrack { font-size: 14px; font-weight: 800; margin: 8px 0; color: #ffd75d; }
@@ -165,6 +173,35 @@ html, body {
   text-shadow: 2px 2px 0 #101418;
 }
 .hud-speed small { font-size: 11px; margin-left: 4px; }
+/* 조작 버튼 (좌우 쌍, 위치·크기 변경 가능) */
+.ctlbtn {
+  position: absolute; transform: translate(-50%, -50%);
+  border-radius: 50%;
+  font-weight: 900; color: #fff;
+  pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.ctlbtn.drift { background: rgba(226,59,46,.75); border: 3px solid rgba(255,255,255,.7); }
+.ctlbtn.drift.active { background: #ff8a00; transform: translate(-50%,-50%) scale(.93); }
+.ctlbtn.item { background: rgba(31,111,214,.8); border: 3px solid rgba(255,255,255,.7); }
+.ctlbtn.item:active { transform: translate(-50%,-50%) scale(.92); }
+body.editing .ctlbtn { outline: 3px dashed #ffd75d; cursor: move; }
+#layoutCard {
+  position: absolute; top: 74px; right: 10px;
+  width: 220px; pointer-events: auto;
+  background: rgba(10,16,24,.92); border: 2px solid #ffd75d; border-radius: 12px;
+  padding: 12px 14px; font-size: 13px;
+}
+#layoutCard b { font-size: 15px; }
+#layoutCard p { color: #8fa0b3; margin: 6px 0 8px; }
+#layoutCard label { display: block; margin: 8px 0; }
+#layoutCard input[type="range"] { width: 100%; }
+.lc-row { display: flex; gap: 8px; margin-top: 8px; }
+.lc-row button {
+  flex: 1; font-size: 14px; font-weight: 800; color: #fff;
+  background: #2e3d4d; border: 2px solid #fff; border-radius: 8px;
+  padding: 8px; cursor: pointer;
+}
+#layoutDone { background: #2ea043; }
 #btnDrift {
   position: absolute; bottom: 150px; right: 14px;
   width: 84px; height: 84px; border-radius: 50%;

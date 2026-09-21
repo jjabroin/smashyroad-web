@@ -159,6 +159,7 @@ export function createInput(canvas) {
     }
   };
   canvas.addEventListener('pointerdown', (e) => {
+    if (window.__layoutEdit) return; // 배치 편집 중엔 조향 무시
     const s = sideOf(e.clientX);
     if (s) {
       touches.set(e.pointerId, s);
@@ -173,12 +174,14 @@ export function createInput(canvas) {
   canvas.addEventListener('pointerleave', release);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  // 드리프트 버튼 (누르고 있으면 드리프트, 떼면 차지량만큼 미니 터보)
-  const driftBtn = document.getElementById('btnDrift');
-  if (driftBtn) {
+  // 드리프트 버튼 좌/우 (어느 쪽을 눌러도 동일, 편집 중엔 동작 안 함)
+  for (const id of ['btnDriftL', 'btnDriftR']) {
+    const driftBtn = document.getElementById(id);
+    if (!driftBtn) continue;
     const on = (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (window.__layoutEdit) return;
       state.drift = true;
       driftBtn.classList.add('active');
     };
@@ -193,12 +196,14 @@ export function createInput(canvas) {
     driftBtn.addEventListener('pointercancel', off);
   }
 
-  // 아이템 사용 버튼 (🎁) — 누르면 1회 발동 플래그
-  const itemBtn = document.getElementById('btnItem');
-  if (itemBtn) {
+  // 아이템 사용 버튼 좌/우 (🎁) — 누르면 1회 발동 플래그
+  for (const id of ['btnItemL', 'btnItemR']) {
+    const itemBtn = document.getElementById(id);
+    if (!itemBtn) continue;
     itemBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (window.__layoutEdit) return;
       state.useItem = true;
     });
   }

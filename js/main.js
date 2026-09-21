@@ -571,7 +571,7 @@ function loop(ts) {
       if (r.isPlayer) onPlayerWrecked();
     }
   }
-  if (phase !== 'racing') {
+  if (phase !== 'racing' && phase !== 'finished') {
     updatePuffs(dt);
     renderer.render(scene, camera);
     return;
@@ -1079,6 +1079,100 @@ window.__raceChange = () => {
   if (onlineCtl) backToOnlineLobby();
   else document.getElementById('garageBtn').click();
 };
+
+// ---- 버튼 레이아웃 (위치·크기, 브라우저 저장) ----
+window.__layoutEdit = false;
+const LAYOUT_KEY = 'blockyracer-layout-v1';
+const DEFAULT_LAYOUT = {
+  driftL: { x: 0.07, y: 0.78 }, driftR: { x: 0.93, y: 0.78 },
+  itemL: { x: 0.07, y: 0.6 }, itemR: { x: 0.93, y: 0.6 },
+  driftSize: 84, itemSize: 64,
+};
+let layout = (() => {
+  try {
+    const s = JSON.parse(localStorage.getItem(LAYOUT_KEY));
+    if (s && typeof s === 'object') return { ...DEFAULT_LAYOUT, ...s };
+  } catch (e) { /* 무시 */ }
+  return { ...DEFAULT_LAYOUT };
+})();
+function saveLayout() {
+  try {
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+  } catch (e) { /* 무시 */ }
+}
+function applyLayout() {
+  const defs = [
+    ['btnDriftL', layout.driftL, layout.driftSize, 'DRIFT'],
+    ['btnDriftR', layout.driftR, layout.driftSize, 'DRIFT'],
+    ['btnItemL', layout.itemL, layout.itemSize, '🎁'],
+    ['btnItemR', layout.itemR, layout.itemSize, '🎁'],
+  ];
+  for (const [id, pos, size, label] of defs) {
+    const b = document.getElementById(id);
+    if (!b) continue;
+    b.style.left = pos.x * 100 + '%';
+    b.style.top = pos.y * 100 + '%';
+    b.style.width = size + 'px';
+    b.style.height = size + 'px';
+    b.style.fontSize = Math.round(size * (label === 'DRIFT' ? 0.2 : 0.42)) + 'px';
+  }
+  document.body.classList.toggle('editing', window.__layoutEdit);
+  const card = document.getElementById('layoutCard');
+  if (card) card.style.display = window.__layoutEdit ? 'block' : 'none';
+  const sd = document.getElementById('sizeDrift');
+  if (sd) sd.value = layout.driftSize;
+  const si = document.getElementById('sizeItem');
+  if (si) si.value = layout.itemSize;
+}
+const LAYOUT_BTNS = { btnDriftL: 'driftL', btnDriftR: 'driftR', btnItemL: 'itemL', btnItemR: 'itemR' };
+for (const [id, key] of Object.entries(LAYOUT_BTNS)) {
+  const b = document.getElementById(id);
+  if (!b) continue;
+  b.addEventListener('pointerdown', (e) => {
+    if (!window.__layoutEdit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try { b.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
+    const move = (ev) => {
+      layout[key].x = Math.max(0.03, Math.min(0.97, ev.clientX / window.innerWidth));
+      layout[key].y = Math.max(0.05, Math.min(0.95, ev.clientY / window.innerHeight));
+      applyLayout();
+    };
+    const up = () => {
+      b.removeEventListener('pointermove', move);
+      b.removeEventListener('pointerup', up);
+      b.removeEventListener('pointercancel', up);
+      saveLayout();
+    };
+    b.addEventListener('pointermove', move);
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointercancel', up);
+  });
+}
+document.getElementById('layoutBtn').addEventListener('click', () => {
+  window.__layoutEdit = !window.__layoutEdit;
+  applyLayout();
+});
+document.getElementById('layoutDone').addEventListener('click', () => {
+  window.__layoutEdit = false;
+  applyLayout();
+});
+document.getElementById('layoutReset').addEventListener('click', () => {
+  layout = { ...DEFAULT_LAYOUT };
+  saveLayout();
+  applyLayout();
+});
+document.getElementById('sizeDrift').addEventListener('input', (e) => {
+  layout.driftSize = +e.target.value;
+  saveLayout();
+  applyLayout();
+});
+document.getElementById('sizeItem').addEventListener('input', (e) => {
+  layout.itemSize = +e.target.value;
+  saveLayout();
+  applyLayout();
+});
+applyLayout();
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
 onlinePanel = createOnlinePanel({

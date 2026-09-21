@@ -7,9 +7,9 @@
 //   password: 'xxx...'      (접속 비밀번호)
 // ※ 한국에서 가장 가까운 리전으로 만들수록 빠릅니다.
 export const RELAY = {
-  url: '',
-  username: '',
-  password: '',
+  url: 'wss://644892f822434b79ae00f2d89aa3fef0.s1.eu.hivemq.cloud:8884/mqtt',
+  username: 'blockyracer',
+  password: 'blockyracer',
 };
 
 // 위가 비어 있으면 아래 공개 브로커로 동작합니다.

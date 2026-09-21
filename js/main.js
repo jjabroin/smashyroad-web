@@ -1370,6 +1370,9 @@ onlinePanel = createOnlinePanel({
   onRoom: (room) => {
     lobbyRoom = room;
   },
+  onOnline: () => {
+    if (onlinePanel) onlinePanel.openHome();
+  },
 });
 createGarage(
   (def, track, mode) => {

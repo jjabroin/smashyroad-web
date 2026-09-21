@@ -97,7 +97,7 @@ export function createOnlinePanel(api) {
     };
   }
 
-  el('onlineBtn').addEventListener('click', () => {
+  function openHome() {
     show('home');
     status('');
     diag('');
@@ -106,7 +106,7 @@ export function createOnlinePanel(api) {
     el('turnApp').value = t ? t.app : '';
     el('turnKey').value = t ? t.key : '';
     el('turnState').textContent = t ? '✅ 중계 키 설정됨' : '미설정 (직접 연결만 시도)';
-  });
+  }
   el('turnSave').addEventListener('click', () => {
     const app = el('turnApp').value.trim();
     const key = el('turnKey').value.trim();
@@ -227,7 +227,7 @@ export function createOnlinePanel(api) {
   }
 
   return {
-    show, hide, backToLobby,
+    show, hide, backToLobby, openHome,
     get room() { return room; },
   };
 }

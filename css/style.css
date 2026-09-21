@@ -87,6 +87,197 @@ html, body {
 #timeAttackBtn:active { transform: scale(.96); }
 #trackBest { font-size: 13px; font-weight: 800; color: #fff8dc; margin-top: 6px; min-height: 18px; }
 .g-hint { color: #6d5423; font-size: 13px; margin-top: 12px; }
+/* 사진 스타일 메인메뉴 */
+#garage { position: fixed; inset: 0; overflow-y: auto; align-items: center; }
+.menu-top { display: flex; justify-content: space-between; align-items: center; width: min(680px, 94vw); margin-top: 10px; }
+.menu-title { font-family: "Press Start 2P", monospace; font-size: 19px; color: #fff; text-shadow: 2px 2px 0 rgba(0,0,0,.4); }
+.menu-topbtns { display: flex; gap: 8px; }
+.menu-topbtns button {
+  font-size: 14px; font-weight: 800; color: #fff;
+  background: #2e3d4d; border: 2px solid #fff; border-radius: 10px;
+  padding: 8px 12px; cursor: pointer;
+}
+#garageCanvas { width: min(680px, 94vw); height: min(40vh, 340px); }
+.menu-cards { display: flex; gap: 10px; width: min(680px, 94vw); margin-top: 12px; }
+.mcard {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  border: 3px solid #fff; border-radius: 12px; padding: 12px 6px; cursor: pointer; color: #fff;
+}
+.mcard.blue { background: linear-gradient(160deg, #2f7fe0, #1a3f8f); }
+.mcard.green { background: linear-gradient(160deg, #37b56c, #1a6e3f); }
+.mcard.purple { background: linear-gradient(160deg, #8a4fd0, #4a2390); }
+.mcard:active { transform: scale(.96); }
+.mthumb { font-size: 32px; }
+.mlabel { font-size: 15px; }
+.msub { font-size: 12px; opacity: .85; }
+#raceBtn { margin-top: 12px; }
+.subpanel {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  width: min(560px, 94vw); max-height: 64vh; overflow-y: auto;
+  background: rgba(12,18,24,.96); border: 3px solid #fff; border-radius: 14px;
+  padding: 14px 16px; z-index: 15;
+}
+.phead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.phead b { font-size: 17px; }
+.pclose { background: none; border: 0; color: #8fa0b3; font-size: 20px; cursor: pointer; }
+.crow { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 10px; }
+#carDots { font-family: "Press Start 2P", monospace; font-size: 13px; }
+.trackrow {
+  display: flex; gap: 10px; align-items: center; width: 100%;
+  background: #1f2833; border: 2px solid transparent; border-radius: 10px;
+  padding: 8px; margin-bottom: 8px; cursor: pointer; color: #fff; text-align: left;
+}
+.trackrow.sel { border-color: #5dff5d; }
+.trackrow canvas { border-radius: 6px; background: #0d141c; flex-shrink: 0; }
+.trackrow div b { display: block; font-size: 15px; }
+.trackrow div small { color: #8fa0b3; font-size: 12px; }
+.moderow {
+  display: flex; justify-content: space-between; align-items: center; width: 100%;
+  background: #1f2833; border: 2px solid transparent; border-radius: 10px;
+  padding: 12px; margin-bottom: 8px; cursor: pointer; color: #fff; font-size: 16px; font-weight: 800;
+}
+.moderow small { color: #8fa0b3; font-size: 12px; font-weight: 400; }
+.moderow.sel { border-color: #ffd75d; }
+.moderow.online { background: #1f4d8f; }
+#itemRowBig { cursor: pointer; margin-top: 4px; }
+#itemRowBig:active { transform: scale(.98); }
+#itemName { font-size: 16px; font-weight: 900; color: #fff; text-align: center; width: 100%; }
+.bsec { margin-bottom: 12px; }
+.btitle { font-size: 14px; font-weight: 900; color: #ffd75d; margin-bottom: 6px; }
+.brow { display: flex; justify-content: space-between; background: #1f2833; border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; font-size: 13px; }
+.bempty { color: #8fa0b3; font-size: 13px; }
+.help-list { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.9; color: #dbe6ef; }
+/* 사진 스타일 메인메뉴 */
+.menu-top { display: flex; justify-content: space-between; align-items: center; width: min(680px, 94vw); margin-top: 8px; }
+.menu-title { font-family: "Press Start 2P", monospace; font-size: 19px; color: #fff; text-shadow: 2px 2px 0 rgba(0,0,0,.4); }
+.menu-topbtns { display: flex; gap: 8px; }
+.menu-topbtns button {
+  font-size: 14px; font-weight: 800; color: #fff;
+  background: #2e3d4d; border: 2px solid #fff; border-radius: 10px;
+  padding: 8px 12px; cursor: pointer;
+}
+.menu-cards { display: flex; gap: 10px; width: min(680px, 94vw); margin-top: 12px; }
+.mcard {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 3px solid #fff; border-radius: 12px; padding: 12px 6px; cursor: pointer;
+  color: #fff;
+}
+.mcard.blue { background: linear-gradient(160deg, #2f7fe0, #1a3f8f); }
+.mcard.green { background: linear-gradient(160deg, #37b56c, #1a6e3f); }
+.mcard.purple { background: linear-gradient(160deg, #8a4fd0, #4a2390); }
+.mcard:active { transform: scale(.96); }
+.mthumb { font-size: 34px; }
+.mlabel { font-size: 15px; }
+.mlabel b { font-size: 16px; }
+.msub { font-size: 12px; opacity: .85; }
+#raceBtn {
+  margin-top: 12px;
+  font-size: 24px; font-weight: 900;
+  background: linear-gradient(180deg, #ffd75d, #f0a500); color: #4a2c00;
+  border: 3px solid #fff; border-radius: 12px;
+  padding: 14px 44px; cursor: pointer;
+  box-shadow: 0 5px 0 #7a5a00;
+}
+#raceBtn:active { transform: translateY(3px); box-shadow: none; }
+/* 서브패널 */
+.subpanel {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  width: min(560px, 94vw); max-height: 64vh; overflow-y: auto;
+  background: rgba(12,18,24,.96); border: 3px solid #fff; border-radius: 14px;
+  padding: 14px 16px; z-index: 15;
+}
+.phead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.phead b { font-size: 17px; }
+.pclose { background: none; border: 0; color: #8fa0b3; font-size: 20px; cursor: pointer; }
+.crow { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 10px; }
+#carDots { font-family: "Press Start 2P", monospace; font-size: 13px; }
+.trackrow {
+  display: flex; gap: 10px; align-items: center; width: 100%;
+  background: #1f2833; border: 2px solid transparent; border-radius: 10px;
+  padding: 8px; margin-bottom: 8px; cursor: pointer; color: #fff; text-align: left;
+}
+.trackrow.sel { border-color: #5dff5d; }
+.trackrow canvas { border-radius: 6px; background: #0d141c; flex-shrink: 0; }
+.trackrow span b { display: block; font-size: 15px; }
+.trackrow span small { color: #8fa0b3; font-size: 12px; }
+.moderow {
+  display: flex; justify-content: space-between; align-items: center; width: 100%;
+  background: #1f2833; border: 2px solid transparent; border-radius: 10px;
+  padding: 12px; margin-bottom: 8px; cursor: pointer; color: #fff; font-size: 16px; font-weight: 800;
+}
+.moderow small { color: #8fa0b3; font-size: 12px; font-weight: 400; }
+.moderow.sel { border-color: #ffd75d; }
+.moderow.online { background: #1f4d8f; }
+#itemRowBig { cursor: pointer; margin-top: 4px; }
+#itemRowBig:active { transform: scale(.98); }
+#itemName { font-size: 16px; font-weight: 900; color: #fff; text-align: center; width: 100%; }
+.bsec { margin-bottom: 12px; }
+.btitle { font-size: 14px; font-weight: 900; color: #ffd75d; margin-bottom: 6px; }
+.bempty { color: #8fa0b3; font-size: 13px; }
+.help-list { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.9; color: #dbe6ef; }
+/* 사진 스타일 메인메뉴 */
+.menu-top { display: flex; justify-content: space-between; align-items: center; width: min(680px, 94vw); margin-top: 8px; }
+.menu-title { font-family: "Press Start 2P", monospace; font-size: 20px; color: #fff; text-shadow: 2px 2px 0 rgba(0,0,0,.4); }
+.menu-topbtns { display: flex; gap: 8px; }
+.menu-topbtns button {
+  font-size: 14px; font-weight: 800; color: #fff;
+  background: #2e3d4d; border: 2px solid #fff; border-radius: 10px;
+  padding: 8px 12px; cursor: pointer;
+}
+.menu-cards { display: flex; gap: 10px; width: min(680px, 94vw); margin-top: 12px; }
+.mcard {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 3px solid #fff; border-radius: 12px; padding: 12px 6px; cursor: pointer;
+  color: #fff;
+}
+.mcard.blue { background: linear-gradient(160deg, #2f7fe0, #1a3f8f); }
+.mcard.green { background: linear-gradient(160deg, #37b56c, #1a6e3f); }
+.mcard.purple { background: linear-gradient(160deg, #8a4fd0, #4a2390); }
+.mcard:active { transform: scale(.96); }
+.mthumb { font-size: 34px; }
+.mlabel { font-size: 15px; }
+.mlabel b { font-size: 16px; }
+.msub { font-size: 12px; opacity: .85; }
+/* 서브패널 (카드 위 오버레이) */
+.subpanel {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  width: min(560px, 94vw); max-height: 62vh; overflow-y: auto;
+  background: rgba(12,18,24,.96); border: 3px solid #fff; border-radius: 14px;
+  padding: 14px 16px; z-index: 15;
+}
+.phead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.phead b { font-size: 17px; }
+.pclose { background: none; border: 0; color: #8fa0b3; font-size: 20px; cursor: pointer; }
+.crow { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 10px; }
+#carDots { font-family: "Press Start 2P", monospace; font-size: 13px; }
+.trackrow {
+  display: flex; gap: 10px; align-items: center; width: 100%;
+  background: #1f2833; border: 2px solid transparent; border-radius: 10px;
+  padding: 8px; margin-bottom: 8px; cursor: pointer; color: #fff; text-align: left;
+}
+.trackrow.sel { border-color: #5dff5d; }
+.trackrow canvas { border-radius: 6px; background: #0d141c; }
+.trackrow span b { display: block; font-size: 15px; }
+.trackrow span small { color: #8fa0b3; font-size: 12px; }
+.moderow {
+  display: flex; justify-content: space-between; align-items: center; width: 100%;
+  background: #1f2833; border: 2px solid transparent; border-radius: 10px;
+  padding: 12px; margin-bottom: 8px; cursor: pointer; color: #fff; font-size: 16px; font-weight: 800;
+}
+.moderow small { color: #8fa0b3; font-size: 12px; font-weight: 400; }
+.moderow.sel { border-color: #ffd75d; }
+.moderow.online { background: #1f4d8f; }
+#itemRowBig { cursor: pointer; margin-top: 4px; }
+#itemRowBig:active { transform: scale(.98); }
+#itemName { font-size: 16px; font-weight: 900; color: #fff; text-align: center; width: 100%; }
+.bsec { margin-bottom: 12px; }
+.btitle { font-size: 14px; font-weight: 900; color: #ffd75d; margin-bottom: 6px; }
+.brow {
+  display: flex; justify-content: space-between;
+  background: #1f2833; border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; font-size: 13px;
+}
+.bempty { color: #8fa0b3; font-size: 13px; }
+.help-list { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.9; color: #dbe6ef; }
 .swiperow {
   display: flex; align-items: center; justify-content: center; gap: 12px;
   margin: 10px auto 0;

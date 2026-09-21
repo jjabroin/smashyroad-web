@@ -108,12 +108,13 @@ export function createHUD(circuit) {
 // 입력: 키보드 + 화면 좌/우 탭 조향 (멀티터치: 양쪽 동시=브레이크/후진)
 // L/R 버튼은 시작 전 힌트용 표시물(pointer-events 없음), 실제 입력은 화면 분할 탭
 export function createInput(canvas) {
-  const state = { left: false, right: false, up: false, down: false };
+  const state = { left: false, right: false, up: false, down: false, drift: false };
   const keymap = {
     ArrowLeft: 'left', KeyA: 'left',
     ArrowRight: 'right', KeyD: 'right',
     ArrowUp: 'up', KeyW: 'up',
     ArrowDown: 'down', KeyS: 'down',
+    ShiftLeft: 'drift', ShiftRight: 'drift', KeyF: 'drift',
   };
   window.addEventListener('keydown', (e) => {
     const k = keymap[e.code];
@@ -164,6 +165,26 @@ export function createInput(canvas) {
   canvas.addEventListener('pointerleave', release);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  // 드리프트 버튼 (누르고 있으면 드리프트, 떼면 차지량만큼 미니 터보)
+  const driftBtn = document.getElementById('btnDrift');
+  if (driftBtn) {
+    const on = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      state.drift = true;
+      driftBtn.classList.add('active');
+    };
+    const off = (e) => {
+      if (e) e.preventDefault();
+      state.drift = false;
+      driftBtn.classList.remove('active');
+    };
+    driftBtn.addEventListener('pointerdown', on);
+    driftBtn.addEventListener('pointerup', off);
+    driftBtn.addEventListener('pointerleave', off);
+    driftBtn.addEventListener('pointercancel', off);
+  }
+
   function toRaceInput() {
     const left = state.left || zoneL;
     const right = state.right || zoneR;
@@ -172,6 +193,7 @@ export function createInput(canvas) {
       steer: (left ? -1 : 0) + (right ? 1 : 0),
       throttle: both ? 0 : 1, // 자동 가속 (가만히 있어도 전진)
       brake: both ? 1 : 0,
+      drift: !!state.drift,
     };
   }
   return { state, toRaceInput };

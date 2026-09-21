@@ -164,6 +164,14 @@ html, body {
   text-shadow: 2px 2px 0 #101418;
 }
 .hud-speed small { font-size: 11px; margin-left: 4px; }
+#btnDrift {
+  position: absolute; bottom: 150px; right: 14px;
+  width: 84px; height: 84px; border-radius: 50%;
+  font-size: 15px; font-weight: 900; color: #fff;
+  background: rgba(226,59,46,.75); border: 3px solid rgba(255,255,255,.7);
+  pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+#btnDrift.active { background: #ff8a00; transform: scale(.93); }
 #hpBar {
   position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%);
   width: 220px; height: 12px;

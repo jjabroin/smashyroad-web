@@ -114,6 +114,9 @@ export function makeCarState(def, x, z, heading) {
     boostT: 0,     // 부스터 잔여 시간
     airT: 0,       // 점프 체공 잔여 시간
     airDur: 0.75,
+    driftCharge: 0, // 드리프트 차지 (놓으면 미니 터보)
+    drifting: false,
+    driftHeld: false,
   };
 }
 
@@ -162,14 +165,25 @@ export function stepCar(car, input, dt, circuit, roadHalf) {
 
   // 조향 스무딩 (꺾는 순간 휙 돌아가는 현상 방지)
   car.steerSm += (input.steer - car.steerSm) * Math.min(1, 7 * dt);
+  // 드리프트: 그립↓·회전↑, 차지 축적 (일정 속도 이상에서만)
+  const spdRaw = Math.abs(fwd);
+  const wantDrift = !!input.drift && spdRaw > 8 && car.hp > 0;
+  car.drifting = wantDrift;
+  let gripNow = d.grip;
+  let turnNow = d.turnRate;
+  if (wantDrift) {
+    gripNow *= 0.35;
+    turnNow *= 1.35;
+    car.driftCharge = Math.min(1.2, (car.driftCharge || 0) + dt);
+  }
   // 조향 (속도가 있어야 돌아감, 후진 시 반대)
-  const spd = Math.abs(fwd);
+  const spd = spdRaw;
   const spdFactor = Math.min(1, spd / 18);
   const dirSign = fwd >= 0 ? 1 : -1;
   // 고속일수록 회전 둔화 (저속 민첩 · 고속 안정)
   const highSpeedDamp = 1 / (1 + spd * 0.018);
   const turn =
-    car.steerSm * d.turnRate * (0.35 + 0.65 * spdFactor) * highSpeedDamp * dirSign;
+    car.steerSm * turnNow * (0.35 + 0.65 * spdFactor) * highSpeedDamp * dirSign;
   car.heading += turn * dt;
   car.steerVis += (input.steer - car.steerVis) * Math.min(1, 10 * dt);
 
@@ -179,7 +193,7 @@ export function stepCar(car, input, dt, circuit, roadHalf) {
   const oldFwd = car.vx * fx + car.vz * fz;
   const latX = car.vx - fx * oldFwd;
   const latZ = car.vz - fz * oldFwd;
-  const keep = Math.exp(-d.grip * dt);
+  const keep = Math.exp(-gripNow * dt);
   car.vx = nfx * fwd + latX * keep;
   car.vz = nfz * fwd + latZ * keep;
 

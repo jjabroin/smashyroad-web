@@ -207,8 +207,17 @@ function explode(r) {
 function rankKey(r) {
   return r.car.out ? -1 : progressOf(r.car, circuit);
 }
+function ordSuffix(pos) {
+  return pos === 1 ? 'st' : pos === 2 ? 'nd' : pos === 3 ? 'rd' : 'th';
+}
 function raceOrder() {
-  return [...racers].sort((a, b) => rankKey(b) - rankKey(a));
+  // 완주 차량은 기록순, 미완주는 진행도순, 탈락은 최하위
+  return [...racers].sort((a, b) => {
+    if (a.car.finished && b.car.finished) return a.car.finishTime - b.car.finishTime;
+    if (a.car.finished) return -1;
+    if (b.car.finished) return 1;
+    return rankKey(b) - rankKey(a);
+  });
 }
 
 function startCountdown() {
@@ -230,6 +239,16 @@ function loop(ts) {
   let dt = (ts - lastTs) / 1000;
   lastTs = ts;
   if (dt > 0.06) dt = 0.06;
+
+  // 폭파 연출: 2.5초간 불꽃을 보여준 뒤 성적표
+  if (phase === 'wreck-anim') {
+    wreckTimer -= dt;
+    updatePuffs(dt);
+    snapCamera(false, dt);
+    renderer.render(scene, camera);
+    if (wreckTimer <= 0) onRaceEnd('wrecked');
+    return;
+  }
 
   if (phase === 'countdown') {
     countdownT -= dt;
@@ -287,6 +306,21 @@ function loop(ts) {
       }
     }
     if (c.finished) continue;
+    // 드리프트 미니 터보 (플레이어만 차지, 버튼을 놓으면 발사)
+    if (r.isPlayer) {
+      const fwdSpd = c.vx * Math.cos(c.heading) + c.vz * Math.sin(c.heading);
+      const held = !!pin.drift && Math.abs(fwdSpd) > 8;
+      if (c.driftHeld && !held) {
+        if ((c.driftCharge || 0) > 0.4) {
+          c.boostT = Math.max(c.boostT, Math.min(1.5, 0.5 + c.driftCharge));
+          beeper.boost();
+          hud.message('MINI TURBO!', '', 700);
+        }
+        c.driftCharge = 0;
+      }
+      c.driftHeld = held;
+      if (!held) c.driftCharge = 0;
+    }
     for (const pd of pads) {
       const dx = c.x - pd.x;
       const dz = c.z - pd.z;
@@ -340,11 +374,11 @@ function loop(ts) {
     beeper.crash();
     shakeT = Math.max(shakeT, Math.min(0.45, impact * 0.015));
   }
-  // 새로 탈락한 차량 폭파 연출
+  // 새로 탈락한 차량 폭파 연출 (플레이어는 연출 후 성적표)
   for (const r of racers) {
     if (r.car.out && r.mesh.visible) {
       explode(r);
-      if (r.isPlayer) onRaceEnd('wrecked');
+      if (r.isPlayer) onPlayerWrecked();
     }
   }
   if (phase !== 'racing') {
@@ -392,7 +426,7 @@ function loop(ts) {
     const fw = r.mesh.userData.frontWheels || [];
     for (const w of fw) w.rotation.y = -c.steerVis * 0.45;
     const latV = Math.abs(c.vx * -Math.sin(c.heading) + c.vz * Math.cos(c.heading));
-    if ((latV > 14 || c.offTrack) && Math.hypot(c.vx, c.vz) > 12 && Math.random() < 0.5) {
+    if ((latV > 14 || c.offTrack || c.drifting) && Math.hypot(c.vx, c.vz) > 12 && Math.random() < 0.6) {
       puff(c.x - Math.cos(c.heading) * 3, c.z - Math.sin(c.heading) * 3);
     }
     // 대미지 연기: HP 60% 이하부터, 25% 이하는 불꽃 섞임
@@ -460,15 +494,21 @@ function loop(ts) {
   renderer.render(scene, camera);
 }
 
-function onRaceEnd(reason) {
-  phase = 'done';
+let wreckTimer = 0;
+function onPlayerWrecked() {
+  phase = 'wreck-anim';
+  wreckTimer = 2.5;
+  hud.message('💥 WRECKED!', '', 0);
+}
+
+function onRaceEnd(reason) {  phase = 'done';
   const order = raceOrder();
   const pos = order.indexOf(racers[playerIdx]) + 1;
   if (reason === 'wrecked') {
     hud.message('💥 WRECKED!', '차량이 폭파됐습니다', 2500);
   } else {
     beeper.finish();
-    hud.message(pos === 1 ? '🏆 WINNER!' : `${pos}nd FINISH`, '', 2000);
+    hud.message(pos === 1 ? '🏆 WINNER!' : `${pos}${ordSuffix(pos)} FINISH`, '', 2000);
   }
   hud.showResults(
     order.map((r) => ({
@@ -530,7 +570,7 @@ let onlinePanel = null;
 function startOnlineRace(info) {
   onlineCtl = {
     room: info.room, players: info.players, ai: info.ai,
-    track: info.track, myId: info.myId,
+    track: info.track, myId: info.myId, restartReqs: new Set(),
   };
   info.room.onEvent = onRaceNetEvent;
   document.getElementById('garage').style.display = 'none';
@@ -633,6 +673,15 @@ function onRaceNetEvent(ev) {
     });
   } else if (ev.type === 'error') {
     hud.message(ev.msg, '', 2000);
+  } else if (ev.type === 'restart-req') {
+    // 게스트 재시작 요청: 전원 모이면 호스트가 자동 시작
+    if (onlineCtl && onlineCtl.room.isHost && phase === 'done') {
+      onlineCtl.restartReqs.add(ev.id);
+      const guests = onlineCtl.players.filter((pl) => pl.id !== onlineCtl.room.myId);
+      const n = onlineCtl.restartReqs.size;
+      hud.message(`재시작 요청 ${n}/${guests.length}`, '', 1500);
+      if (guests.length > 0 && n >= guests.length) onlineRestart();
+    }
   }
 }
 
@@ -652,14 +701,23 @@ function backToOnlineLobby() {
 }
 
 // 결과 화면 버튼 오버라이드 (온라인에선 로비/재시작 흐름)
+function onlineRestart() {
+  const ctl = onlineCtl;
+  if (!ctl) return;
+  const msg = ctl.room.startRace(ctl.ai);
+  ctl.restartReqs = new Set();
+  startOnlineRace({
+    room: ctl.room, players: msg.players, ai: msg.ai,
+    track: ctl.track, myId: ctl.room.myId,
+  });
+}
 window.__raceAgain = () => {
   if (onlineCtl) {
-    if (onlineCtl.room.isHost) {
-      const msg = onlineCtl.room.startRace(onlineCtl.ai);
-      startOnlineRace({
-        room: onlineCtl.room, players: msg.players, ai: msg.ai,
-        track: onlineCtl.track, myId: onlineCtl.room.myId,
-      });
+    // 온라인: 호스트가 시작, 게스트는 요청만 (전원 요청 시 자동 시작)
+    if (onlineCtl.room.isHost) onlineRestart();
+    else {
+      onlineCtl.room.requestRestart();
+      hud.message('호스트 대기 중…', '', 2000);
     }
   } else {
     document.getElementById('restartBtn').click();

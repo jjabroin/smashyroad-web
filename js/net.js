@@ -154,6 +154,11 @@ export class NetRoom {
         this._emit({ type: 'peer-left', id: peerId });
         return;
       }
+      if (msg.t === 'req-restart') {
+        // 게스트의 재시작 요청 (호스트가 모아서 자동 시작)
+        this._emit({ type: 'restart-req', id: peerId });
+        return;
+      }
       if (msg.t === 'hello' || msg.t === 'car') {
         let p = this.players.find((x) => x.id === peerId);
         if (!p) {
@@ -259,6 +264,15 @@ export class NetRoom {
     const c = this.conns.get(this.hostId);
     if (c) {
       try { c.send({ t: 'quit' }); } catch (e) { /* 무시 */ }
+    }
+  }
+
+  // 게스트의 재시작 요청 (결과 화면 "다시 달리기")
+  requestRestart() {
+    if (this.isHost) return;
+    const c = this.conns.get(this.hostId);
+    if (c) {
+      try { c.send({ t: 'req-restart' }); } catch (e) { /* 무시 */ }
     }
   }
 

@@ -9,6 +9,8 @@ const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };
 export function createGarage(onStart, hooks = {}) {
   let idx = 0;
   let trackIdx = 0;
+  let mode = 'race'; // 'race' | 'ta'
+  let itemsOn = true;
   const canvas = document.getElementById('garageCanvas');
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -86,8 +88,56 @@ export function createGarage(onStart, hooks = {}) {
   document.getElementById('carPrev').addEventListener('click', () => render(idx - 1));
   document.getElementById('carNext').addEventListener('click', () => render(idx + 1));
   document.getElementById('raceBtn').addEventListener('click', () => {
-    onStart(CAR_DEFS[idx], TRACK_DEFS[trackIdx]);
+    onStart(CAR_DEFS[idx], TRACK_DEFS[trackIdx], mode);
   });
+
+  // 모드 선택 (스와이프·화살표·탭, 체크박스 없음)
+  function renderMode() {
+    document.getElementById('modeName').textContent = mode === 'ta' ? '⏱ TIME ATTACK' : '🏁 RACE';
+    document.getElementById('raceBtn').textContent = mode === 'ta' ? '⏱ START' : '🏁 START';
+    document.getElementById('itemName').textContent = itemsOn ? '🎁 ITEMS ON' : '🚫 ITEMS OFF';
+    if (hooks.onMode) hooks.onMode(mode);
+    if (hooks.onItems) hooks.onItems(itemsOn);
+  }
+  function cycleMode(dir) {
+    mode = dir > 0
+      ? (mode === 'race' ? 'ta' : 'race')
+      : (mode === 'ta' ? 'race' : 'ta');
+    renderMode();
+  }
+  document.getElementById('modePrev').addEventListener('click', (e) => {
+    e.stopPropagation();
+    cycleMode(-1);
+  });
+  document.getElementById('modeNext').addEventListener('click', (e) => {
+    e.stopPropagation();
+    cycleMode(1);
+  });
+  document.getElementById('itemRow').addEventListener('click', () => {
+    itemsOn = !itemsOn;
+    renderMode();
+  });
+  // 화면 전체 좌우 스와이프로 모드 전환 (버튼·입력창 위 제스처는 제외)
+  {
+    const g = document.getElementById('garage');
+    let sx = 0, sy = 0, active = false;
+    g.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button, input, select, canvas')) return;
+      sx = e.clientX;
+      sy = e.clientY;
+      active = true;
+    });
+    g.addEventListener('pointerup', (e) => {
+      if (!active) return;
+      active = false;
+      const dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
+        cycleMode(dx < 0 ? 1 : -1);
+      }
+    });
+    g.addEventListener('pointercancel', () => { active = false; });
+  }
 
   // 트랙 선택 + 미니 프리뷰
   function renderTrack() {
@@ -139,7 +189,7 @@ export function createGarage(onStart, hooks = {}) {
     }
     if (e.code === 'ArrowLeft') render(idx - 1);
     if (e.code === 'ArrowRight') render(idx + 1);
-    if (e.code === 'Enter' || e.code === 'Space') onStart(CAR_DEFS[idx], TRACK_DEFS[trackIdx]);
+    if (e.code === 'Enter' || e.code === 'Space') onStart(CAR_DEFS[idx], TRACK_DEFS[trackIdx], mode);
   });
 
   let raf = 0;
@@ -152,6 +202,7 @@ export function createGarage(onStart, hooks = {}) {
   resize();
   render(0);
   renderTrack();
+  renderMode();
   loop();
 
   return {

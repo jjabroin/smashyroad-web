@@ -11,6 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js';
 import { createOnlinePanel } from './online.js';
+import { RecordsBoard, getRacerTag } from './records.js';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -42,11 +43,17 @@ function loadTARecords() {
   return {};
 }
 function bestTARecord(trackId) {
+  const shared = recordsBoard.get(trackId);
+  if (shared && shared.length > 0) {
+    return shared.slice().sort((a, b) => a.total - b.total)[0];
+  }
   const list = loadTARecords()[trackId];
   if (!list || list.length === 0) return null;
   return list.slice().sort((a, b) => a.total - b.total)[0];
 }
 function saveTARecord(trackId, entry) {
+  entry.tag = entry.tag || getRacerTag();
+  entry.date = entry.date || Date.now();
   const all = loadTARecords();
   const list = all[trackId] || [];
   list.push(entry);
@@ -55,7 +62,19 @@ function saveTARecord(trackId, entry) {
   try {
     localStorage.setItem(TA_RECORD_KEY, JSON.stringify(all));
   } catch (e) { /* 무시 */ }
-  return all[trackId].indexOf(entry);
+  const localRank = all[trackId].indexOf(entry);
+  // 공유 저장 (백그라운드, 실패해도 로컬 유지)
+  try {
+    recordsBoard.publish(trackId, entry).catch(() => {});
+  } catch (e) { /* 무시 */ }
+  return localRank;
+}
+function taBoard(trackId) {
+  const shared = recordsBoard.get(trackId);
+  if (shared && shared.length > 0) {
+    return shared.slice().sort((a, b) => a.total - b.total).slice(0, 5);
+  }
+  return (loadTARecords()[trackId] || []).slice().sort((a, b) => a.total - b.total).slice(0, 5);
 }
 let pingAcc = 0;
 
@@ -158,6 +177,7 @@ let syncAcc = 0;
 let lastShownItem = null;
 let lastBoostT = 0;
 let lastTARank = -1;
+let lastTAEntry = null;
 let onlineCtl = null; // {room, players, ai, track, myId} | null (solo면 null)
 const camPos = new THREE.Vector3();
 
@@ -180,7 +200,7 @@ function newShieldMesh() {
 }
 
 function buildRace(playerDef, tdef, opts = {}) {
-  ITEMS_ON = document.getElementById('itemToggle').checked;
+  ITEMS_ON = pendingItems;
   timeAttack = !!opts.timeAttack;
   soloTA = timeAttack;
   if (tdef && tdef.id !== trackDef.id) {
@@ -857,8 +877,11 @@ function onLocalFinish() {
       total: +me.car.finishTime.toFixed(1),
       best: isFinite(me.car.bestLap) ? +me.car.bestLap.toFixed(1) : null,
       car: me.car.def.id,
-      date: Date.now(),
     });
+    lastTAEntry = {
+      tag: getRacerTag(),
+      total: +me.car.finishTime.toFixed(1),
+    };
     hud.message('🏁 FINISH!', '', 1500);
     showFinishBanner(
       '⏱ TIME ATTACK',
@@ -891,14 +914,16 @@ function onRaceEnd(reason) {
     hud.message(pos === 1 ? '🏆 WINNER!' : `${pos}${ordSuffix(pos)} FINISH`, '', 2000);
   }
   if (timeAttack && reason === 'finished') {
-    // 타임어택 순위표 (이 트랙 TOP5)
-    const board = (loadTARecords()[trackDef.id] || []).slice().sort((a, b) => a.total - b.total).slice(0, 5);
+    // 타임어택 순위표 (공유 보드 우선, 내 기록 🆕)
+    const board = taBoard(trackDef.id);
     hud.showResults(
-      board.map((e, i) => ({
-        name: `${e.car.toUpperCase()} ${e.total.toFixed(1)}s${i === lastTARank ? ' 🆕' : ''}`,
+      board.map((e) => ({
+        name: `${e.tag ? e.tag + ' · ' : ''}${e.car.toUpperCase()} ${e.total.toFixed(1)}s${
+          lastTAEntry && e.tag === lastTAEntry.tag && e.total === lastTAEntry.total ? ' 🆕' : ''
+        }`,
         totalTime: e.total,
         bestLap: e.best === null ? Infinity : e.best,
-        isPlayer: i === lastTARank,
+        isPlayer: !!(lastTAEntry && e.tag === lastTAEntry.tag && e.total === lastTAEntry.total),
       })),
       playerIdx
     );
@@ -1003,6 +1028,7 @@ document.getElementById('resultClose').addEventListener('click', () => {
 // ---- 온라인 ----
 let pendingCar = null;
 let pendingTrack = null;
+let pendingItems = true;
 let onlinePanel = null;
 let lobbyRoom = null; // 로비 단계의 방 (차·맵 변경 전파용)
 
@@ -1315,6 +1341,23 @@ document.getElementById('sizeItem').addEventListener('input', (e) => {
 });
 applyLayout();
 
+// 공유 타임어택 순위표 (중계 브로커, 실패 시 로컬 기록으로 폴백)
+const recordsBoard = new RecordsBoard((url, opts) => window.mqtt.connect(url, opts));
+recordsBoard.onUpdate = (trackId) => {
+  if (document.getElementById('garage').style.display !== 'none' && pendingTrack && pendingTrack.id === trackId) {
+    const best = bestTARecord(trackId);
+    const b = document.getElementById('trackBest');
+    if (b) {
+      b.textContent = best
+        ? `⏱ BEST ${best.total.toFixed(1)}s (${(best.car || '').toUpperCase()}${best.tag ? ' · ' + best.tag : ''}) 🌐`
+        : '⏱ 기록 없음 — 도전!';
+    }
+  }
+};
+try {
+  recordsBoard.connect().catch(() => {});
+} catch (e) { /* MQTT 미지원 환경 무시 */ }
+
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
 onlinePanel = createOnlinePanel({
   getCar: () => pendingCar || CAR_DEFS[0],
@@ -1329,9 +1372,9 @@ onlinePanel = createOnlinePanel({
   },
 });
 createGarage(
-  (def, track) => {
+  (def, track, mode) => {
     document.getElementById('garage').style.display = 'none';
-    buildRace(def, track);
+    buildRace(def, track, { timeAttack: mode === 'ta' });
     startCountdown();
   },
   {
@@ -1339,6 +1382,9 @@ createGarage(
       pendingCar = def;
       const r = (onlineCtl && onlineCtl.room) || lobbyRoom;
       if (r) r.setMyCar(def.id);
+    },
+    onItems: (on) => {
+      pendingItems = on;
     },
     onTrack: (def) => {
       pendingTrack = def;
@@ -1348,17 +1394,12 @@ createGarage(
       const b = document.getElementById('trackBest');
       if (b) {
         b.textContent = best
-          ? `⏱ BEST ${best.total.toFixed(1)}s (${best.car.toUpperCase()})`
+          ? `⏱ BEST ${best.total.toFixed(1)}s (${(best.car || '').toUpperCase()}${best.tag ? ' · ' + best.tag : ''})`
           : '⏱ 기록 없음 — 도전!';
       }
     },
   }
 );
-document.getElementById('timeAttackBtn').addEventListener('click', () => {
-  document.getElementById('garage').style.display = 'none';
-  buildRace(pendingCar || CAR_DEFS[0], pendingTrack || TRACK_DEFS[0], { timeAttack: true });
-  startCountdown();
-});
 requestAnimationFrame((t) => {
   lastTs = t;
   loop(t);

@@ -12,6 +12,7 @@
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 </head>
 <body>
   <!-- ============ 차고 (차량 선택, 사진 2) ============ -->
@@ -32,10 +33,16 @@
       <button id="carPrev" class="arrow">◀</button>
       <div class="g-mid">
         <div id="carDots">1 / 8</div>
-        <button id="raceBtn">🏁 RACE START</button>
-        <button id="timeAttackBtn">⏱ TIME ATTACK</button>
+        <div id="modeRow" class="swiperow">
+          <button id="modePrev" class="arrow sm">◀</button>
+          <div id="modeName">🏁 RACE</div>
+          <button id="modeNext" class="arrow sm">▶</button>
+        </div>
+        <div id="itemRow" class="swiperow">
+          <div id="itemName">🎁 ITEMS ON</div>
+        </div>
+        <button id="raceBtn">🏁 START</button>
         <button id="onlineBtn">🌐 ONLINE</button>
-        <label id="itemToggleWrap"><input type="checkbox" id="itemToggle" checked /> 🎁 아이템전</label>
       </div>
       <button id="carNext" class="arrow">▶</button>
     </div>

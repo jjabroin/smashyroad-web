@@ -246,11 +246,22 @@ export class MqttRoom {
     };
     let client;
     try {
-      say('중계 서버 연결 중...');
+      say('라이브러리 확인 중...');
+      const probe = mqttFactory('wss://invalid.local', {});
+      if (probe && typeof probe.end === 'function') {
+        try { probe.end(true); } catch (e) { /* 무시 */ }
+      }
+    } catch (e) {
+      say('MQTT 라이브러리 로드 실패. 새로고침 해주세요.');
+      throw e;
+    }
+    try {
+      const host = activeRelay().url.replace(/^wss?:\/\//, '').split('/')[0];
+      say(`서버 연결 중... (${host})`);
       ({ client } = await connectRelay(mqttFactory, null));
       say('');
     } catch (e) {
-      say('중계 서버 연결 실패. 인터넷 확인 후 새로고침을 눌러주세요.');
+      say('서버 연결 실패. 와이파이 변경 후 새로고침을 눌러주세요.');
       throw e;
     }
     const rooms = new Map();

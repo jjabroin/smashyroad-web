@@ -12,10 +12,9 @@ export const RELAY = {
   password: '',
 };
 
-// 위가 비어 있으면 공개 테스트 브로커로 동작 (느릴 수 있음, 인원 제한 가능)
-export const FALLBACK_RELAYS = [
-  { url: 'wss://broker.hivemq.com:8884/mqtt' },
-  { url: 'wss://broker.emqx.io:8084/mqtt' },
-];
+// 위가 비어 있으면 아래 공개 브로커로 동작합니다.
+// ※ 전 기기가 반드시 같은 브로커여야 방이 보이므로, 대체 브로커로
+//   자동 전환하지 않습니다 (서로 다른 브로커에 붙으면 방이 안 보임).
+export const PUBLIC_RELAY = { url: 'wss://broker.hivemq.com:8884/mqtt', label: '공개' };
 
 export const ROOM_PREFIX = 'blockyracer/v1/';

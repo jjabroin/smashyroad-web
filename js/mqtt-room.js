@@ -4,7 +4,7 @@
 // - 게스트는 입력만 전송 + 자기 차 예측 렌더
 // mqttFactory: (url, opts) => client
 //   client: on('connect'|'message'|'error'|'close'), subscribe(topic), publish(topic, str, {retain}), end()
-import { RELAY, FALLBACK_RELAYS, ROOM_PREFIX } from './relay-config.js';
+import { RELAY, PUBLIC_RELAY, ROOM_PREFIX } from './relay-config.js';
 
 export const STATE_HZ = 20;
 
@@ -18,47 +18,49 @@ function randId(pfx) {
   return pfx + Math.random().toString(36).slice(2, 10);
 }
 
-function relayList() {
-  const list = [];
+function activeRelay() {
   if (RELAY.url) {
-    list.push({ url: RELAY.url, username: RELAY.username || undefined, password: RELAY.password || undefined, label: 'private' });
+    return {
+      url: RELAY.url,
+      username: RELAY.username || undefined,
+      password: RELAY.password || undefined,
+      label: '내 서버',
+    };
   }
-  for (const r of FALLBACK_RELAYS) list.push({ ...r, label: 'public' });
-  return list;
+  return PUBLIC_RELAY;
 }
 
 export async function connectRelay(mqttFactory, roomChannel) {
-  let lastErr = null;
-  for (const r of relayList()) {
+  const r = activeRelay();
+  const client = await new Promise((resolve, reject) => {
+    let c;
     try {
-      const client = await new Promise((resolve, reject) => {
-        const c = mqttFactory(r.url, {
-          clientId: randId('br-'),
-          clean: true,
-          connectTimeout: 6000,
-          reconnectPeriod: 0,
-          username: r.username,
-          password: r.password,
-          will: roomChannel
-            ? { topic: roomChannel, payload: JSON.stringify({ t: 'bye', from: '?' }), retain: false }
-            : undefined,
-        });
-        const to = setTimeout(() => reject(new Error('relay timeout: ' + r.url)), 8000);
-        c.on('connect', () => {
-          clearTimeout(to);
-          resolve(c);
-        });
-        c.on('error', (e) => {
-          clearTimeout(to);
-          reject(e || new Error('relay error'));
-        });
+      c = mqttFactory(r.url, {
+        clientId: randId('br-'),
+        clean: true,
+        connectTimeout: 6000,
+        reconnectPeriod: 0,
+        username: r.username,
+        password: r.password,
+        will: roomChannel
+          ? { topic: roomChannel, payload: JSON.stringify({ t: 'bye', from: '?' }), retain: false }
+          : undefined,
       });
-      return { client, relay: r };
     } catch (e) {
-      lastErr = e;
+      reject(e);
+      return;
     }
-  }
-  throw lastErr || new Error('no relay reachable');
+    const to = setTimeout(() => reject(new Error('relay timeout: ' + r.url)), 9000);
+    c.on('connect', () => {
+      clearTimeout(to);
+      resolve(c);
+    });
+    c.on('error', (e) => {
+      clearTimeout(to);
+      reject(e || new Error('relay error'));
+    });
+  });
+  return { client, relay: r };
 }
 
 export class MqttRoom {
@@ -238,8 +240,19 @@ export class MqttRoom {
   }
 
   // ---- 방 목록 ----
-  static async listRooms(mqttFactory, onUpdate, waitMs = 2500) {
-    const { client } = await connectRelay(mqttFactory, null);
+  static async listRooms(mqttFactory, onUpdate, waitMs = 2500, onStatus = null) {
+    const say = (m) => {
+      try { if (onStatus) onStatus(m); } catch (e) { /* 무시 */ }
+    };
+    let client;
+    try {
+      say('중계 서버 연결 중...');
+      ({ client } = await connectRelay(mqttFactory, null));
+      say('');
+    } catch (e) {
+      say('중계 서버 연결 실패. 인터넷 확인 후 새로고침을 눌러주세요.');
+      throw e;
+    }
     const rooms = new Map();
     const push = () => {
       const now = Date.now();

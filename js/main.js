@@ -241,11 +241,11 @@ const puffPool = [];
 }
 let puffIdx = 0;
 const FIRE_COLORS = [0xe25822, 0xf2a007, 0xf2e007, 0x3a3a3a, 0xcfc8bd];
-function puff(x, z, color = 0xcfc8bd, big = 1) {
+function puff(x, z, color = 0xcfc8bd, big = 1, y = 0.8) {
   const p = puffPool[puffIdx++ % puffPool.length];
   p.mesh.visible = true;
   p.mesh.material.color.setHex(color);
-  p.mesh.position.set(x, 0.8, z);
+  p.mesh.position.set(x, y, z);
   p.mesh.scale.set(1.4 * big, 1.4 * big, 1.4 * big);
   p.life = 1;
   p.big = big;
@@ -655,8 +655,19 @@ function loop(ts) {
     const fw = r.mesh.userData.frontWheels || [];
     for (const w of fw) w.rotation.y = -c.steerVis * 0.45;
     const latV = Math.abs(c.vx * -Math.sin(c.heading) + c.vz * Math.cos(c.heading));
+    const my = r.mesh.position.y;
     if ((latV > 14 || c.offTrack || c.drifting) && Math.hypot(c.vx, c.vz) > 12 && Math.random() < 0.6) {
-      puff(c.x - Math.cos(c.heading) * 3, c.z - Math.sin(c.heading) * 3);
+      puff(c.x - Math.cos(c.heading) * 3, c.z - Math.sin(c.heading) * 3, 0xcfc8bd, 1, my);
+    }
+    // 부스트 불꽃 (차량 뒤쪽 배기)
+    if (c.boostT > 0 && !c.out && Math.random() < 0.8) {
+      puff(
+        c.x - Math.cos(c.heading) * 3.6 + (Math.random() - 0.5) * 1.6,
+        c.z - Math.sin(c.heading) * 3.6 + (Math.random() - 0.5) * 1.6,
+        Math.random() < 0.5 ? 0xf2a007 : 0xe25822,
+        1.3,
+        my
+      );
     }
     // 대미지 연기: HP 60% 이하부터, 25% 이하는 불꽃 섞임
     if (!c.out && c.hp < c.maxHp * 0.6) {
@@ -672,7 +683,8 @@ function loop(ts) {
           c.x - Math.cos(c.heading) * 2 + (Math.random() - 0.5) * 2.5,
           c.z - Math.sin(c.heading) * 2 + (Math.random() - 0.5) * 2.5,
           col,
-          1
+          1,
+          r.mesh.position.y
         );
       }
     } else {

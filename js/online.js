@@ -93,24 +93,30 @@ export function createOnlinePanel(api) {
   async function startList() {
     stopList();
     el('roomList').innerHTML = '<div class="o-hint">방 찾는 중...</div>';
+    el('roomListStatus').textContent = '';
     try {
-      lister = await MqttRoom.listRooms(mqttFactory, (rooms) => {
-        if (rooms.length === 0) {
-          el('roomList').innerHTML = '<div class="o-hint">열린 방이 없습니다. 방을 만들어보세요!</div>';
-          return;
-        }
-        el('roomList').innerHTML = rooms
-          .map((r, i) => (
-            `<button class="roomrow" data-code="${r.code}">` +
-            `<span><b>${r.code}</b> · ${trackNameOf(r.track)}</span>` +
-            `<span>${r.players}/${r.max}명${r.items === false ? '' : ' 🎁'}</span>` +
-            `</button>`
-          ))
-          .join('');
-        el('roomList').querySelectorAll('.roomrow').forEach((b) => {
-          b.addEventListener('click', () => joinByRow(b.dataset.code));
-        });
-      });
+      lister = await MqttRoom.listRooms(
+        mqttFactory,
+        (rooms) => {
+          if (rooms.length === 0) {
+            el('roomList').innerHTML = '<div class="o-hint">열린 방이 없습니다. 방을 만들어보세요!</div>';
+            return;
+          }
+          el('roomList').innerHTML = rooms
+            .map((r) => (
+              `<button class="roomrow" data-code="${r.code}">` +
+              `<span><b>${r.code}</b> · ${trackNameOf(r.track)}</span>` +
+              `<span>${r.players}/${r.max}명${r.items === false ? '' : ' 🎁'}</span>` +
+              `</button>`
+            ))
+            .join('');
+          el('roomList').querySelectorAll('.roomrow').forEach((b) => {
+            b.addEventListener('click', () => joinByRow(b.dataset.code));
+          });
+        },
+        2500,
+        (m) => { el('roomListStatus').textContent = m; }
+      );
     } catch (e) {
       el('roomList').innerHTML = '<div class="o-hint">중계 서버 연결 실패. 잠시 후 새로고침을 눌러주세요.</div>';
     }

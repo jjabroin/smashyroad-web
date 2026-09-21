@@ -348,6 +348,11 @@ function startCountdown() {
   autoFinalShown = false;
   playerDone = null;
   hideFinishBanner();
+  // 아이템전 OFF면 아이템 버튼 숨김
+  for (const id of ['btnItemL', 'btnItemR']) {
+    const b = document.getElementById(id);
+    if (b) b.style.display = ITEMS_ON ? 'block' : 'none';
+  }
   document.getElementById('hud').style.display = 'block';
   hud.hideResults();
   setSteerHint(true); // 시작 전 반투명 L/R 힌트
@@ -909,7 +914,7 @@ document.getElementById('resultClose').addEventListener('click', () => {
   hud.hideResults();
 });
 
-// ---- 온라인 P2P ----
+// ---- 온라인 ----
 let pendingCar = null;
 let pendingTrack = null;
 let onlinePanel = null;

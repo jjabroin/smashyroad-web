@@ -11,7 +11,7 @@
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
   <!-- ============ 차고 (차량 선택, 사진 2) ============ -->
@@ -66,13 +66,19 @@
             <option value="4" selected>4명</option>
           </select>
         </div>
-        <div class="o-rowhead">
-          <b>참가 가능한 방</b>
-          <button id="refreshRoomsBtn" title="새로고침">↻</button>
+        <div class="ojoin">
+          <input id="joinCode" maxlength="4" placeholder="코드 4글자" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+          <button id="joinBtn" class="obtn">참가</button>
         </div>
-        <div id="roomListStatus" class="o-hint"></div>
-        <div id="roomList"></div>
-        <p class="o-hint">같은 중계 서버에 열린 방이 자동으로 뜹니다. 방을 탭하면 바로 참가!</p>
+        <p class="o-hint">호스트에게 코드 4글자를 받아 입력하세요. P2P 직접 연결이라 같은 와이파이에서 가장 빠릅니다.</p>
+        <details class="o-adv">
+          <summary>연결이 안 될 때 (중계 설정)</summary>
+          <p class="o-hint">모바일 데이터 등에서 직접 연결이 막히면 metered.ca 무료 가입 후 아래를 입력하세요.</p>
+          <input id="turnApp" placeholder="앱 주소 (예: xxx.metered.live)" autocomplete="off" autocorrect="off" spellcheck="false" />
+          <input id="turnKey" placeholder="API 키" autocomplete="off" autocorrect="off" spellcheck="false" />
+          <button id="turnSave" class="obtn">저장</button>
+          <div id="turnState" class="o-hint"></div>
+        </details>
       </div>
       <div id="onlineLobby" style="display:none">
         <div class="ocode">CODE <b id="roomCode">----</b></div>
@@ -84,6 +90,7 @@
         <button id="leaveBtn" class="obtn dim">나가기</button>
       </div>
       <div id="onlineStatus"></div>
+      <div id="netDiag"></div>
       <div id="netDiag"></div>
     </div>
   </div>

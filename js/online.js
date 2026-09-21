@@ -1,5 +1,5 @@
-// 온라인 로비 패널: 중계 서버 방 목록·생성·참가·출발 (호스트 권위)
-import { MqttRoom } from './mqtt-room.js';
+// 온라인 로비 패널: 방 생성/코드 참가·플레이어 목록·출발 (P2P 직접 연결, 호스트 권위)
+import { NetRoom, RTC_CONFIG, resolveRTCConfig, getTurnSettings, saveTurnSettings } from './net.js';
 import { TRACK_DEFS } from './track.js';
 import { CAR_DEFS } from './race.js';
 
@@ -16,11 +16,11 @@ export function createOnlinePanel(api) {
   // api: { getCar()->def, getTrack()->def, onStartOnline({room, players, ai, track, myId, items}), onLobbyClosed(), onRoom(room|null) }
   const el = (id) => document.getElementById(id);
   let room = null;
-  let lister = null;
+  let rtcConfig = RTC_CONFIG;
 
-  const mqttFactory = (url, opts) => {
-    if (!window.mqtt) throw new Error('MQTT 라이브러리 로드 실패');
-    return window.mqtt.connect(url, opts);
+  const peerFactory = (id) => {
+    if (!window.Peer) throw new Error('PeerJS CDN 로드 실패');
+    return new window.Peer(id, { debug: 0, config: rtcConfig });
   };
 
   function show(view) {
@@ -29,14 +29,17 @@ export function createOnlinePanel(api) {
     el('onlineLobby').style.display = view === 'lobby' ? 'block' : 'none';
   }
   function hide() {
-    stopList();
     el('onlinePanel').style.display = 'none';
   }
   function status(msg) {
     el('onlineStatus').textContent = msg;
   }
+  function diag(msg) {
+    el('netDiag').textContent = msg;
+  }
 
   function refreshLobby(players, trackId, isHost, myId) {
+    el('roomCode').textContent = room ? room.code : '----';
     el('lobbyTrack').textContent = 'TRACK: ' + trackNameOf(trackId);
     el('playerList').innerHTML = players
       .map((p, i) => {
@@ -54,7 +57,7 @@ export function createOnlinePanel(api) {
     itemsBtn.disabled = !isHost;
     itemsBtn.style.display = 'block';
     el('lobbyHint').textContent = players.length < 2
-      ? '친구가 들어오길 기다리는 중...'
+      ? '친구에게 코드 4글자를 알려주세요'
       : players.every((p) => p.carId)
         ? '전원 준비 완료!'
         : '차량을 선택해주세요';
@@ -74,8 +77,19 @@ export function createOnlinePanel(api) {
         });
       } else if (ev.type === 'error') {
         status(ev.msg);
-      } else if (ev.type === 'net-down') {
-        status('중계 서버 연결이 끊겼습니다. 다시 시도해주세요.');
+      } else if (ev.type === 'denied') {
+        status('참가 거부됨 (인원 초과 또는 경주 중).');
+        setTimeout(() => leave(), 1500);
+      } else if (ev.type === 'conn-state') {
+        if (ev.state === 'connected' || ev.state === 'completed') diag('');
+        else if (ev.state === 'failed') diag('직접 연결 실패 → 중계 시도 중...');
+        else if (ev.state === 'disconnected') diag('연결 끊김 감지 → 복구 시도 중...');
+        else diag(`연결 중... (${ev.state})`);
+      } else if (ev.type === 'net-kind') {
+        const label = ev.kind === 'host' ? '같은 네트워크 직접 연결'
+          : ev.kind === 'srflx' ? '인터넷 직접 연결'
+          : ev.kind === 'relay' ? '중계서버 경유 연결' : `연결 (${ev.kind})`;
+        diag('✅ ' + label);
       } else if (ev.type === 'host-left') {
         status('호스트 연결이 끊겼습니다.');
         setTimeout(() => leave(), 1500);
@@ -83,61 +97,36 @@ export function createOnlinePanel(api) {
     };
   }
 
-  // ---- 방 목록 ----
-  function stopList() {
-    if (lister) {
-      try { lister.stop(); } catch (e) { /* 무시 */ }
-      lister = null;
-    }
-  }
-  async function startList() {
-    stopList();
-    el('roomList').innerHTML = '<div class="o-hint">방 찾는 중...</div>';
-    el('roomListStatus').textContent = '';
-    try {
-      lister = await MqttRoom.listRooms(
-        mqttFactory,
-        (rooms) => {
-          if (rooms.length === 0) {
-            el('roomList').innerHTML = '<div class="o-hint">열린 방이 없습니다. 방을 만들어보세요!</div>';
-            return;
-          }
-          el('roomList').innerHTML = rooms
-            .map((r) => (
-              `<button class="roomrow" data-code="${r.code}">` +
-              `<span><b>${r.code}</b> · ${trackNameOf(r.track)}</span>` +
-              `<span>${r.players}/${r.max}명${r.items === false ? '' : ' 🎁'}</span>` +
-              `</button>`
-            ))
-            .join('');
-          el('roomList').querySelectorAll('.roomrow').forEach((b) => {
-            b.addEventListener('click', () => joinByRow(b.dataset.code));
-          });
-        },
-        2500,
-        (m) => { el('roomListStatus').textContent = m; }
-      );
-    } catch (e) {
-      el('roomList').innerHTML = '<div class="o-hint">중계 서버 연결 실패. 잠시 후 새로고침을 눌러주세요.</div>';
-    }
-  }
-
   el('onlineBtn').addEventListener('click', () => {
     show('home');
     status('');
-    startList();
+    diag('');
+    el('joinCode').value = '';
+    const t = getTurnSettings();
+    el('turnApp').value = t ? t.app : '';
+    el('turnKey').value = t ? t.key : '';
+    el('turnState').textContent = t ? '✅ 중계 키 설정됨' : '미설정 (직접 연결만 시도)';
   });
-  el('refreshRoomsBtn').addEventListener('click', () => startList());
+  el('turnSave').addEventListener('click', () => {
+    const app = el('turnApp').value.trim();
+    const key = el('turnKey').value.trim();
+    if (!app || !key) {
+      el('turnState').textContent = '앱 주소와 API 키를 모두 입력하세요.';
+      return;
+    }
+    saveTurnSettings(app, key);
+    el('turnState').textContent = '✅ 저장됨 (다음 방 만들기/참가부터 적용)';
+  });
   el('onlineClose').addEventListener('click', () => hide());
 
   el('createBtn').addEventListener('click', async () => {
     status('방 만드는 중...');
-    stopList();
     try {
-      room = new MqttRoom(mqttFactory);
+      rtcConfig = await resolveRTCConfig().catch(() => RTC_CONFIG);
+      room = new NetRoom(peerFactory);
       bindRoomEvents(room);
       const maxPlayers = +(el('maxPlayers') && el('maxPlayers').value ? el('maxPlayers').value : 4);
-      const code = await room.hostRoom({
+      await room.hostRoom({
         maxPlayers,
         trackId: api.getTrack().id,
         carId: api.getCar().id,
@@ -151,31 +140,37 @@ export function createOnlinePanel(api) {
       refreshLobby(room.players, api.getTrack().id, true, room.myId);
     } catch (e) {
       status('방 생성 실패: ' + e.message);
-      startList();
     }
   });
 
-  async function joinByRow(code) {
-    status('참가 중...');
-    stopList();
+  el('joinBtn').addEventListener('click', async () => {
+    const code = el('joinCode').value.trim();
+    if (code.length < 4) {
+      status('코드 4글자를 입력하세요.');
+      return;
+    }
+    status('참가 중... (최대 30초)');
     try {
-      room = new MqttRoom(mqttFactory);
+      rtcConfig = await resolveRTCConfig().catch(() => RTC_CONFIG);
+      room = new NetRoom(peerFactory);
       bindRoomEvents(room);
-      await room.joinRoom({ code }, api.getCar().id);
+      await room.joinRoom(code, api.getCar().id);
       if (api.onRoom) api.onRoom(room);
       show('lobby');
       status('');
     } catch (e) {
-      status('참가 실패: ' + (e.message === 'no-host'
-        ? '방이 닫혔거나 가득 찼습니다. 목록을 새로고침 해주세요.'
+      status('참가 실패: ' + (e.message === 'host unreachable'
+        ? '호스트에 닿지 않습니다. 코드·인터넷 상태를 확인하고 다시 시도해주세요.'
         : e.message));
       if (room) {
         room.destroy();
         room = null;
       }
-      startList();
     }
-  }
+  });
+  el('joinCode').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') el('joinBtn').click();
+  });
 
   el('itemsBtn').addEventListener('click', () => {
     if (!room || !room.isHost) return;
@@ -188,7 +183,7 @@ export function createOnlinePanel(api) {
     if (!room || !room.isHost) return;
     const players = room.players;
     if (players.length < 2 || !players.every((p) => p.carId)) return;
-    // 빈 슬롯은 호스트가 조종하는 AI로 채움
+    // 빈 슬롯은 호스트가 조종하는 AI로 채움 (최대 4대)
     const used = new Set(players.map((p) => p.carId));
     const aiPool = CAR_DEFS.map((d) => d.id).filter((id) => !used.has(id));
     const ai = [];
@@ -208,7 +203,6 @@ export function createOnlinePanel(api) {
   });
 
   function leave() {
-    stopList();
     if (room) {
       room.destroy();
       room = null;

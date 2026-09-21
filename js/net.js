@@ -163,6 +163,10 @@ export class NetRoom {
     this.phase = 'idle'; // idle|lobby|racing
     this.myCarId = null;
     this.joinedAs = null; // 게스트 최초 참가 id (재접속 인계용)
+    this.maxPlayers = 4;
+    this.trackId = null;
+    this.itemsOn = true;
+    this.remoteInputs = new Map(); // guestId -> {input, at} (host 측)
   }
 
   _emit(ev) {
@@ -260,12 +264,16 @@ export class NetRoom {
     } catch (e) { /* 무시 */ }
   }
 
-  async hostRoom() {
+  async hostRoom({ maxPlayers, trackId, carId, itemsOn } = {}) {
     this.destroy();
     this.isHost = true;
     this.code = randCode();
+    this.maxPlayers = maxPlayers || 4;
+    this.trackId = trackId || null;
+    this.itemsOn = itemsOn !== false;
+    this.myCarId = carId || null;
     await this._newPeer(ROOM_PREFIX + this.code);
-    this.players = [{ id: this.myId, carId: null }];
+    this.players = [{ id: this.myId, carId: this.myCarId }];
     this.phase = 'lobby';
     this.peer.on('connection', (conn) => {
       if (this.phase !== 'lobby') {
@@ -331,6 +339,11 @@ export class NetRoom {
         }
         return;
       }
+      if (msg.t === 'input') {
+        // 게스트 입력 수신 (호스트 시뮬용, 1초 지나면 무효)
+        this.remoteInputs.set(peerId, { input: msg.input, at: Date.now() });
+        return;
+      }
       if (msg.t === 'hello' || msg.t === 'car') {
         // 재접속 인계: 이전 id의 슬롯을 새 id로 교체 (중복 참가 방지)
         if (msg.re) {
@@ -340,7 +353,13 @@ export class NetRoom {
         }
         let p = this.players.find((x) => x.id === peerId);
         if (!p) {
-          if (this.players.length >= 4) return; // 만원
+          if (this.players.length >= this.maxPlayers) {
+            const c = this.conns.get(peerId);
+            if (c) {
+              try { c.send({ t: 'deny' }); } catch (e) { /* 무시 */ }
+            }
+            return; // 만원
+          }
           p = { id: peerId, carId: msg.carId };
           this.players.push(p);
         } else {
@@ -355,11 +374,11 @@ export class NetRoom {
         this._emit({ type: 'lobby', players: this.players, trackId: msg.trackId, items: msg.items });
       } else if (msg.t === 'start') {
         this.phase = 'racing';
-        this._emit({ type: 'start', trackId: msg.trackId, players: msg.players, ai: msg.ai });
+        this._emit({ type: 'start', trackId: msg.trackId, players: msg.players, ai: msg.ai, items: msg.items });
       } else if (msg.t === 'state') {
-        this._emit({ type: 'state', from: msg.from || peerId, cars: msg.cars });
+        this._emit({ type: 'state', cars: msg.cars, mines: msg.mines, boxes: msg.boxes, players: msg.players });
       } else if (msg.t === 'deny') {
-        this._emit({ type: 'error', msg: '이미 경주 중인 방입니다.' });
+        this._emit({ type: 'denied' });
       } else if (msg.t === 'sync') {
         if (!this.isHost) this._emit({ type: 'sync', cars: msg.cars });
       } else if (msg.t === 'pong') {
@@ -369,26 +388,14 @@ export class NetRoom {
       }
     }
     if (msg.t === 'state' && this.isHost) {
-      // host도 guest 상태를 받음 + 다른 게스트에게 중계 (스타 토폴로지)
-      this._emit({ type: 'state', from: peerId, cars: msg.cars });
-      for (const [id, c] of this.conns) {
-        if (id === peerId) continue;
-        try { c.send({ t: 'state', from: peerId, cars: msg.cars }); } catch (e) { /* 무시 */ }
-      }
+      // 권위 구조: 게스트는 입력만 보내므로 state 수신 시 무시
       return;
-    }
-    // 게임 이벤트 중계 (지뢰·쇼크): 발신자 제외 전원에게
-    if (this.isHost && (msg.t === 'mine' || msg.t === 'minehit' || msg.t === 'shock')) {
-      this._emit({ type: 'game', msg });
-      for (const [id, c] of this.conns) {
-        if (id === peerId) continue;
-        try { c.send(msg); } catch (e) { /* 무시 */ }
-      }
     }
   }
 
   _onClose(peerId) {
     this.conns.delete(peerId);
+    this.remoteInputs.delete(peerId);
     if (this.isHost) {
       const before = this.players.length;
       this.players = this.players.filter((p) => p.id !== peerId);
@@ -439,26 +446,19 @@ export class NetRoom {
     return msg;
   }
 
-  sendState(cars) {
-    const msg = { t: 'state', cars };
+  sendState(cars, mines, boxes, players) {
+    const msg = { t: 'state', cars, mines, boxes, players };
     for (const [, c] of this.conns) {
       try { c.send(msg); } catch (e) { /* 무시 */ }
     }
   }
 
-  // 호스트 전체 동기화 (0.5초 간격, 위치 수렴용)
-  sendSync(cars) {
-    if (!this.isHost) return;
-    const msg = { t: 'sync', cars };
-    for (const [, c] of this.conns) {
-      try { c.send(msg); } catch (e) { /* 무시 */ }
-    }
-  }
-
-  sendToHost(cars) {
+  // 게스트 → 호스트 입력 전송 (권위 구조)
+  sendInput(input) {
+    if (this.isHost) return;
     const c = this.conns.get(this.hostId);
     if (c) {
-      try { c.send({ t: 'state', cars }); } catch (e) { /* 무시 */ }
+      try { c.send({ t: 'input', input }); } catch (e) { /* 무시 */ }
     }
   }
 
@@ -468,21 +468,6 @@ export class NetRoom {
     const c = this.conns.get(this.hostId);
     if (c) {
       try { c.send({ t: 'quit' }); } catch (e) { /* 무시 */ }
-    }
-  }
-
-  // 게임 이벤트 (지뢰·쇼크): host=브로드캐스트+로컬 반영, guest=호스트 경유
-  sendGameEvent(msg) {
-    if (this.isHost) {
-      this._emit({ type: 'game', msg: { ...msg, from: this.myId } });
-      for (const [, c] of this.conns) {
-        try { c.send(msg); } catch (e) { /* 무시 */ }
-      }
-    } else {
-      const c = this.conns.get(this.hostId);
-      if (c) {
-        try { c.send({ ...msg, from: this.myId }); } catch (e) { /* 무시 */ }
-      }
     }
   }
 
@@ -511,6 +496,7 @@ export class NetRoom {
       }
     } catch (e) { /* 무시 */ }
     this.conns.clear();
+    this.remoteInputs.clear();
     try {
       if (this.peer) this.peer.destroy();
     } catch (e) { /* 무시 */ }

@@ -56,7 +56,7 @@ function updateItemHUD() {
   }
   box.style.display = 'block';
   const info = ITEM_INFO[c.item];
-  box.textContent = `${info.emoji} ${info.name}`;
+  box.textContent = info.emoji;
 }
 
 function buildWorldTrack(def) {

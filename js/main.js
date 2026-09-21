@@ -129,6 +129,8 @@ let countdownT = 0;
 let playerIdx = 0;
 let netAcc = 0;
 let syncAcc = 0;
+let lastShownItem = null;
+let lastBoostT = 0;
 let onlineCtl = null; // {room, players, ai, track, myId} | null (solo면 null)
 const camPos = new THREE.Vector3();
 
@@ -280,12 +282,10 @@ function useItem(r) {
     const mx = c.x - Math.cos(c.heading) * 5;
     const mz = c.z - Math.sin(c.heading) * 5;
     addMine({ id, x: +mx.toFixed(1), z: +mz.toFixed(1) });
-    if (onlineCtl) onlineCtl.room.sendGameEvent({ t: 'mine', id, x: +mx.toFixed(1), z: +mz.toFixed(1) });
     if (r.isPlayer) beeper.count();
   } else if (it === 'shock') {
-    // 본인 외 로컬 차량에 즉시 적용 + 전파
+    // 본인 외 로컬 차량에 즉시 적용 (권위 측 시뮬, 상태로 전파)
     applyShockBlast(r);
-    if (onlineCtl) onlineCtl.room.sendGameEvent({ t: 'shock', from: onlineCtl.room.myId });
     if (r.isPlayer) beeper.boost();
   }
 }
@@ -406,17 +406,35 @@ function loop(ts) {
   const pin = input.toRaceInput();
 
   // AI 입력 (로컬 AI만, 원격은 스냅샷)
+  // 권위: 솔로/호스트가 전체 시뮬, 게스트는 자기 차만 예측
+  const simAuthority = !onlineCtl || onlineCtl.room.isHost;
   const DUMMY = { steer: 0, throttle: 0, brake: 0, drift: false };
   const pProg = progressOf(p, circuit);
-  const inputs = racers.map((r) =>
-    r.isPlayer
-      ? spectateIdx == null
-        ? pin
-        : DUMMY // 관전 중엔 내 차 순항 정지
-      : r.local && r.ai
-        ? aiInput(r.car, circuit, ROAD_HALF, dt, pProg, progressOf(r.car, circuit), r.ai)
-        : DUMMY
-  );
+  const inputs = racers.map((r) => {
+    if (r.isPlayer) return spectateIdx == null ? pin : DUMMY;
+    if (r.ai) {
+      if (!r.local) return DUMMY;
+      return aiInput(r.car, circuit, ROAD_HALF, dt, pProg, progressOf(r.car, circuit), r.ai);
+    }
+    // 호스트가 보는 게스트 차량: 수신된 입력으로 시뮬
+    if (simAuthority && onlineCtl) {
+      const st = onlineCtl.room.remoteInputs.get(r.peerId);
+      if (st && Date.now() - st.at < 1000) return st.input;
+    }
+    return DUMMY;
+  });
+
+  // 게스트 차량의 아이템 사용 엣지 (호스트가 소비)
+  if (simAuthority && onlineCtl && onlineCtl.room.isHost) {
+    for (const r of racers) {
+      if (r.local && !r.isPlayer && !r.ai && !r.car.out && !r.car.finished) {
+        const st = onlineCtl.room.remoteInputs.get(r.peerId);
+        const u = !!(st && st.input && st.input.useItem);
+        if (u && !r.lastUseItem) useItem(r);
+        r.lastUseItem = u;
+      }
+    }
+  }
 
   // 부스터/점프 타이머 + 패드 트리거 (로컬 차량만)
   for (const r of racers) {
@@ -464,7 +482,7 @@ function loop(ts) {
     }
   }
 
-  // 아이템 박스 회전·리스폰 + 줍기 (로컬 차량)
+  // 아이템 박스 회전·리스폰 + 줍기 (권위 측만: 솔로/호스트)
   if (ITEMS_ON) {
     for (const b of itemBoxes) {
       if (b.takenT > 0) {
@@ -474,6 +492,7 @@ function loop(ts) {
         b.mesh.rotation.y += dt * 2;
       }
     }
+    if (simAuthority) {
     for (const r of racers) {
       const c = r.car;
       if (!r.local || c.out || c.finished || c.item) continue;
@@ -493,17 +512,19 @@ function loop(ts) {
         }
       }
     }
+    }
   }
 
-  // 아이템 사용 (엣지 트리거 소비)
+  // 아이템 사용 (엣지 트리거 소비, 권위 측만)
   if (input.state.useItem) {
     input.state.useItem = false;
-    if (ITEMS_ON && (phase === 'racing' || phase === 'finished')) {
+    if (ITEMS_ON && simAuthority && (phase === 'racing' || phase === 'finished')) {
       useItem(racers[playerIdx]);
     }
   }
 
-  // 지뢰 움직임·기폭 (로컬 차량만 피격 판정)
+  // 지뢰 움직임·기폭 (권위 측만: 로컬 차량 피격 판정)
+  if (simAuthority) {
   for (const [id, m] of mines) {
     m.armT -= dt;
     m.mesh.rotation.y += dt * 4;
@@ -518,13 +539,18 @@ function loop(ts) {
         c.vx *= 0.6;
         c.vz *= 0.6;
         removeMine(id);
-        if (onlineCtl) onlineCtl.room.sendGameEvent({ t: 'minehit', id });
         if (r.isPlayer) {
           beeper.crash();
           shakeT = Math.max(shakeT, 0.4);
         }
         break;
       }
+    }
+  }
+  } else {
+    for (const [, m] of mines) {
+      m.armT -= dt;
+      m.mesh.rotation.y += dt * 4;
     }
   }
 
@@ -693,25 +719,26 @@ function loop(ts) {
   const vig = document.getElementById('speedVig');
   if (vig) vig.style.opacity = Math.max(0, Math.min(0.85, (spdNow - 28) / 45)).toFixed(2);
 
-  // 온라인 상태 브로드캐스트 (20Hz, 로컬 차량만) + 호스트 전체 싱크 (0.5초)
+  // 온라인 동기화 (20Hz)
+  // - 호스트: 전체 시뮬 결과(차량+지뢰+박스+명단) 브로드캐스트
+  // - 게스트: 입력만 전송, 나머지는 호스트 스냅샷으로 수렴
   if (onlineCtl) {
+    const room = onlineCtl.room;
     netAcc += dt;
     if (netAcc >= 1 / STATE_HZ) {
       netAcc = 0;
-      const room = onlineCtl.room;
-      const local = [];
-      for (const r of racers) {
-        if (!r.local) continue;
-        local.push({ slot: r.slot, ...carSnapshot(r.car) });
-      }
-      if (room.isHost) room.sendState(local);
-      else room.sendToHost(local);
-    }
-    if (onlineCtl.room.isHost) {
-      syncAcc += dt;
-      if (syncAcc >= 0.5) {
-        syncAcc = 0;
-        onlineCtl.room.sendSync(racers.map((r) => ({ slot: r.slot, ...carSnapshot(r.car) })));
+      if (room.isHost) {
+        const all = [];
+        for (const r of racers) all.push({ slot: r.slot, ...carSnapshot(r.car) });
+        const minesArr = [...mines.entries()].map(([id, m]) => ({
+          id, x: +m.x.toFixed(1), z: +m.z.toFixed(1),
+        }));
+        const boxesArr = itemBoxes.map((b) => (b.takenT > 0 ? 1 : 0));
+        const playersArr = onlineCtl.players.map((pl) => pl.id);
+        room.sendState(all, minesArr, boxesArr, playersArr);
+      } else {
+        room.sendInput({ ...pin, useItem: !!input.state.useItem });
+        input.state.useItem = false;
       }
     }
     // 핑 (게스트만 2초 간격, 호스트는 HOST 표시)
@@ -957,15 +984,52 @@ function onRaceNetEvent(ev) {
   if (ev.type === 'state') {
     for (const s of ev.cars) {
       const r = racers[s.slot];
-      if (!r || r.local) continue;
-      blendSnapshot(r.car, s, 0.45); // 하드 스냅 대신 부분 보정
+      if (!r) continue;
+      // 자기 차는 예측 + 부드러운 보정, 타인 차는 스냅샷 추종
+      blendSnapshot(r.car, s, r.isPlayer ? 0.3 : 0.45);
     }
-  } else if (ev.type === 'sync') {
-    // 호스트 전체 동기화: 내 차 제외하고 살짝 수렴 (위치 발산 방지)
-    for (const s of ev.cars) {
-      const r = racers[s.slot];
-      if (!r || r.local) continue;
-      blendSnapshot(r.car, s, 0.3);
+    // 지뢰·박스 동기화 (호스트가 진실)
+    if (ev.mines) {
+      const seen = new Set();
+      for (const m of ev.mines) {
+        seen.add(m.id);
+        if (!mines.has(m.id)) {
+          addMine(m);
+          const mm = mines.get(m.id);
+          if (mm) mm.armT = 0;
+        }
+      }
+      for (const id of [...mines.keys()]) {
+        if (!seen.has(id)) removeMine(id);
+      }
+    }
+    if (ev.boxes) {
+      ev.boxes.forEach((t, i) => {
+        if (itemBoxes[i]) {
+          itemBoxes[i].takenT = t ? 5 : 0;
+          itemBoxes[i].mesh.visible = !t;
+        }
+      });
+    }
+    // 탈락자 감지 (명단에서 사라짐)
+    if (ev.players) {
+      for (const r of racers) {
+        if (r.peerId && !ev.players.includes(r.peerId) && !r.car.out) {
+          r.car.out = true;
+          hud.message('상대 연결 끊김', '', 2000);
+        }
+      }
+    }
+    // 인벤토리·부스트 동기화 표시
+    const me = racers[playerIdx];
+    if (me) {
+      const it = me.car.item || null;
+      if (it !== lastShownItem) {
+        lastShownItem = it;
+        updateItemHUD();
+      }
+      if (me.car.boostT > 0 && lastBoostT <= 0) beeper.boost();
+      lastBoostT = me.car.boostT;
     }
   } else if (ev.type === 'peer-left') {
     const r = racers.find((x) => x.peerId === ev.id);
@@ -1002,22 +1066,6 @@ function onRaceNetEvent(ev) {
     });
   } else if (ev.type === 'error') {
     hud.message(ev.msg, '', 2000);
-  } else if (ev.type === 'game') {
-    const msg = ev.msg;
-    if (!msg || (onlineCtl && msg.from === onlineCtl.room.myId)) return; // 자기 메아리 무시
-    if (msg.t === 'mine') {
-      addMine(msg);
-    } else if (msg.t === 'minehit') {
-      removeMine(msg.id);
-    } else if (msg.t === 'shock') {
-      applyShockBlast(null);
-      const me = racers[playerIdx];
-      if (me && !me.car.out && !me.car.finished) {
-        beeper.crash();
-        shakeT = Math.max(shakeT, 0.3);
-        hud.message('⚡ SHOCK!', '', 800);
-      }
-    }
   } else if (ev.type === 'pong') {
     const box = document.getElementById('pingBox');
     if (box) {

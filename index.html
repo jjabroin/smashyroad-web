@@ -11,7 +11,7 @@
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 </head>
 <body>
   <!-- ============ 차고 (차량 선택, 사진 2) ============ -->
@@ -58,20 +58,20 @@
         <button id="onlineClose">✕</button>
       </div>
       <div id="onlineHome">
-        <button id="createBtn" class="obtn">방 만들기</button>
-        <div class="ojoin">
-          <input id="joinCode" maxlength="4" placeholder="코드 4글자" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" />
-          <button id="joinBtn" class="obtn">참가</button>
+        <div class="ocreate">
+          <button id="createBtn" class="obtn">방 만들기</button>
+          <select id="maxPlayers" title="최대 인원">
+            <option value="2">2명</option>
+            <option value="3">3명</option>
+            <option value="4" selected>4명</option>
+          </select>
         </div>
-        <p class="o-hint">같은 코드를 입력한 친구와 직접 연결됩니다 (서버 없음)</p>
-        <details class="o-adv">
-          <summary>중계 서버(TURN) 설정 — 모바일 데이터에서 안 붙을 때</summary>
-          <p class="o-hint">metered.ca 무료 가입 → 앱 주소와 API 키를 입력하면 통신사망 뒤에서도 중계로 연결됩니다.</p>
-          <input id="turnApp" placeholder="앱 주소 (예: xxx.metered.live)" autocomplete="off" autocorrect="off" spellcheck="false" />
-          <input id="turnKey" placeholder="API 키" autocomplete="off" autocorrect="off" spellcheck="false" />
-          <button id="turnSave" class="obtn">저장</button>
-          <div id="turnState" class="o-hint"></div>
-        </details>
+        <div class="o-rowhead">
+          <b>참가 가능한 방</b>
+          <button id="refreshRoomsBtn" title="새로고침">↻</button>
+        </div>
+        <div id="roomList"></div>
+        <p class="o-hint">같은 중계 서버에 열린 방이 자동으로 뜹니다. 방을 탭하면 바로 참가!</p>
       </div>
       <div id="onlineLobby" style="display:none">
         <div class="ocode">CODE <b id="roomCode">----</b></div>

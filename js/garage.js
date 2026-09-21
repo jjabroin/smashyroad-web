@@ -222,6 +222,7 @@ export function createGarage(onStart, hooks = {}) {
   document.querySelectorAll('#modeList .moderow').forEach((b) => {
     b.addEventListener('click', () => {
       setMode(b.dataset.mode);
+      closePanels();
     });
   });
   document.getElementById('onlineRowBtn').addEventListener('click', () => {

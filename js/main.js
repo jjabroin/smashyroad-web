@@ -1,17 +1,17 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=8';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, aiInput, progressOf,
-} from './race.js';
-import { CAR_BUILDERS } from './voxel.js';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js';
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js';
-import { createGarage } from './garage.js';
-import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js';
-import { createOnlinePanel } from './online.js';
-import { RecordsBoard, getRacerTag } from './records.js';
+} from './race.js?v=8';
+import { CAR_BUILDERS } from './voxel.js?v=8';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=8';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=8';
+import { createGarage } from './garage.js?v=8';
+import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
+import { createOnlinePanel } from './online.js?v=8';
+import { RecordsBoard, getRacerTag } from './records.js?v=8';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });

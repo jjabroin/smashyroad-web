@@ -183,12 +183,14 @@ export function createOnlinePanel(api) {
     if (!room || !room.isHost) return;
     const players = room.players;
     if (players.length < 2 || !players.every((p) => p.carId)) return;
-    // 빈 슬롯은 호스트가 조종하는 AI로 채움 (최대 4대)
+    // 1명이면 연습용 AI로 채우고, 2명 이상이면 나머지는 비워둠
     const used = new Set(players.map((p) => p.carId));
     const aiPool = CAR_DEFS.map((d) => d.id).filter((id) => !used.has(id));
     const ai = [];
-    while (players.length + ai.length < 4 && aiPool.length > 0) {
-      ai.push(aiPool.shift());
+    if (players.length < 2) {
+      while (players.length + ai.length < 4 && aiPool.length > 0) {
+        ai.push(aiPool.shift());
+      }
     }
     const msg = room.startRace(ai, room.itemsOn !== false);
     hide();

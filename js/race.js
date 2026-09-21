@@ -104,6 +104,7 @@ export function makeCarState(def, x, z, heading) {
     lapStart: 0,
     lastLap: 0,
     bestLap: Infinity,
+    lapTimes: [], // 타임어택용 랩 기록
     offTrack: false,
     steerVis: 0,   // 렌더용 조향 표시
     steerSm: 0,    // 스무딩된 조향 입력
@@ -236,6 +237,7 @@ export function checkLap(car, circuit, lapsToWin, now) {
     car.lap = total;
     const lapTime = now - car.lapStart;
     car.lastLap = lapTime;
+    car.lapTimes.push(lapTime);
     if (lapTime < car.bestLap) car.bestLap = lapTime;
     car.lapStart = now;
     car.sectors = [false, false, false, false];

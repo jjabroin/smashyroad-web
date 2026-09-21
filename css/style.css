@@ -76,6 +76,16 @@ html, body {
   box-shadow: 0 4px 0 #7a1f18;
 }
 #raceBtn:active { transform: translateY(3px); box-shadow: none; }
+#timeAttackBtn {
+  display: block;
+  margin: 10px auto 0;
+  font-size: 16px; font-weight: 900;
+  background: #7a4fd0; color: #fff;
+  border: 3px solid #fff; border-radius: 10px;
+  padding: 10px 22px; cursor: pointer;
+}
+#timeAttackBtn:active { transform: scale(.96); }
+#trackBest { font-size: 13px; font-weight: 800; color: #fff8dc; margin-top: 6px; min-height: 18px; }
 .g-hint { color: #6d5423; font-size: 13px; margin-top: 12px; }
 #onlineBtn {
   display: block;

@@ -525,7 +525,7 @@ function drawDirtChord(scene, circuit, A, B, dA, dB, halfW) {
   scene.add(mesh);
 }
 
-// 그리드 슬롯 4대 (2열 × 2행, 스타트라인 뒤)
+// 그리드 슬롯 6대 (3열 × 2행, 스타트라인 뒤)
 export function gridSlots(circuit) {
   const slots = [];
   const rows = [
@@ -533,6 +533,8 @@ export function gridSlots(circuit) {
     { back: 10, lat: 4 },
     { back: 19, lat: -4 },
     { back: 19, lat: 4 },
+    { back: 28, lat: -4 },
+    { back: 28, lat: 4 },
   ];
   for (const r of rows) {
     const p = circuit.pointAt(circuit.length - r.back);

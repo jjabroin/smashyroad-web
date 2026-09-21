@@ -88,7 +88,7 @@ export function createHUD(circuit) {
 
   function showResults(rows, playerIdx) {
     // rows: [{name, color, totalTime, bestLap, isPlayer}] 순위순
-    const medals = ['🥇', '🥈', '🥉', '4️⃣'];
+    const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣'];
     el('resultRows').innerHTML = rows
       .map(
         (r, i) =>

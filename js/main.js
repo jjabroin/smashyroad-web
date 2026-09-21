@@ -7,7 +7,7 @@ import {
 } from './race.js';
 import { CAR_BUILDERS } from './voxel.js';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js';
-import { createHUD, createInput, createBeeper, setSteerHint } from './hud.js';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js';
 import { createGarage } from './garage.js';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js';
 import { createOnlinePanel } from './online.js';
@@ -31,6 +31,32 @@ let jumps = []; // 점프대 {x,z}
 let itemBoxes = []; // 아이템 박스 {x,z,mesh,takenT}
 const mines = new Map(); // id -> {x,z,mesh,armT}
 let ITEMS_ON = true;
+let timeAttack = false; // 1인 타임어택 모드
+let soloTA = false; // 솔로 시작 모드 기억 (다시 달리기용)
+const TA_RECORD_KEY = 'blockyracer-ta-records-v1';
+function loadTARecords() {
+  try {
+    const s = JSON.parse(localStorage.getItem(TA_RECORD_KEY));
+    if (s && typeof s === 'object') return s;
+  } catch (e) { /* 무시 */ }
+  return {};
+}
+function bestTARecord(trackId) {
+  const list = loadTARecords()[trackId];
+  if (!list || list.length === 0) return null;
+  return list.slice().sort((a, b) => a.total - b.total)[0];
+}
+function saveTARecord(trackId, entry) {
+  const all = loadTARecords();
+  const list = all[trackId] || [];
+  list.push(entry);
+  list.sort((a, b) => a.total - b.total);
+  all[trackId] = list.slice(0, 5);
+  try {
+    localStorage.setItem(TA_RECORD_KEY, JSON.stringify(all));
+  } catch (e) { /* 무시 */ }
+  return all[trackId].indexOf(entry);
+}
 let pingAcc = 0;
 
 const ITEM_INFO = {
@@ -131,6 +157,7 @@ let netAcc = 0;
 let syncAcc = 0;
 let lastShownItem = null;
 let lastBoostT = 0;
+let lastTARank = -1;
 let onlineCtl = null; // {room, players, ai, track, myId} | null (solo면 null)
 const camPos = new THREE.Vector3();
 
@@ -152,8 +179,10 @@ function newShieldMesh() {
   return m;
 }
 
-function buildRace(playerDef, tdef) {
+function buildRace(playerDef, tdef, opts = {}) {
   ITEMS_ON = document.getElementById('itemToggle').checked;
+  timeAttack = !!opts.timeAttack;
+  soloTA = timeAttack;
   if (tdef && tdef.id !== trackDef.id) {
     trackDef = tdef;
     circuit = buildTrack(tdef);
@@ -164,8 +193,11 @@ function buildRace(playerDef, tdef) {
   buildWorldTrack(trackDef);
   const slots = gridSlots(circuit);
   const defs = [playerDef];
-  const pool = CAR_DEFS.filter((d) => d.id !== playerDef.id);
-  while (defs.length < 4) defs.push(pool[(defs.length - 1) % pool.length]);
+  if (!timeAttack) {
+    // 타임어택이 아니면 CPU 3대와 경주
+    const pool = CAR_DEFS.filter((d) => d.id !== playerDef.id);
+    while (defs.length < 4) defs.push(pool[(defs.length - 1) % pool.length]);
+  }
 
   const paces = [1, 0.94, 0.965, 0.92];
   const lanes = [0, 1, -1, 0.5];
@@ -192,6 +224,8 @@ function buildRace(playerDef, tdef) {
   playerIdx = 0;
   raceTime = 0;
   spectateIdx = null;
+  // 타임어택에선 순위 박스 숨김
+  document.getElementById('posBox').style.display = timeAttack ? 'none' : 'block';
   snapCamera(true);
 }
 
@@ -416,7 +450,8 @@ function loop(ts) {
   const DUMMY = { steer: 0, throttle: 0, brake: 0, drift: false };
   const pProg = progressOf(p, circuit);
   const inputs = racers.map((r) => {
-    if (r.isPlayer) return spectateIdx == null ? pin : DUMMY;
+    // 피니시한 내 차는 CPU가 인계 (관전), 관전 중 미완주 내 차는 정지
+    if (r.isPlayer && !r.car.finished) return spectateIdx == null ? pin : DUMMY;
     if (r.ai) {
       if (!r.local) return DUMMY;
       return aiInput(r.car, circuit, ROAD_HALF, dt, pProg, progressOf(r.car, circuit), r.ai);
@@ -441,10 +476,12 @@ function loop(ts) {
     }
   }
 
-  // 부스터/점프 타이머 + 패드 트리거 (로컬 차량만)
+  // 부스터/점프 타이머 + 패드 트리거 (시뮬 대상만)
+  // 호스트: 전원 스텝 / 게스트: 자기 차만 예측 스텝
+  const simAll = !onlineCtl || onlineCtl.room.isHost;
   for (const r of racers) {
     const c = r.car;
-    if (c.out || !r.local) continue;
+    if (c.out || (!simAll && !r.isPlayer)) continue;
     if (c.boostT > 0) c.boostT -= dt;
     const wasAir = c.airT > 0;
     if (c.airT > 0) c.airT -= dt;
@@ -559,9 +596,9 @@ function loop(ts) {
     }
   }
 
-  // 물리 + 랩 (로컬 차량만; 탈락 제외, 완주 차량은 쿨다운 주행 계속)
+  // 물리 + 랩 (시뮬 대상만; 탈락 제외, 완주 차량은 쿨다운 주행 계속)
   racers.forEach((r, i) => {
-    if (r.car.out || !r.local) return;
+    if (r.car.out || (!simAll && !r.isPlayer)) return;
     stepCar(r.car, inputs[i], dt, circuit, ROAD_HALF);
     if (r.car.finished) return;
     const ev = checkLap(r.car, circuit, LAPS, raceTime);
@@ -609,6 +646,8 @@ function loop(ts) {
   }
 
   // 메시 싱크 + 먼지 (고도 + 점프 + 경사 피치 반영)
+  // 호스트·솔로는 전원 직접 렌더, 게스트는 자기 차만 직접 + 타인은 보간
+  const renderDirectAll = !onlineCtl || onlineCtl.room.isHost;
   for (const r of racers) {
     const c = r.car;
     if (c.shieldT > 0 && r.local) c.shieldT -= dt;
@@ -618,7 +657,7 @@ function loop(ts) {
         r.shieldMesh.position.copy(r.mesh.position);
       }
     }
-    if (!r.local) {
+    if (!renderDirectAll && !r.isPlayer) {
       // 원격 차량: 데드레커닝 예측 + 스냅샷으로 부드럽게 보간
       extrapolateRemote(c, dt);
       const k = 1 - Math.exp(-14 * dt);
@@ -806,11 +845,30 @@ function currentStandings() {
 function onLocalFinish() {
   phase = 'finished';
   playerDone = 'finished';
+  const me = racers[playerIdx];
+  // 내 차는 CPU에게 인계 + 자동 관전 (결과표로 나가기 전까지)
+  me.ai = { pace: 0.95, lane: 0 };
+  spectateIdx = playerIdx;
   const order = raceOrder();
-  const pos = order.indexOf(racers[playerIdx]) + 1;
+  const pos = order.indexOf(me) + 1;
   beeper.finish();
-  hud.message(`🏆 ${pos}${ordSuffix(pos)}!`, '', 1500);
-  showFinishBanner(`🏁 ${pos}${ordSuffix(pos)} FINISH`, `기록 ${raceTime.toFixed(1)}s`);
+  if (timeAttack) {
+    lastTARank = saveTARecord(trackDef.id, {
+      total: +me.car.finishTime.toFixed(1),
+      best: isFinite(me.car.bestLap) ? +me.car.bestLap.toFixed(1) : null,
+      car: me.car.def.id,
+      date: Date.now(),
+    });
+    hud.message('🏁 FINISH!', '', 1500);
+    showFinishBanner(
+      '⏱ TIME ATTACK',
+      `TOTAL ${me.car.finishTime.toFixed(1)}s · BEST ${fmtTime(me.car.bestLap)} · 역대 ${lastTARank + 1}위`
+    );
+  } else {
+    hud.message(`🏆 ${pos}${ordSuffix(pos)}!`, '', 1500);
+    showFinishBanner(`🏁 ${pos}${ordSuffix(pos)} FINISH`, `기록 ${raceTime.toFixed(1)}s`);
+  }
+  updateSpectateUI();
 }
 
 function enterFinishedWrecked() {
@@ -832,7 +890,21 @@ function onRaceEnd(reason) {
     beeper.finish();
     hud.message(pos === 1 ? '🏆 WINNER!' : `${pos}${ordSuffix(pos)} FINISH`, '', 2000);
   }
-  hud.showResults(currentStandings(), playerIdx);
+  if (timeAttack && reason === 'finished') {
+    // 타임어택 순위표 (이 트랙 TOP5)
+    const board = (loadTARecords()[trackDef.id] || []).slice().sort((a, b) => a.total - b.total).slice(0, 5);
+    hud.showResults(
+      board.map((e, i) => ({
+        name: `${e.car.toUpperCase()} ${e.total.toFixed(1)}s${i === lastTARank ? ' 🆕' : ''}`,
+        totalTime: e.total,
+        bestLap: e.best === null ? Infinity : e.best,
+        isPlayer: i === lastTARank,
+      })),
+      playerIdx
+    );
+  } else {
+    hud.showResults(currentStandings(), playerIdx);
+  }
 }
 
 function showFinishBanner(title, sub) {
@@ -848,9 +920,11 @@ function hideFinishBanner() {
 }
 function updateSpectateUI() {
   const watching = spectateIdx != null && racers[spectateIdx] && !racers[spectateIdx].car.out;
+  const finished = playerDone != null;
   document.getElementById('specBtn').style.display = watching ? 'none' : 'inline-block';
   document.getElementById('specNextBtn').style.display = watching ? 'inline-block' : 'none';
-  document.getElementById('specExitBtn').style.display = watching ? 'inline-block' : 'none';
+  // 피니시 후엔 CPU 인계라 내 차로 복귀 불가
+  document.getElementById('specExitBtn').style.display = watching && !finished ? 'inline-block' : 'none';
   if (watching) {
     document.getElementById('finishTitle').textContent = `👁 관전 중: ${racers[spectateIdx].name}`;
   } else if (lastBannerTitle) {
@@ -883,7 +957,7 @@ document.getElementById('restartBtn').addEventListener('click', () => {
     }
     return;
   }
-  buildRace(racers[playerIdx].car.def, trackDef);
+  buildRace(racers[playerIdx].car.def, trackDef, { timeAttack: soloTA });
   startCountdown();
 });
 document.getElementById('garageBtn').addEventListener('click', () => {
@@ -948,6 +1022,8 @@ function startOnlineRace(info) {
 function buildRaceOnline(info) {
   const tdef = info.track;
   ITEMS_ON = info.items !== false;
+  timeAttack = false;
+  document.getElementById('posBox').style.display = 'block';
   trackDef = tdef;
   circuit = buildTrack(tdef);
   LAPS = tdef.laps;
@@ -1268,9 +1344,21 @@ createGarage(
       pendingTrack = def;
       const r = (onlineCtl && onlineCtl.room) || lobbyRoom;
       if (r && r.isHost) r.setTrack(def.id);
+      const best = bestTARecord(def.id);
+      const b = document.getElementById('trackBest');
+      if (b) {
+        b.textContent = best
+          ? `⏱ BEST ${best.total.toFixed(1)}s (${best.car.toUpperCase()})`
+          : '⏱ 기록 없음 — 도전!';
+      }
     },
   }
 );
+document.getElementById('timeAttackBtn').addEventListener('click', () => {
+  document.getElementById('garage').style.display = 'none';
+  buildRace(pendingCar || CAR_DEFS[0], pendingTrack || TRACK_DEFS[0], { timeAttack: true });
+  startCountdown();
+});
 requestAnimationFrame((t) => {
   lastTs = t;
   loop(t);

@@ -34,6 +34,7 @@
         <div id="carDots">1 / 8</div>
         <button id="raceBtn">🏁 RACE START</button>
         <button id="onlineBtn">🌐 ONLINE P2P</button>
+        <label id="itemToggleWrap"><input type="checkbox" id="itemToggle" checked /> 🎁 아이템전</label>
       </div>
       <button id="carNext" class="arrow">▶</button>
     </div>
@@ -59,7 +60,7 @@
       <div id="onlineHome">
         <button id="createBtn" class="obtn">방 만들기</button>
         <div class="ojoin">
-          <input id="joinCode" maxlength="4" placeholder="코드 4글자" autocomplete="off" />
+          <input id="joinCode" maxlength="4" placeholder="코드 4글자" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" />
           <button id="joinBtn" class="obtn">참가</button>
         </div>
         <p class="o-hint">같은 코드를 입력한 친구와 직접 연결됩니다 (서버 없음)</p>
@@ -69,6 +70,7 @@
         <div id="lobbyTrack">TRACK: -</div>
         <div id="playerList"></div>
         <div id="lobbyHint" class="o-hint"></div>
+        <button id="itemsBtn" class="obtn">🎁 아이템전: ON</button>
         <button id="startOnlineBtn" class="obtn go">🏁 START</button>
         <button id="leaveBtn" class="obtn dim">나가기</button>
       </div>
@@ -84,12 +86,25 @@
         <canvas id="minimap" width="150" height="150"></canvas>
         <div id="lapBox">LAP<br /><b>1/3</b></div>
         <div class="spacer"></div>
+        <div id="pingBox" style="display:none">-ms</div>
         <div id="posBox">1<small>st/4</small></div>
         <div id="raceTimer">0.0</div>
+      </div>
+      <div id="finishBanner" style="display:none">
+        <div id="finishTitle">🏁 FINISH</div>
+        <div id="finishSub"></div>
+        <div class="fb-row">
+          <button id="specBtn">👁 관전하기</button>
+          <button id="specNextBtn" style="display:none">⏭ 다음 차량</button>
+          <button id="specExitBtn" style="display:none">🚗 내 차로</button>
+          <button id="finishResultBtn">📋 결과표</button>
+        </div>
       </div>
       <div class="hud-speed"><span id="speedBox">0</span><small>km/h</small></div>
       <div id="hpBar"><i id="hpFill"></i></div>
       <button id="btnDrift">DRIFT</button>
+      <button id="btnItem">🎁</button>
+      <div id="itemBox" style="display:none">-</div>
       <div id="zoneHint" style="display:none">◀ 왼쪽 터치 = 좌회전 · 오른쪽 터치 = 우회전 · 양쪽 동시 = 후진 ▶</div>
       <button id="btnLeft" class="steer left">◀</button>
       <button id="btnRight" class="steer right">▶</button>
@@ -103,7 +118,7 @@
       <div id="speedVig"></div>
       <div id="results" style="display:none">
         <div class="rcard">
-          <h2>🏁 RACE RESULTS</h2>
+          <div class="rhead"><h2>🏁 RACE RESULTS</h2><button id="resultClose">✕</button></div>
           <div id="resultRows"></div>
           <div class="rbtns">
             <button id="againBtn">다시 달리기 (↻)</button>

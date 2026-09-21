@@ -108,7 +108,7 @@ export function createHUD(circuit) {
 // 입력: 키보드 + 화면 좌/우 탭 조향 (멀티터치: 양쪽 동시=브레이크/후진)
 // L/R 버튼은 시작 전 힌트용 표시물(pointer-events 없음), 실제 입력은 화면 분할 탭
 export function createInput(canvas) {
-  const state = { left: false, right: false, up: false, down: false, drift: false };
+  const state = { left: false, right: false, up: false, down: false, drift: false, useItem: false };
   const keymap = {
     ArrowLeft: 'left', KeyA: 'left',
     ArrowRight: 'right', KeyD: 'right',
@@ -116,14 +116,22 @@ export function createInput(canvas) {
     ArrowDown: 'down', KeyS: 'down',
     ShiftLeft: 'drift', ShiftRight: 'drift', KeyF: 'drift',
   };
+  const edgeKeys = { Space: 'useItem', KeyE: 'useItem' };
   window.addEventListener('keydown', (e) => {
+    // 코드 입력창 등 타이핑 중엔 게임 키 무시
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     const k = keymap[e.code];
     if (k) {
       state[k] = true;
       e.preventDefault();
     }
+    if (edgeKeys[e.code]) {
+      state.useItem = true;
+      e.preventDefault();
+    }
   });
   window.addEventListener('keyup', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     const k = keymap[e.code];
     if (k) {
       state[k] = false;
@@ -183,6 +191,16 @@ export function createInput(canvas) {
     driftBtn.addEventListener('pointerup', off);
     driftBtn.addEventListener('pointerleave', off);
     driftBtn.addEventListener('pointercancel', off);
+  }
+
+  // 아이템 사용 버튼 (🎁) — 누르면 1회 발동 플래그
+  const itemBtn = document.getElementById('btnItem');
+  if (itemBtn) {
+    itemBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      state.useItem = true;
+    });
   }
 
   function toRaceInput() {

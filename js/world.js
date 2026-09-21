@@ -398,6 +398,24 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
   }
 
+  // 아이템 박스 (반투명 시안 큐브, 회전·리스폰은 메인에서)
+  const itemBoxes = [];
+  if (feat.items !== false) {
+    const fracs = [0.15, 0.4, 0.65, 0.9];
+    fracs.forEach((f, bi) => {
+      const d = f * circuit.length;
+      const p = circuit.pointAt(d);
+      const lat = bi % 2 === 0 ? 5 : -5;
+      const m = new THREE.Mesh(
+        new THREE.BoxGeometry(3, 3, 3),
+        new THREE.MeshBasicMaterial({ color: 0x27e0f5, transparent: true, opacity: 0.75 })
+      );
+      m.position.set(p.x + -p.dz * lat, trackY(circuit, d) + 2.2, p.z + p.dx * lat);
+      scene.add(m);
+      itemBoxes.push({ x: m.position.x, z: m.position.z, mesh: m, takenT: 0 });
+    });
+  }
+
   // 장식: 나무/벤치/가로등/타이어 (트랙 바깥에 배치)
   let seed = 1234567;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -471,7 +489,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
   }
 
-  return { sun, colliders, wallGaps, pads, jumps };
+  return { sun, colliders, wallGaps, pads, jumps, itemBoxes };
 }
 
 // 두 점 사이 직선 흙 리본 (지름길 표시)

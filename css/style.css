@@ -172,6 +172,48 @@ html, body {
   pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
 }
 #btnDrift.active { background: #ff8a00; transform: scale(.93); }
+#btnItem {
+  position: absolute; bottom: 244px; right: 14px;
+  width: 64px; height: 64px; border-radius: 50%;
+  font-size: 28px; color: #fff;
+  background: rgba(31,111,214,.8); border: 3px solid rgba(255,255,255,.7);
+  pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+#btnItem:active { transform: scale(.92); }
+#itemBox {
+  position: absolute; bottom: 244px; right: 88px;
+  min-width: 64px; text-align: center;
+  font-size: 13px; font-weight: 900; color: #fff;
+  background: rgba(0,0,0,.55); border: 2px solid rgba(255,255,255,.6); border-radius: 10px;
+  padding: 8px 10px;
+}
+#itemToggleWrap { display: block; margin-top: 10px; font-size: 14px; font-weight: 800; color: #fff; cursor: pointer; }
+#itemToggleWrap input { width: 18px; height: 18px; vertical-align: -3px; }
+#finishBanner {
+  position: absolute; top: 74px; left: 50%; transform: translateX(-50%);
+  text-align: center; pointer-events: auto;
+  background: rgba(10,16,24,.82); border: 2px solid #fff; border-radius: 12px;
+  padding: 10px 18px;
+}
+#finishTitle { font-family: "Press Start 2P", monospace; font-size: 20px; }
+#finishSub { font-size: 13px; color: #c6d3de; margin-top: 4px; }
+.fb-row { display: flex; gap: 8px; margin-top: 8px; justify-content: center; }
+.fb-row button {
+  font-size: 14px; font-weight: 800; color: #fff;
+  background: #1f6fd6; border: 2px solid #fff; border-radius: 8px;
+  padding: 8px 12px; cursor: pointer;
+}
+#pingBox {
+  font-family: "Press Start 2P", monospace; font-size: 12px; color: #8fd0ff;
+  background: rgba(10,16,24,.55); padding: 6px 8px; border-radius: 6px;
+  align-self: center;
+}
+.rcard h2 { font-family: "Press Start 2P", monospace; font-size: 20px; margin: 0; }
+.rhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+#resultClose {
+  background: none; border: 0; color: #8fa0b3; font-size: 20px; cursor: pointer;
+  pointer-events: auto;
+}
 #hpBar {
   position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%);
   width: 220px; height: 12px;

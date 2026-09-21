@@ -132,6 +132,7 @@ export function createGarage(onStart, hooks = {}) {
 
   // 키보드 좌우로 차량 변경, Enter로 시작
   window.addEventListener('keydown', function nav(e) {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     if (document.getElementById('garage').style.display === 'none') {
       window.removeEventListener('keydown', nav);
       return;

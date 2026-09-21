@@ -117,7 +117,23 @@ export function makeCarState(def, x, z, heading) {
     driftCharge: 0, // 드리프트 차지 (놓으면 미니 터보)
     drifting: false,
     driftHeld: false,
+    shieldT: 0,    // 실드 잔여 시간 (대미지 1회 흡수 후 소멸)
+    item: null,    // 보유 아이템: boost|shield|mine|shock
   };
+}
+
+// 대미지 적용 (실드가 있으면 1회 흡수 후 실드 소멸)
+export function damageWithShield(car, dmg) {
+  if (car.finished) return;
+  if (car.shieldT > 0) {
+    car.shieldT = 0;
+    return;
+  }
+  car.hp -= dmg;
+  if (car.hp <= 0) {
+    car.hp = 0;
+    car.out = true;
+  }
 }
 
 const SECTOR = 4;
@@ -269,24 +285,16 @@ export function resolveCollisions(cars, dt) {
           a.vz -= nz * rel * dampA;
           b.vx += nx * rel * dampB;
           b.vz += nz * rel * dampB;
-          // 대미지 (쿨다운 중이 아닐 때만, 양쪽 다 입음)
+          // 대미지 (쿨다운 중이 아닐 때만, 양쪽 다 입음 — 완주 차량은 무적)
           if (rel > 8) {
             const dmg = rel * 0.55;
-            if (a.hitCd <= 0) {
-              a.hp -= dmg;
+            if (!a.finished && a.hitCd <= 0) {
+              damageWithShield(a, dmg);
               a.hitCd = 0.6;
-              if (a.hp <= 0) {
-                a.hp = 0;
-                a.out = true;
-              }
             }
-            if (b.hitCd <= 0) {
-              b.hp -= dmg;
+            if (!b.finished && b.hitCd <= 0) {
+              damageWithShield(b, dmg);
               b.hitCd = 0.6;
-              if (b.hp <= 0) {
-                b.hp = 0;
-                b.out = true;
-              }
             }
           }
         }
@@ -321,13 +329,9 @@ export function collideObstacles(car, colliders, dt) {
       maxImpact = Math.max(maxImpact, -vn);
       car.vx -= 1.4 * vn * nx;
       car.vz -= 1.4 * vn * nz;
-      if (spd > 12 && car.hitCd <= 0) {
-        car.hp -= spd * 0.35;
+      if (spd > 12 && car.hitCd <= 0 && !car.finished) {
+        damageWithShield(car, spd * 0.35);
         car.hitCd = 0.6;
-        if (car.hp <= 0) {
-          car.hp = 0;
-          car.out = true;
-        }
       }
     }
   }
@@ -391,13 +395,9 @@ export function collideWalls(car, circuit, roadHalf, walls, dt) {
     const bounced = -vn * 0.35;
     car.vx = p.dx * vt * 0.93 + px * sgn * bounced;
     car.vz = p.dz * vt * 0.93 + pz * sgn * bounced;
-    if (vn > 18 && car.hitCd <= 0) {
-      car.hp -= (vn - 15) * 0.5;
+    if (vn > 18 && car.hitCd <= 0 && !car.finished) {
+      damageWithShield(car, (vn - 15) * 0.5);
       car.hitCd = 0.6;
-      if (car.hp <= 0) {
-        car.hp = 0;
-        car.out = true;
-      }
     }
   } else {
     car.vx *= Math.exp(-1.5 * dt);

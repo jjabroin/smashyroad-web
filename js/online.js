@@ -48,6 +48,11 @@ export function createOnlinePanel(api) {
     el('startOnlineBtn').style.display = isHost ? 'block' : 'none';
     const ready = players.length >= 2 && players.every((p) => p.carId);
     el('startOnlineBtn').disabled = !ready;
+    const itemsBtn = el('itemsBtn');
+    const on = !room || room.itemsOn !== false;
+    itemsBtn.textContent = `🎁 아이템전: ${on ? 'ON' : 'OFF'}`;
+    itemsBtn.disabled = !isHost;
+    itemsBtn.style.display = 'block';
     el('lobbyHint').textContent = players.length < 2
       ? '친구에게 코드 4글자를 알려주세요'
       : players.every((p) => p.carId)
@@ -58,13 +63,12 @@ export function createOnlinePanel(api) {
   function bindRoomEvents(r) {
     r.onEvent = (ev) => {
       if (ev.type === 'lobby') {
+        r.itemsOn = ev.items;
         refreshLobby(ev.players, ev.trackId || api.getTrack().id, r.isHost, r.myId);
       } else if (ev.type === 'start') {
         hide();
         api.onStartOnline({
-          room: r,
-          players: ev.players,
-          ai: ev.ai,
+          room: r, players: ev.players, ai: ev.ai, items: ev.items,
           track: TRACK_DEFS.find((t) => t.id === ev.trackId) || TRACK_DEFS[0],
           myId: r.myId,
         });
@@ -92,6 +96,7 @@ export function createOnlinePanel(api) {
       const code = await room.hostRoom();
       room.setMyCar(api.getCar().id);
       room.setTrack(api.getTrack().id);
+      if (api.onRoom) api.onRoom(room);
       show('lobby');
       status('');
       refreshLobby(room.players, api.getTrack().id, true, room.myId);
@@ -106,17 +111,33 @@ export function createOnlinePanel(api) {
       status('코드 4글자를 입력하세요.');
       return;
     }
-    status('참가 중...');
+    status('참가 중... (최대 30초)');
     try {
       room = new NetRoom(peerFactory);
       bindRoomEvents(room);
       await room.joinRoom(code, api.getCar().id);
+      if (api.onRoom) api.onRoom(room);
       show('lobby');
       status('');
     } catch (e) {
-      status('참가 실패: 방 코드를 확인해주세요.');
-      room = null;
+      status('참가 실패: ' + (e.message === 'host unreachable'
+        ? '호스트에 닿지 않습니다. 코드·인터넷 상태를 확인하고 다시 시도해주세요.'
+        : e.message));
+      if (room) {
+        room.destroy();
+        room = null;
+      }
     }
+  });
+  el('joinCode').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') el('joinBtn').click();
+  });
+
+  el('itemsBtn').addEventListener('click', () => {
+    if (!room || !room.isHost) return;
+    room.itemsOn = room.itemsOn === false;
+    room.broadcastLobby();
+    refreshLobby(room.players, room.trackId || api.getTrack().id, true, room.myId);
   });
 
   el('startOnlineBtn').addEventListener('click', () => {
@@ -130,12 +151,13 @@ export function createOnlinePanel(api) {
     while (players.length + ai.length < 4 && aiPool.length > 0) {
       ai.push(aiPool.shift());
     }
-    const msg = room.startRace(ai);
+    const msg = room.startRace(ai, room.itemsOn !== false);
     hide();
     api.onStartOnline({
       room,
       players: msg.players,
       ai: msg.ai,
+      items: msg.items,
       track: TRACK_DEFS.find((t) => t.id === msg.trackId) || TRACK_DEFS[0],
       myId: room.myId,
     });
@@ -146,6 +168,7 @@ export function createOnlinePanel(api) {
       room.destroy();
       room = null;
     }
+    if (api.onRoom) api.onRoom(null);
     hide();
     api.onLobbyClosed();
   }

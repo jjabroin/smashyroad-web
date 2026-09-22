@@ -1571,8 +1571,24 @@ recordsBoard.onUpdate = () => {
 try {
   recordsBoard.connect().catch(() => {});
 } catch (e) { /* MQTT 미지원 환경 무시 */ }
+updateBoardSync();
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
+const APP_VERSION = '20260922-01';
+try {
+  fetch('version.json', { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((v) => {
+      if (v && v.version && v.version !== APP_VERSION) {
+        const b = document.getElementById('updateBanner');
+        if (b) b.style.display = 'flex';
+      }
+    })
+    .catch(() => {});
+} catch (e) { /* 무시 */ }
+document.getElementById('updateReload').addEventListener('click', () => {
+  location.reload();
+});
 onlinePanel = createOnlinePanel({
   getCar: () => pendingCar || CAR_DEFS[0],
   getTrack: () => pendingTrack || TRACK_DEFS[0],

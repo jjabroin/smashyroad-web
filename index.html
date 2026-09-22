@@ -7,7 +7,7 @@
   <meta name="description" content="복셀 3D 트랙 경주 게임. 차고에서 차를 고르고 3랩 서킷에서 결승선을 노리세요." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=11" />
+  <link rel="stylesheet" href="css/style.css?v=12" />
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
@@ -96,6 +96,10 @@
   </div>
 
   <!-- ============ 온라인 로비 ============ -->
+  <div id="updateBanner" style="display:none">
+    <span>새 버전이 있습니다</span>
+    <button id="updateReload">새로고침</button>
+  </div>
   <div id="onlinePanel" style="display:none">
     <div id="onlineCard">
       <div class="o-head">
@@ -207,7 +211,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=15"></script>
+  <script type="module" src="js/main.js?v=16"></script>
   <script>
     // 결과 화면 버튼 (온라인 모드에서 main.js가 오버라이드)
     window.__raceAgain = () => document.getElementById('restartBtn').click();

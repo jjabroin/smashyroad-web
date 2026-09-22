@@ -11,7 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=13';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=18';
+import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=19';
 import { SkidTrails } from './skids.js?v=14';
 
 const canvas = document.getElementById('game');
@@ -1596,6 +1596,10 @@ updateBoardSync();
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
 const APP_VERSION = '20260922-01';
+try {
+  const av = document.getElementById('appVer');
+  if (av) av.textContent = 'v' + APP_VERSION;
+} catch (e) { /* 무시 */ }
 try {
   fetch('version.json', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))

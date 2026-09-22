@@ -71,7 +71,7 @@ export class RecordsBoard {
   }
 
   async connect() {
-    if (this.client) return;
+    if (this.client && this.connected) return;
     this._setStatus('off');
     const r = activeRelay();
     const cid = 'br-rec-' + Math.random().toString(36).slice(2, 10);
@@ -103,6 +103,7 @@ export class RecordsBoard {
     this.client = client;
     this._cid = cid;
     this.connected = true;
+    this._gotFirstConnect = false;
     client.on('message', (topic, payload) => {
       if (topic === `${ROOM_PREFIX}loop/${cid}`) {
         this._loopOk = true;
@@ -125,10 +126,15 @@ export class RecordsBoard {
       } catch (e) { /* 무시 */ }
     });
     client.on('close', () => {
+      // 연결 끊김 (자동 재연결은 백그라운드에서 진행, client 유지)
       this.connected = false;
-      this.client = null;
       this._verified = false;
       this._setStatus('off');
+    });
+    client.on('connect', () => {
+      // 초기 연결은 위 promise 흐름이 처리, 여기선 재연결만 복구
+      // (최초 connect 이벤트는 이 리스너 등록 전에 이미 발생함)
+      this._resubscribe();
     });
     try {
       await client.subscribe(`${ROOM_PREFIX}records/+`);
@@ -136,12 +142,39 @@ export class RecordsBoard {
       this._setStatus('off');
       throw e;
     }
-    // 루프백 검증: 발행+구독이 모두 통해야 진짜 공유 중
+    // 루프백 검증 (최대 3회 재시도): 발행+구독이 모두 통해야 진짜 공유 중
     this._setStatus('conn');
-    const ok = await this._loopback();
+    const ok = await this._verifyLoop(3);
     this._verified = ok;
     this._setStatus(ok ? 'ok' : 'conn');
     if (!ok) throw new Error('loopback failed');
+  }
+
+  async _verifyLoop(retries) {
+    for (let i = 0; i < retries; i++) {
+      const ok = await this._loopback();
+      if (ok) return true;
+      if (this._loopFail === 'no-client') return false;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    return false;
+  }
+
+  async _resubscribe() {
+    if (!this.client) return;
+    this.connected = true;
+    try {
+      await this.client.subscribe(`${ROOM_PREFIX}records/+`);
+    } catch (e) {
+      return;
+    }
+    this._setStatus('conn');
+    const ok = await this._verifyLoop(3);
+    this._verified = ok;
+    this._setStatus(ok ? 'ok' : 'conn');
+    if (this.onUpdate) {
+      try { this.onUpdate(); } catch (e) { /* 무시 */ }
+    }
   }
 
   _setStatus(st) {
@@ -153,6 +186,11 @@ export class RecordsBoard {
 
   _loopback() {
     return new Promise((resolve) => {
+      if (!this.client) {
+        this._loopFail = 'no-client';
+        resolve(false);
+        return;
+      }
       const topic = `${ROOM_PREFIX}loop/${this._cid}`;
       const fail = (why) => {
         this._loopFail = why;

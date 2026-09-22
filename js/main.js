@@ -8,7 +8,7 @@ import {
 import { CAR_BUILDERS } from './voxel.js?v=8';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=8';
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=11';
-import { createGarage } from './garage.js?v=13';
+import { createGarage } from './garage.js?v=14';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
 import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=19';

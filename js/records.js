@@ -148,8 +148,20 @@ export class RecordsBoard {
     return this.cache[trackId] || null;
   }
 
-  async publish(trackId, entry) {
-    // 궤적(trail)은 공유하지 않음 (용량) — 로컬 전용
+  // retained 재전송 요청 (순위표 열 때 최신으로)
+  async resync() {
+    if (!this.client) {
+      try { await this.connect(); } catch (e) { return false; }
+    }
+    try {
+      await this.client.subscribe(`${ROOM_PREFIX}records/+`);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async publish(trackId, entry) {    // 궤적(trail)은 공유하지 않음 (용량) — 로컬 전용
     const slim = { ...entry };
     delete slim.trail;
     // 캐시 병합 후 TOP5 retained 발행

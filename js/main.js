@@ -11,7 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=13';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag } from './records.js?v=15';
+import { RecordsBoard, getRacerTag } from './records.js?v=16';
 import { SkidTrails } from './skids.js?v=14';
 
 const canvas = document.getElementById('game');
@@ -1607,11 +1607,16 @@ onlinePanel = createOnlinePanel({
     if (onlinePanel) onlinePanel.openHome();
   },
   onBoardOpen: () => {
-    // 순위표 열 때 미동기화 로컬 기록을 공유 보드에 올리고 새로고침
+    // 순위표 열 때: retained 재요청 → 미동기화 병합 → 새로고침
     updateBoardSync();
-    recordsBoard.flushPending(loadTARecords).then(() => {
-      if (garageCtl) garageCtl.refreshBoard();
-    }).catch(() => {});
+    recordsBoard.resync()
+      .catch(() => false)
+      .then(() => recordsBoard.flushPending(loadTARecords))
+      .catch(() => false)
+      .then(() => {
+        updateBoardSync();
+        if (garageCtl) garageCtl.refreshBoard();
+      });
   },
   getBoard: (trackId) => taBoard(trackId),
   getGhost: (trackId, entry) => {

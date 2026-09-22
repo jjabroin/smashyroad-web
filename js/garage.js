@@ -23,8 +23,8 @@ export function createGarage(onStart, hooks = {}) {
   scene.background = null;
 
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
-  camera.position.set(11, 7.5, 13);
-  camera.lookAt(0, 1.2, 0);
+  camera.position.set(12, 4.6, 15);
+  camera.lookAt(0, 2.4, 0); // 도로 원근에 맞춰 눕히고 차를 아래에 배치
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a96, 1.0));
   const sun = new THREE.DirectionalLight(0xfff6e0, 1.5);
@@ -244,7 +244,20 @@ export function createGarage(onStart, hooks = {}) {
         list.slice(0, 5).forEach((e, i) => {
           const row = document.createElement('div');
           row.className = 'brow';
+          const gh = hooks.getGhost ? hooks.getGhost(t.id, e) : null;
           row.innerHTML = `<span>${i + 1}. ${e.tag ? e.tag + ' · ' : ''}${(e.car || '').toUpperCase()}</span><span>${e.total.toFixed(1)}s</span>`;
+          if (gh && hooks.onGhost) {
+            row.style.cursor = 'pointer';
+            row.title = '이 기록과 대결!';
+            const vb = document.createElement('button');
+            vb.className = 'ghostbtn';
+            vb.textContent = '👻 대결';
+            vb.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              hooks.onGhost(t.id, gh);
+            });
+            row.appendChild(vb);
+          }
           sec.appendChild(row);
         });
       }

@@ -120,6 +120,7 @@ export function makeCarState(def, x, z, heading) {
     driftHeld: false,
     shieldT: 0,    // 실드 잔여 시간 (대미지 1회 흡수 후 소멸)
     item: null,    // 보유 아이템: boost|shield|mine|shock
+    trail: [],     // 고스트용 궤적 {t,d,x,z,h}
   };
 }
 

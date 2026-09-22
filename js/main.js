@@ -12,6 +12,7 @@ import { createGarage } from './garage.js?v=10';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
 import { RecordsBoard, getRacerTag } from './records.js?v=8';
+import { SkidTrails } from './skids.js?v=10';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -179,7 +180,10 @@ let lastBoostT = 0;
 let lastTARank = -1;
 let lastTAEntry = null;
 let onlineCtl = null; // {room, players, ai, track, myId} | null (solo면 null)
+let ghost = null; // {samples, mesh, dur} 고스트 대결용
+let recAcc = 0;
 const camPos = new THREE.Vector3();
+const skids = new SkidTrails(scene);
 
 function clearRacers() {
   for (const r of racers) {
@@ -187,6 +191,15 @@ function clearRacers() {
     if (r.shieldMesh) scene.remove(r.shieldMesh);
   }
   racers = [];
+  clearGhost();
+  skids.clear();
+}
+
+function clearGhost() {
+  if (ghost && ghost.mesh) scene.remove(ghost.mesh);
+  ghost = null;
+  const d = document.getElementById('deltaBox');
+  if (d) d.style.display = 'none';
 }
 
 function newShieldMesh() {
@@ -401,6 +414,7 @@ function startCountdown() {
   spectateIdx = null;
   autoFinalShown = false;
   playerDone = null;
+  recAcc = 0;
   hideFinishBanner();
   // 아이템전 OFF면 아이템 버튼 숨김
   for (const id of ['btnItemL', 'btnItemR']) {
@@ -665,6 +679,26 @@ function loop(ts) {
     return;
   }
 
+  // 고스트용 궤적 기록 (TA 솔로, 5Hz)
+  if (timeAttack && !onlineCtl && phase === 'racing') {
+    const pc = racers[playerIdx] && racers[playerIdx].car;
+    if (pc && !pc.out && !pc.finished) {
+      recAcc += dt;
+      if (recAcc >= 0.2) {
+        recAcc = 0;
+        pc.trail.push({
+          t: +raceTime.toFixed(2), d: +pc.dist.toFixed(1),
+          x: +pc.x.toFixed(1), z: +pc.z.toFixed(1), h: +pc.heading.toFixed(3),
+        });
+      }
+    }
+  }
+
+  // 고스트 재생 + 실시간 차이
+  if (ghost && timeAttack && (phase === 'racing' || phase === 'finished')) {
+    updateGhost();
+  }
+
   // 메시 싱크 + 먼지 (고도 + 점프 + 경사 피치 반영)
   // 호스트·솔로는 전원 직접 렌더, 게스트는 자기 차만 직접 + 타인은 보간
   const renderDirectAll = !onlineCtl || onlineCtl.room.isHost;
@@ -728,7 +762,16 @@ function loop(ts) {
         my
       );
     }
-    // 대미지 연기: HP 60% 이하부터, 25% 이하는 불꽃 섞임
+    // 스키드마크 (드리프트 중 뒷바퀴 접지 방향)
+    if (c.drifting && !c.out && Math.hypot(c.vx, c.vz) > 10) {
+      const fx = Math.cos(c.heading);
+      const fz = Math.sin(c.heading);
+      const cx = c.x - fx * 2.2;
+      const cz = c.z - fz * 2.2;
+      const wy = trackY(circuit, c.dist) + 0.15;
+      skids.addPoint(r.slot + 'L', cx + -fz * 1.3, wy, cz + fx * 1.3, fx, fz);
+      skids.addPoint(r.slot + 'R', cx - -fz * 1.3, wy, cz - fx * 1.3, fx, fz);
+    }
     if (!c.out && c.hp < c.maxHp * 0.6) {
       r.smokeAcc = (r.smokeAcc || 0) + dt * (c.hp < c.maxHp * 0.25 ? 26 : 10);
       while (r.smokeAcc >= 1) {
@@ -835,6 +878,9 @@ function loop(ts) {
     if (box) box.style.display = 'none';
   }
 
+  // 스키드마크 aging (경주 중 계속)
+  skids.update(dt);
+
   renderer.render(scene, camera);
 }
 
@@ -862,6 +908,69 @@ function currentStandings() {
   }));
 }
 
+// 고스트 대결 시작 (TA, 선택한 기록의 궤적과 레이스)
+function startGhostRace(trackId, entry) {
+  const tdef = TRACK_DEFS.find((t) => t.id === trackId) || TRACK_DEFS[0];
+  const carDef = pendingCar || CAR_DEFS[0];
+  document.getElementById('garage').style.display = 'none';
+  buildRace(carDef, tdef, { timeAttack: true });
+  const gdef = CAR_DEFS.find((x) => x.id === entry.car) || carDef;
+  const mesh = CAR_BUILDERS[gdef.id](gdef.color, gdef.accent);
+  mesh.traverse((o) => {
+    if (o.isMesh) {
+      o.material = o.material.clone();
+      o.material.transparent = true;
+      o.material.opacity = 0.45;
+      o.castShadow = false;
+    }
+  });
+  mesh.visible = false;
+  scene.add(mesh);
+  ghost = { samples: entry.trail };
+  ghost.mesh = mesh;
+  startCountdown();
+}
+
+function ghostSampleAt(t) {
+  const s = ghost.samples;
+  if (!s || s.length === 0) return null;
+  if (t <= s[0].t) return s[0];
+  for (let i = 1; i < s.length; i++) {
+    if (s[i].t >= t) {
+      const a = s[i - 1];
+      const b = s[i];
+      const k = (t - a.t) / Math.max(0.001, b.t - a.t);
+      return {
+        d: a.d + (b.d - a.d) * k,
+        x: a.x + (b.x - a.x) * k,
+        z: a.z + (b.z - a.z) * k,
+        h: a.h + (b.h - a.h) * k,
+      };
+    }
+  }
+  return null;
+}
+
+function updateGhost() {
+  const d = document.getElementById('deltaBox');
+  const g = ghostSampleAt(raceTime);
+  if (!g) {
+    ghost.mesh.visible = false;
+    if (d) d.style.display = 'none';
+    return;
+  }
+  ghost.mesh.visible = true;
+  ghost.mesh.position.set(g.x, trackY(circuit, g.d) + 0.1, g.z);
+  ghost.mesh.rotation.y = -g.h;
+  const p = racers[playerIdx].car;
+  const dm = g.d - p.dist;
+  if (d) {
+    d.style.display = 'block';
+    d.textContent = (dm >= 0 ? '+' : '') + dm.toFixed(0) + 'm';
+    d.style.color = dm >= 0 ? '#ff6b6b' : '#5dff5d';
+  }
+}
+
 function onLocalFinish() {
   phase = 'finished';
   playerDone = 'finished';
@@ -873,10 +982,17 @@ function onLocalFinish() {
   const pos = order.indexOf(me) + 1;
   beeper.finish();
   if (timeAttack) {
+    const rawTrail = me.car.trail || [];
+    const trail = [];
+    for (let i = 0; i < rawTrail.length; i += 2) {
+      const s = rawTrail[i];
+      trail.push({ t: s.t, d: s.d, x: s.x, z: s.z, h: s.h });
+    }
     lastTARank = saveTARecord(trackDef.id, {
       total: +me.car.finishTime.toFixed(1),
       best: isFinite(me.car.bestLap) ? +me.car.bestLap.toFixed(1) : null,
       car: me.car.def.id,
+      trail,
     });
     lastTAEntry = {
       tag: getRacerTag(),
@@ -1373,6 +1489,12 @@ onlinePanel = createOnlinePanel({
   onOnline: () => {
     if (onlinePanel) onlinePanel.openHome();
   },
+  getBoard: (trackId) => taBoard(trackId),
+  getGhost: (trackId, entry) => {
+    const list = loadTARecords()[trackId] || [];
+    return list.find((e) => e.trail && e.trail.length > 1 && e.tag === entry.tag && e.total === entry.total) || null;
+  },
+  onGhost: (trackId, entry) => startGhostRace(trackId, entry),
 });
 createGarage(
   (def, track, mode) => {

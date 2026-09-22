@@ -95,12 +95,15 @@ export class RecordsBoard {
   }
 
   async publish(trackId, entry) {
+    // 궤적(trail)은 공유하지 않음 (용량) — 로컬 전용
+    const slim = { ...entry };
+    delete slim.trail;
     // 캐시 병합 후 TOP5 retained 발행
     const cur = (this.cache[trackId] || []).slice();
-    cur.push(entry);
+    cur.push(slim);
     cur.sort((a, b) => a.total - b.total);
     const top = cur.slice(0, 5);
-    if (!top.includes(entry)) return top.indexOf(entry); // 순위 밖이면 발행 안 함
+    if (!top.includes(slim)) return top.indexOf(slim); // 순위 밖이면 발행 안 함
     this.cache[trackId] = top;
     if (!this.client) {
       try { await this.connect(); } catch (e) { return top.indexOf(entry); }

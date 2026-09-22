@@ -365,6 +365,14 @@ html, body {
 #turnState { min-height: 16px; }
 .ocode { font-size: 15px; color: #8fa0b3; }
 .ocode b { font-family: "Press Start 2P", monospace; font-size: 26px; color: #5dff5d; letter-spacing: 4px; }
+.lobby-car {
+  display: flex; align-items: baseline; gap: 8px;
+  background: linear-gradient(160deg, #2f7fe0, #1a3f8f);
+  border: 2px solid #fff; border-radius: 10px;
+  padding: 8px 12px; margin: 8px 0;
+}
+.lobby-car span:first-child { font-size: 19px; font-weight: 900; }
+.lobby-car span:last-child { font-size: 12px; opacity: .85; }
 #lobbyTrack { font-size: 14px; font-weight: 800; margin: 8px 0; color: #ffd75d; }
 #playerList { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
 .prow {
@@ -408,6 +416,17 @@ html, body {
   text-shadow: 2px 2px 0 #101418;
 }
 .hud-speed small { font-size: 11px; margin-left: 4px; }
+#deltaBox {
+  position: absolute; bottom: 92px; left: 50%; transform: translateX(-50%);
+  font-family: "Press Start 2P", monospace; font-size: 18px;
+  background: rgba(10,16,24,.6); padding: 6px 12px; border-radius: 8px;
+  pointer-events: none;
+}
+.ghostbtn {
+  font-size: 12px; font-weight: 800; color: #06130b;
+  background: #5dff5d; border: 0; border-radius: 8px;
+  padding: 5px 10px; margin-left: 8px; cursor: pointer;
+}
 /* 조작 버튼 (좌우 쌍, 위치·크기 변경 가능) */
 .ctlbtn {
   position: absolute; transform: translate(-50%, -50%);

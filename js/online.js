@@ -41,11 +41,14 @@ export function createOnlinePanel(api) {
   function refreshLobby(players, trackId, isHost, myId) {
     el('roomCode').textContent = room ? room.code : '----';
     el('lobbyTrack').textContent = 'TRACK: ' + trackNameOf(trackId);
+    const me = players.find((p) => p.id === myId);
+    const myDef = me && CAR_DEFS.find((d) => d.id === me.carId);
+    el('lobbyCarName').textContent = myDef ? myDef.name : '-';
+    el('lobbyCarGrade').textContent = myDef ? myDef.grade : '';
     el('playerList').innerHTML = players
       .map((p, i) => {
-        const you = p.id === myId ? ' (YOU)' : '';
-        const host = i === 0 ? ' 👑' : '';
-        return `<div class="prow${p.id === myId ? ' me' : ''}"><span>P${i + 1}${host}${you}</span><span>${carNameOf(p.carId)}</span></div>`;
+        const host = i === 0 ? ' ★' : '';
+        return `<div class="prow${p.id === myId ? ' me' : ''}"><span>P${i + 1}${host}</span><span>${carNameOf(p.carId)}</span></div>`;
       })
       .join('');
     el('startOnlineBtn').style.display = isHost ? 'block' : 'none';
@@ -56,11 +59,6 @@ export function createOnlinePanel(api) {
     itemsBtn.textContent = `🎁 아이템전: ${on ? 'ON' : 'OFF'}`;
     itemsBtn.disabled = !isHost;
     itemsBtn.style.display = 'block';
-    el('lobbyHint').textContent = players.length < 2
-      ? '친구에게 코드 4글자를 알려주세요'
-      : players.every((p) => p.carId)
-        ? '전원 준비 완료!'
-        : '차량을 선택해주세요';
   }
 
   function bindRoomEvents(r) {

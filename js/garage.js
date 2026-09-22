@@ -313,5 +313,18 @@ export function createGarage(onStart, hooks = {}) {
     refreshBoard() {
       if (document.getElementById('panelBoard').style.display !== 'none') renderBoard();
     },
+    refreshTracks() {
+      // 기록 도착 시 목록의 BEST 표시 갱신 (차고가 열려 있을 때)
+      if (document.getElementById('garage').style.display === 'none') return;
+      if (document.getElementById('panelTrack').style.display !== 'none') renderTrackList();
+      const t = TRACK_DEFS[trackIdx];
+      const best = hooks.getBoard ? (hooks.getBoard(t.id) || [])[0] : null;
+      const bb = document.getElementById('trackBest');
+      if (bb) {
+        bb.textContent = best
+          ? `⏱ BEST ${best.total.toFixed(1)}s (${(best.car || '').toUpperCase()}${best.tag ? ' · ' + best.tag : ''})`
+          : '⏱ 기록 없음 — 도전!';
+      }
+    },
   };
 }

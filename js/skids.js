@@ -86,6 +86,7 @@ export class SkidTrails {
       idx.push(a, b, c, b, d, c);
     }
     t.geo.setIndex(idx);
+    t.geo.setDrawRange(0, idx.length);
     t.geo.computeBoundingSphere();
   }
 

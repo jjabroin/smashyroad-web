@@ -8,11 +8,11 @@ import {
 import { CAR_BUILDERS } from './voxel.js?v=8';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=8';
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=11';
-import { createGarage } from './garage.js?v=12';
+import { createGarage } from './garage.js?v=13';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
 import { RecordsBoard, getRacerTag } from './records.js?v=15';
-import { SkidTrails } from './skids.js?v=13';
+import { SkidTrails } from './skids.js?v=14';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -1559,7 +1559,10 @@ function refreshGarageBest() {
         : '⏱ 기록 없음 — 도전!';
     }
   }
-  if (garageCtl) garageCtl.refreshBoard();
+  if (garageCtl) {
+    garageCtl.refreshBoard();
+    if (garageCtl.refreshTracks) garageCtl.refreshTracks();
+  }
 }
 recordsBoard.onStatus = () => {
   updateBoardSync();

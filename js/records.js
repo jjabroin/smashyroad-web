@@ -30,6 +30,32 @@ function activeRelay() {
   return PUBLIC_RELAY;
 }
 
+const SHARED_CACHE_KEY = 'blockyracer-shared-cache-v1';
+
+// 마지막으로 본 공유 보드를 로컬에 저장 → 다음엔 네트워크 대기 없이 즉시 표시
+function loadSharedCache() {
+  try {
+    if (typeof localStorage === 'undefined') return {};
+    const s = JSON.parse(localStorage.getItem(SHARED_CACHE_KEY));
+    if (s && typeof s === 'object') return s;
+  } catch (e) { /* 무시 */ }
+  return {};
+}
+function saveSharedCache(trackId, list) {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const all = loadSharedCache();
+    all[trackId] = { list, at: Date.now() };
+    localStorage.setItem(SHARED_CACHE_KEY, JSON.stringify(all));
+  } catch (e) { /* 무시 */ }
+}
+export function getCachedShared(trackId) {
+  const all = loadSharedCache();
+  const e = all[trackId];
+  if (e && Array.isArray(e.list)) return e.list;
+  return null;
+}
+
 export class RecordsBoard {
   constructor(mqttFactory) {
     this.mqttFactory = mqttFactory;
@@ -89,7 +115,9 @@ export class RecordsBoard {
           const clean = msg.list.filter(
             (e) => e && typeof e.total === 'number' && isFinite(e.total) && typeof e.car === 'string'
           );
-          this.cache[msg.trackId] = clean.slice(0, 5);
+          const top = clean.slice(0, 5);
+          this.cache[msg.trackId] = top;
+          saveSharedCache(msg.trackId, top);
           if (this.onUpdate) {
             try { this.onUpdate(msg.trackId); } catch (e) { /* 무시 */ }
           }

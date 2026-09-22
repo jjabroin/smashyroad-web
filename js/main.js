@@ -11,7 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=13';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag } from './records.js?v=17';
+import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=18';
 import { SkidTrails } from './skids.js?v=14';
 
 const canvas = document.getElementById('game');
@@ -70,14 +70,8 @@ function loadTARecords() {
   return out;
 }
 function bestTARecord(trackId) {
-  const shared = recordsBoard.get(trackId);
-  if (shared && shared.length > 0) {
-    const c = cleanBoardList(shared).sort((a, b) => a.total - b.total);
-    if (c.length > 0) return c[0];
-  }
-  const list = cleanBoardList(loadTARecords()[trackId]).sort((a, b) => a.total - b.total);
-  if (list.length === 0) return null;
-  return list[0];
+  const b = taBoard(trackId);
+  return b.length > 0 ? b[0] : null;
 }
 function saveTARecord(trackId, entry) {
   entry.tag = entry.tag || getRacerTag();
@@ -111,12 +105,31 @@ function cleanBoardList(list) {
     (e) => e && typeof e.total === 'number' && isFinite(e.total) && typeof e.car === 'string'
   );
 }
+// 순위 우선순위: 실시간 공유 > 저장된 공유 캐시(즉시 표시) > 내 기록
+function boardSources(trackId) {
+  const live = recordsBoard.get(trackId);
+  if (live && live.length > 0) return live;
+  const cached = getCachedShared(trackId);
+  if (cached && cached.length > 0) return cached;
+  return null;
+}
 function taBoard(trackId) {
-  const shared = recordsBoard.get(trackId);
-  if (shared && shared.length > 0) {
-    return cleanBoardList(shared).sort((a, b) => a.total - b.total).slice(0, 5);
+  const live = recordsBoard.get(trackId);
+  if (live && live.length > 0) {
+    return cleanBoardList(live).sort((a, b) => a.total - b.total).slice(0, 5);
   }
-  return cleanBoardList(loadTARecords()[trackId]).sort((a, b) => a.total - b.total).slice(0, 5);
+  // 실시간이 없으면: 저장된 공유 캐시 + 내 기록 병합 (즉시 표시)
+  const pool = [...cleanBoardList(getCachedShared(trackId)), ...cleanBoardList(loadTARecords()[trackId])];
+  const seen = new Set();
+  const merged = [];
+  for (const e of pool) {
+    const k = `${e.tag}|${e.total}|${e.date}`;
+    if (!seen.has(k)) {
+      seen.add(k);
+      merged.push(e);
+    }
+  }
+  return merged.sort((a, b) => a.total - b.total).slice(0, 5);
 }
 let pingAcc = 0;
 

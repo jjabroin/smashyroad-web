@@ -1477,7 +1477,7 @@ applyLayout();
 function updateBoardSync() {
   const b = document.getElementById('boardSync');
   if (b) {
-    const st = board.status();
+    const st = board.status;
     let n = 0;
     try {
       for (const t of TRACK_DEFS) n += taBoard(t.id).length;

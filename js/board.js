@@ -195,14 +195,6 @@ export class Board {
     return this.net.connected;
   }
 
-  status() {
-    return this.net._status || (this.net.connected ? 'conn' : 'off');
-  }
-
-  get loopFail() {
-    return this.net._loopFail || null;
-  }
-
   get status() {
     return this.net._status || (this.net.connected ? 'conn' : 'off');
   }

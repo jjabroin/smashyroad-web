@@ -581,3 +581,34 @@ body.editing .ctlbtn { outline: 3px dashed #ffd75d; cursor: move; }
   .steer { width: 84px; height: 104px; font-size: 42px; }
   #centerMsg { font-size: 34px; }
 }
+
+/* 사진 스타일 메뉴 (오버라이드) */
+#garage {
+  background: #79b4e0 url('../assets/menu-bg.jpg?v=1') center 32%/cover no-repeat;
+}
+#garageCanvas {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  width: min(680px, 94vw);
+  height: min(38vh, 330px);
+  margin: 6px 0 0;
+}
+.menu-topbtns button {
+  background: #232a4d;
+  border-radius: 12px;
+  padding: 8px 14px;
+  box-shadow: 0 3px 0 rgba(0,0,0,.35);
+}
+.menu-topbtns button:active { transform: translateY(2px); box-shadow: none; }
+.mcard { padding: 0; overflow: hidden; gap: 0; align-items: stretch; }
+.mthumb { font-size: 38px; padding: 10px 0 6px; text-align: center; }
+.mbar {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: rgba(12,17,38,.88);
+  padding: 8px 6px; font-size: 15px;
+}
+.mbar b { font-size: 15px; }
+.mbar small { font-size: 13px; opacity: .9; }
+.mbar i { font-style: normal; opacity: .7; }
+.mlabel, .msub { display: none; }

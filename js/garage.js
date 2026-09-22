@@ -16,11 +16,11 @@ export function createGarage(onStart, hooks = {}) {
   let itemsOn = true;
   const canvas = document.getElementById('garageCanvas');
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.shadowMap.enabled = true;
+  renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87b5e0);
-  scene.fog = new THREE.Fog(0x87b5e0, 30, 90);
+  scene.background = null;
 
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
   camera.position.set(11, 7.5, 13);
@@ -46,14 +46,7 @@ export function createGarage(onStart, hooks = {}) {
   ring.rotation.x = Math.PI / 2;
   ring.position.y = 0.05;
   scene.add(ring);
-  const floor = new THREE.Mesh(
-    new THREE.CircleGeometry(60, 24),
-    new THREE.MeshLambertMaterial({ color: 0x5f9e63 })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -1.2;
-  floor.receiveShadow = true;
-  scene.add(floor);
+  // (바닥 없음 — 사진 배경이 그대로 보임, 그림자는 회전판이 받음)
 
   const stand = new THREE.Group();
   scene.add(stand);

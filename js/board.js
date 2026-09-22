@@ -109,6 +109,21 @@ export class Board {
     return mergeTop(this.net.get(trackId), (this.localAll()[trackId] || []));
   }
 
+  // 원천별 개수 (진단·표시용)
+  sources(trackIds) {
+    let shared = 0;
+    let local = 0;
+    try {
+      for (const tid of trackIds) {
+        const s = this.net.get(tid);
+        if (s) shared += s.length;
+        const l = this.localAll()[tid];
+        if (l) local += l.length;
+      }
+    } catch (e) { /* 무시 */ }
+    return { shared, local };
+  }
+
   best(trackId) {
     const l = this.list(trackId);
     return l.length > 0 ? l[0] : null;
@@ -139,10 +154,12 @@ export class Board {
     const rank = this.list(trackId).findIndex(
       (e) => e.tag === entry.tag && e.total === entry.total && e.date === entry.date
     );
-    // 공유 발행 (실패해도 로컬 유지)
-    try {
-      this.net.publish(trackId, entry).catch(() => {});
-    } catch (e) { /* 무시 */ }
+    // 공유 발행 (실패해도 로컬 유지, 테스트 트랙은 발행 안 함)
+    if (!trackId.startsWith('__')) {
+      try {
+        this.net.publish(trackId, entry).catch(() => {});
+      } catch (e) { /* 무시 */ }
+    }
     this._changed();
     return { entry, rank };
   }

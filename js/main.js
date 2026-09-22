@@ -1479,8 +1479,13 @@ function updateBoardSync() {
   if (b) {
     const st = board.status;
     let n = 0;
+    let ns = 0;
+    let nl = 0;
     try {
       for (const t of TRACK_DEFS) n += taBoard(t.id).length;
+      const src = board.sources(TRACK_DEFS.map((t) => t.id));
+      ns = src.shared;
+      nl = src.local;
     } catch (e) { /* 무시 */ }
     let msg = st === 'ok'
       ? '🌐 전원과 공유 중'
@@ -1488,7 +1493,7 @@ function updateBoardSync() {
         ? '📡 서버 연결됨 (동기화 확인 중...' +
           (board.loopFail ? ' 실패:' + board.loopFail : '') + ')'
         : '📴 내 기록만 표시 (오프라인)';
-    msg += ` · 보이는 기록 ${n}개`;
+    msg += ` · 보이는 기록 ${n}개 (공유 ${ns} · 내 기기 ${nl})`;
     if (!board.storageOK) msg += ' · 이 브라우저 저장 불가(이번 실행만 표시)';
     b.textContent = msg;
     try {
@@ -1519,6 +1524,44 @@ try {
   board.init().catch(() => {});
 } catch (e) { /* MQTT 미지원 환경 무시 */ }
 updateBoardSync();
+
+// ?selftest=board — 브라우저 내 E2E 자가진단 (동기 실행, 결과는 타이틀+화면)
+try {
+  const __q = new URLSearchParams(location.search);
+  if (__q.get('selftest') === 'board') {
+    const out = [];
+    const ok = (name, cond, extra) => out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${extra ? ' ' + extra : ''}`);
+    try {
+      board.save('__selftest__', { total: 999.1, best: 99.1, car: 'f1' });
+      board.save('__selftest__', { total: 999.2, best: 99.2, car: 'taxi' });
+      const l = board.list('__selftest__');
+      ok('save-list', l.length === 2, `n=${l.length}`);
+      ok('count-rows-match', l.length === board.list('__selftest__').length, `n=${l.length}`);
+      const g = board.ghost('__selftest__', { tag: board.tag, total: 999.1 });
+      ok('ghost-miss(absent trail)', g === null);
+      delete board.mem['__selftest__'];
+      try {
+        const stored = JSON.parse(localStorage.getItem('blockyracer-ta-records-v1') || '{}');
+        delete stored['__selftest__'];
+        localStorage.setItem('blockyracer-ta-records-v1', JSON.stringify(stored));
+      } catch (e) { /* 무시 */ }
+      ok('cleanup', board.list('__selftest__').length === 0);
+    } catch (e) {
+      out.push('FAIL exception ' + (e && e.message));
+    }
+    try { document.title = 'SELFTEST ' + (out.some((x) => x.startsWith('FAIL')) ? 'FAIL' : 'PASS'); } catch (e) {}
+    try {
+      let d = document.getElementById('selftestOut');
+      if (!d) {
+        d = document.createElement('div');
+        d.id = 'selftestOut';
+        d.style.cssText = 'position:fixed;top:0;left:0;z-index:999;background:#000;color:#0f0;padding:10px;font:12px monospace;white-space:pre;';
+        document.body.appendChild(d);
+      }
+      d.textContent = out.join('\n');
+    } catch (e) {}
+  }
+} catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
 const APP_VERSION = '20260922-01';

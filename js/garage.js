@@ -160,6 +160,10 @@ export function createGarage(onStart, hooks = {}) {
     if (hooks.onOnline) hooks.onOnline();
   });
   document.getElementById('boardBtn').addEventListener('click', () => openPanel('panelBoard'));
+  document.getElementById('boardRefresh').addEventListener('click', () => {
+    renderBoard();
+    if (hooks.onBoardOpen) hooks.onBoardOpen();
+  });
   document.getElementById('helpBtn').addEventListener('click', () => openPanel('panelHelp'));
 
   document.getElementById('carPrev').addEventListener('click', () => render(idx - 1));
@@ -233,10 +237,9 @@ export function createGarage(onStart, hooks = {}) {
       sec.className = 'bsec';
       const title = document.createElement('div');
       title.className = 'btitle';
-      title.textContent = `${t.name} · ${t.laps}LAP`;
+      const list = hooks.getBoard ? hooks.getBoard(t.id) || [] : [];
+      title.textContent = `${t.name} · ${t.laps}LAP · ${list.length}개`;
       sec.appendChild(title);
-      let list = [];
-      if (hooks.getBoard) list = hooks.getBoard(t.id) || [];
       if (list.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'bempty';

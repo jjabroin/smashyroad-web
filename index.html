@@ -78,7 +78,7 @@
     </div>
 
     <div id="panelBoard" class="subpanel" style="display:none">
-      <div class="phead"><b>🏆 타임어택 순위표</b><button class="pclose" data-p="panelBoard">✕</button></div>
+      <div class="phead"><b>🏆 타임어택 순위표</b><span><button id="boardRefresh" title="새로고침">↻</button><button class="pclose" data-p="panelBoard">✕</button></span></div>
       <div id="boardSync" class="o-hint"></div>
       <div id="boardTracks"></div>
     </div>
@@ -212,7 +212,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=22"></script>
+  <script type="module" src="js/main.js?v=23"></script>
   <script>
     // 결과 화면 버튼 (온라인 모드에서 main.js가 오버라이드)
     window.__raceAgain = () => document.getElementById('restartBtn').click();

@@ -646,3 +646,4 @@ body.editing .ctlbtn { outline: 3px dashed #ffd75d; cursor: move; }
   font-size: 14px; font-weight: 900; color: #06130b;
   background: #ffd75d; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer;
 }
+#boardRefresh { background: none; border: 0; color: #fff; font-size: 18px; cursor: pointer; margin-right: 4px; }

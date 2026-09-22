@@ -175,6 +175,17 @@ export function createInput(canvas) {
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // 드리프트 버튼 좌/우 (어느 쪽을 눌러도 동일, 편집 중엔 동작 안 함)
+  // 멀티터치 래치 방지: 누른 포인터 ID 집합으로 홀드 판정
+  const driftPtrs = new Set();
+  const refreshDrift = () => {
+    const was = state.drift;
+    state.drift = driftPtrs.size > 0;
+    for (const id of ['btnDriftL', 'btnDriftR']) {
+      const b = document.getElementById(id);
+      if (b) b.classList.toggle('active', state.drift);
+    }
+    void was;
+  };
   for (const id of ['btnDriftL', 'btnDriftR']) {
     const driftBtn = document.getElementById(id);
     if (!driftBtn) continue;
@@ -182,19 +193,36 @@ export function createInput(canvas) {
       e.preventDefault();
       e.stopPropagation();
       if (window.__layoutEdit) return;
-      state.drift = true;
-      driftBtn.classList.add('active');
+      driftPtrs.add(e.pointerId);
+      refreshDrift();
     };
     const off = (e) => {
-      if (e) e.preventDefault();
-      state.drift = false;
-      driftBtn.classList.remove('active');
+      if (e) {
+        e.preventDefault();
+        driftPtrs.delete(e.pointerId);
+      } else {
+        driftPtrs.clear();
+      }
+      refreshDrift();
     };
     driftBtn.addEventListener('pointerdown', on);
     driftBtn.addEventListener('pointerup', off);
     driftBtn.addEventListener('pointerleave', off);
     driftBtn.addEventListener('pointercancel', off);
   }
+  // 탭 전환·포커스 상실 시 입력 래치 해제 (키·버튼 눌림 stuck 방지)
+  const clearAllInput = () => {
+    state.left = state.right = state.up = state.down = state.drift = false;
+    state.useItem = false;
+    driftPtrs.clear();
+    touches.clear();
+    zoneL = zoneR = false;
+    refreshDrift();
+  };
+  window.addEventListener('blur', clearAllInput);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') clearAllInput();
+  });
 
   // 아이템 사용 버튼 좌/우 (🎁) — 누르면 1회 발동 플래그
   for (const id of ['btnItemL', 'btnItemR']) {

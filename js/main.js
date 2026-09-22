@@ -180,6 +180,7 @@ let lastBoostT = 0;
 let lastTARank = -1;
 let lastTAEntry = null;
 let onlineCtl = null; // {room, players, ai, track, myId} | null (solo면 null)
+let garageCtl = null;
 let ghost = null; // {samples, mesh, dur} 고스트 대결용
 let recAcc = 0;
 const camPos = new THREE.Vector3();
@@ -762,8 +763,12 @@ function loop(ts) {
         my
       );
     }
-    // 스키드마크 (드리프트 중 뒷바퀴 접지 방향)
-    if (c.drifting && !c.out && Math.hypot(c.vx, c.vz) > 10) {
+    // 스키드마크 (드리프트+회전 중, 지면 접촉 시만)
+    if (
+      c.drifting && !c.out && c.airT <= 0 &&
+      Math.abs(c.steerSm || 0) > 0.25 &&
+      Math.hypot(c.vx, c.vz) > 10
+    ) {
       const fx = Math.cos(c.heading);
       const fz = Math.sin(c.heading);
       const cx = c.x - fx * 2.2;
@@ -1459,16 +1464,30 @@ applyLayout();
 
 // 공유 타임어택 순위표 (중계 브로커, 실패 시 로컬 기록으로 폴백)
 const recordsBoard = new RecordsBoard((url, opts) => window.mqtt.connect(url, opts));
-recordsBoard.onUpdate = (trackId) => {
-  if (document.getElementById('garage').style.display !== 'none' && pendingTrack && pendingTrack.id === trackId) {
-    const best = bestTARecord(trackId);
-    const b = document.getElementById('trackBest');
-    if (b) {
-      b.textContent = best
-        ? `⏱ BEST ${best.total.toFixed(1)}s (${(best.car || '').toUpperCase()}${best.tag ? ' · ' + best.tag : ''}) 🌐`
+function updateBoardSync() {
+  const b = document.getElementById('boardSync');
+  if (b) {
+    b.textContent = recordsBoard.connected ? '🌐 전원과 공유 중' : '📴 내 기록만 표시 (오프라인)';
+  }
+}
+function refreshGarageBest() {
+  if (document.getElementById('garage').style.display !== 'none' && pendingTrack) {
+    const best = bestTARecord(pendingTrack.id);
+    const bb = document.getElementById('trackBest');
+    if (bb) {
+      bb.textContent = best
+        ? `⏱ BEST ${best.total.toFixed(1)}s (${(best.car || '').toUpperCase()}${best.tag ? ' · ' + best.tag : ''})`
         : '⏱ 기록 없음 — 도전!';
     }
   }
+  if (garageCtl) garageCtl.refreshBoard();
+}
+recordsBoard.onStatus = () => {
+  updateBoardSync();
+  if (garageCtl) refreshGarageBest();
+};
+recordsBoard.onUpdate = () => {
+  if (garageCtl) refreshGarageBest();
 };
 try {
   recordsBoard.connect().catch(() => {});
@@ -1489,6 +1508,13 @@ onlinePanel = createOnlinePanel({
   onOnline: () => {
     if (onlinePanel) onlinePanel.openHome();
   },
+  onBoardOpen: () => {
+    // 순위표 열 때 미동기화 로컬 기록을 공유 보드에 올리고 새로고침
+    updateBoardSync();
+    recordsBoard.flushPending(loadTARecords).then(() => {
+      if (garageCtl) garageCtl.refreshBoard();
+    }).catch(() => {});
+  },
   getBoard: (trackId) => taBoard(trackId),
   getGhost: (trackId, entry) => {
     const list = loadTARecords()[trackId] || [];
@@ -1496,7 +1522,7 @@ onlinePanel = createOnlinePanel({
   },
   onGhost: (trackId, entry) => startGhostRace(trackId, entry),
 });
-createGarage(
+garageCtl = createGarage(
   (def, track, mode) => {
     document.getElementById('garage').style.display = 'none';
     buildRace(def, track, { timeAttack: mode === 'ta' });

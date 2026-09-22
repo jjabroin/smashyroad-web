@@ -36,6 +36,7 @@ export class RecordsBoard {
     this.client = null;
     this.cache = {}; // trackId -> list
     this.onUpdate = null; // (trackId) => {}
+    this.onStatus = null; // (connected:boolean) => {}
     this.connected = false;
   }
 
@@ -45,6 +46,9 @@ export class RecordsBoard {
 
   async connect() {
     if (this.client) return;
+    if (this.onStatus) {
+      try { this.onStatus(false); } catch (e) { /* 무시 */ }
+    }
     const r = activeRelay();
     const client = await new Promise((resolve, reject) => {
       let c;
@@ -73,6 +77,9 @@ export class RecordsBoard {
     });
     this.client = client;
     this.connected = true;
+    if (this.onStatus) {
+      try { this.onStatus(true); } catch (e) { /* 무시 */ }
+    }
     client.on('message', (topic, payload) => {
       try {
         const msg = JSON.parse(payload.toString());
@@ -86,8 +93,51 @@ export class RecordsBoard {
     });
     client.on('close', () => {
       this.connected = false;
+      this.client = null;
+      if (this.onStatus) {
+        try { this.onStatus(false); } catch (e) { /* 무시 */ }
+      }
     });
     await client.subscribe(`${ROOM_PREFIX}records/+`);
+  }
+
+  // 미동기화 로컬 기록을 공유 보드에 올림 (순위표 열 때 호출)
+  // 로컬 TOP 중 공유 보드에 없는 것을 병합 발행
+  async flushPending(getLocal) {
+    if (!this.client) {
+      try { await this.connect(); } catch (e) { return false; }
+    }
+    try {
+      const tracks = await getLocal();
+      for (const trackId of Object.keys(tracks)) {
+        const shared = (this.cache[trackId] || []).slice();
+        let changed = false;
+        for (const e of tracks[trackId] || []) {
+          const dup = shared.some(
+            (s) => s.tag === e.tag && s.total === e.total && s.date === e.date
+          );
+          if (!dup) {
+            const slim = { ...e };
+            delete slim.trail;
+            shared.push(slim);
+            changed = true;
+          }
+        }
+        if (changed) {
+          shared.sort((a, b) => a.total - b.total);
+          const top = shared.slice(0, 5);
+          this.cache[trackId] = top;
+          this.client.publish(
+            this.topic(trackId),
+            JSON.stringify({ trackId, list: top }),
+            { qos: 0, retain: true }
+          );
+        }
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   get(trackId) {

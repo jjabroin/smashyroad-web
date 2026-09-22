@@ -131,10 +131,13 @@ export function createGarage(onStart, hooks = {}) {
   // --- 서브패널 ---
   const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelPlay', 'panelBoard', 'panelHelp'];
   function openPanel(id) {
-    for (const p of PANELS) {
-      document.getElementById(p).style.display = p === id ? 'block' : 'none';
+    closePanels();
+    const e = document.getElementById(id);
+    if (e) e.style.display = 'block';
+    if (id === 'panelBoard') {
+      renderBoard();
+      if (hooks.onBoardOpen) hooks.onBoardOpen();
     }
-    if (id === 'panelBoard') renderBoard();
     if (id === 'panelTrack') renderTrackList();
   }
   function closePanels() {
@@ -315,6 +318,9 @@ export function createGarage(onStart, hooks = {}) {
     stop() {
       cancelAnimationFrame(raf);
       renderer.dispose();
+    },
+    refreshBoard() {
+      if (document.getElementById('panelBoard').style.display !== 'none') renderBoard();
     },
   };
 }

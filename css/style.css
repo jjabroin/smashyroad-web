@@ -633,6 +633,15 @@ body.editing .ctlbtn { outline: 3px dashed #ffd75d; cursor: move; }
 .mlabel, .msub { display: none; }
 /* 순위표 동기화 상태 */
 #boardSync { font-size: 12px; color: #8fa0b3; margin-bottom: 8px; min-height: 16px; }
+#diagBox {
+  position: fixed; left: 8px; bottom: 8px; z-index: 200;
+  max-width: 92vw; max-height: 50vh; overflow: auto;
+  background: rgba(0,0,0,.88); color: #7dff9b;
+  font-family: monospace; font-size: 11px; line-height: 1.5;
+  border: 1px solid #7dff9b; border-radius: 8px; padding: 10px 12px;
+  pointer-events: auto;
+}
+#diagBox button { float: right; }
 #appVer { font-size: 11px; color: rgba(255,255,255,.65); margin-top: 8px; text-align: center; }
 /* 새 버전 알림 */
 #updateBanner {

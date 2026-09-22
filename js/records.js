@@ -222,7 +222,9 @@ export class RecordsBoard {
         done(false);
       };
       const done = (v) => {
-        try { this.client.removeListener('message', handler); } catch (e) { /* 무시 */ }
+        try {
+          if (this.client) this.client.removeListener('message', handler);
+        } catch (e) { /* 무시 */ }
         resolve(v);
       };
       const to = setTimeout(() => fail('echo-timeout'), 4000);
@@ -231,22 +233,42 @@ export class RecordsBoard {
         clearTimeout(to);
         done(true);
       };
+      let subRet;
       try {
         this.client.on('message', handler);
-        this.client.subscribe(topic).then(() => {
-          try {
-            this.client.publish(topic, JSON.stringify({ t: 'ping' }), { qos: 0 });
-          } catch (e) {
+      } catch (e) {
+        clearTimeout(to);
+        fail('on-fail');
+        return;
+      }
+      try {
+        subRet = this.client.subscribe(topic);
+      } catch (e) {
+        clearTimeout(to);
+        fail('sub-throw');
+        return;
+      }
+      // subscribe 반환이 promise가 아니어도(구버전) 발행은 시도 — 에코 타임아웃이 판정
+      const doPub = () => {
+        try {
+          if (!this.client) {
             clearTimeout(to);
-            fail('pub-fail');
+            fail('no-client');
+            return;
           }
-        }).catch(() => {
+          this.client.publish(topic, JSON.stringify({ t: 'ping' }), { qos: 0 });
+        } catch (e) {
+          clearTimeout(to);
+          fail('pub-throw');
+        }
+      };
+      if (subRet && typeof subRet.then === 'function') {
+        subRet.then(doPub).catch(() => {
           clearTimeout(to);
           fail('sub-fail');
         });
-      } catch (e) {
-        clearTimeout(to);
-        fail('setup-fail');
+      } else {
+        doPub();
       }
     });
   }

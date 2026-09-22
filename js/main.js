@@ -11,7 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=14';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=21';
+import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=22';
 import { SkidTrails } from './skids.js?v=14';
 
 const canvas = document.getElementById('game');
@@ -1604,6 +1604,61 @@ updateBoardSync();
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
 const APP_VERSION = '20260922-01';
+// 기기 내 진단 로그 (버전 5연타로 표시)
+const dbgLogArr = [];
+function dbgLog(m) {
+  try {
+    dbgLogArr.push(`${new Date().toLocaleTimeString()} ${m}`);
+    if (dbgLogArr.length > 30) dbgLogArr.shift();
+  } catch (e) { /* 무시 */ }
+}
+try {
+  window.addEventListener('error', (e) => dbgLog(`ERR:${e.message || e.type}`));
+  window.addEventListener('unhandledrejection', (e) => dbgLog(`REJ:${e.reason && e.reason.message ? e.reason.message : e.reason}`));
+} catch (e) { /* 무시 */ }
+function renderDiag() {
+  const d = document.getElementById('diagBox');
+  if (!d) return;
+  let cacheInfo = '';
+  try {
+    const cc = recordsBoard.cache || {};
+    cacheInfo = Object.keys(cc).map((k) => `${k}:${(cc[k] || []).length}`).join(' ') || '(empty)';
+  } catch (e) { cacheInfo = 'n/a'; }
+  let memInfo = '';
+  try {
+    memInfo = Object.keys(memRecords).map((k) => `${k}:${(memRecords[k] || []).length}`).join(' ') || '(empty)';
+  } catch (e) { memInfo = 'n/a'; }
+  d.innerHTML =
+    `<b>DIAG ${APP_VERSION}</b> <button id="diagClose">✕</button><br>` +
+    `mqtt:${typeof window.mqtt}<br>` +
+    `storage:${storageOK}<br>` +
+    `rec: conn=${recordsBoard.connected} verified=${!!recordsBoard._verified} status=${recordsBoard._status} fail=${recordsBoard._loopFail || '-'}<br>` +
+    `cache: ${cacheInfo}<br>` +
+    `mem: ${memInfo}<br>` +
+    dbgLogArr.slice(-12).join('<br>');
+  const c = document.getElementById('diagClose');
+  if (c) c.addEventListener('click', () => { d.style.display = 'none'; });
+}
+try {
+  let taps = [];
+  const av = document.getElementById('appVer');
+  if (av) {
+    av.style.cursor = 'pointer';
+    av.addEventListener('click', () => {
+      const now = Date.now();
+      taps = taps.filter((t) => now - t < 3000);
+      taps.push(now);
+      if (taps.length >= 5) {
+        taps = [];
+        const d = document.getElementById('diagBox');
+        if (d) {
+          renderDiag();
+          d.style.display = d.style.display === 'none' ? 'block' : 'none';
+        }
+      }
+    });
+  }
+} catch (e) { /* 무시 */ }
 try {
   const av = document.getElementById('appVer');
   if (av) av.textContent = 'v' + APP_VERSION;

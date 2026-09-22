@@ -11,7 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=11';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag } from './records.js?v=13';
+import { RecordsBoard, getRacerTag } from './records.js?v=15';
 import { SkidTrails } from './skids.js?v=13';
 
 const canvas = document.getElementById('game');
@@ -72,11 +72,12 @@ function loadTARecords() {
 function bestTARecord(trackId) {
   const shared = recordsBoard.get(trackId);
   if (shared && shared.length > 0) {
-    return shared.slice().sort((a, b) => a.total - b.total)[0];
+    const c = cleanBoardList(shared).sort((a, b) => a.total - b.total);
+    if (c.length > 0) return c[0];
   }
-  const list = loadTARecords()[trackId];
-  if (!list || list.length === 0) return null;
-  return list.slice().sort((a, b) => a.total - b.total)[0];
+  const list = cleanBoardList(loadTARecords()[trackId]).sort((a, b) => a.total - b.total);
+  if (list.length === 0) return null;
+  return list[0];
 }
 function saveTARecord(trackId, entry) {
   entry.tag = entry.tag || getRacerTag();
@@ -105,12 +106,17 @@ function saveTARecord(trackId, entry) {
   } catch (e) { /* 무시 */ }
   return localRank;
 }
+function cleanBoardList(list) {
+  return (list || []).filter(
+    (e) => e && typeof e.total === 'number' && isFinite(e.total) && typeof e.car === 'string'
+  );
+}
 function taBoard(trackId) {
   const shared = recordsBoard.get(trackId);
   if (shared && shared.length > 0) {
-    return shared.slice().sort((a, b) => a.total - b.total).slice(0, 5);
+    return cleanBoardList(shared).sort((a, b) => a.total - b.total).slice(0, 5);
   }
-  return (loadTARecords()[trackId] || []).slice().sort((a, b) => a.total - b.total).slice(0, 5);
+  return cleanBoardList(loadTARecords()[trackId]).sort((a, b) => a.total - b.total).slice(0, 5);
 }
 let pingAcc = 0;
 

@@ -84,7 +84,11 @@ export class RecordsBoard {
       try {
         const msg = JSON.parse(payload.toString());
         if (msg && msg.trackId && Array.isArray(msg.list)) {
-          this.cache[msg.trackId] = msg.list.slice(0, 5);
+          // 오염 데이터 방어: total 숫자 + car 문자열만 유지
+          const clean = msg.list.filter(
+            (e) => e && typeof e.total === 'number' && isFinite(e.total) && typeof e.car === 'string'
+          );
+          this.cache[msg.trackId] = clean.slice(0, 5);
           if (this.onUpdate) {
             try { this.onUpdate(msg.trackId); } catch (e) { /* 무시 */ }
           }

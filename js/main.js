@@ -11,7 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=13';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag } from './records.js?v=16';
+import { RecordsBoard, getRacerTag } from './records.js?v=17';
 import { SkidTrails } from './skids.js?v=14';
 
 const canvas = document.getElementById('game');
@@ -1544,7 +1544,12 @@ const recordsBoard = new RecordsBoard((url, opts) => window.mqtt.connect(url, op
 function updateBoardSync() {
   const b = document.getElementById('boardSync');
   if (b) {
-    let msg = recordsBoard.connected ? '🌐 전원과 공유 중' : '📴 내 기록만 표시 (오프라인)';
+    const st = recordsBoard._status || (recordsBoard.connected ? 'conn' : 'off');
+    let msg = st === 'ok'
+      ? '🌐 전원과 공유 중'
+      : st === 'conn'
+        ? '📡 서버 연결됨 (동기화 확인 중...)'
+        : '📴 내 기록만 표시 (오프라인)';
     if (!storageOK) msg += ' · 이 브라우저 저장 불가(이번 실행만 표시)';
     b.textContent = msg;
   }

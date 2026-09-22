@@ -46,15 +46,14 @@ export class RecordsBoard {
 
   async connect() {
     if (this.client) return;
-    if (this.onStatus) {
-      try { this.onStatus(false); } catch (e) { /* 무시 */ }
-    }
+    this._setStatus('off');
     const r = activeRelay();
+    const cid = 'br-rec-' + Math.random().toString(36).slice(2, 10);
     const client = await new Promise((resolve, reject) => {
       let c;
       try {
         c = this.mqttFactory(r.url, {
-          clientId: 'br-rec-' + Math.random().toString(36).slice(2, 10),
+          clientId: cid,
           clean: true,
           connectTimeout: 6000,
           reconnectPeriod: 5000,
@@ -76,11 +75,13 @@ export class RecordsBoard {
       });
     });
     this.client = client;
+    this._cid = cid;
     this.connected = true;
-    if (this.onStatus) {
-      try { this.onStatus(true); } catch (e) { /* 무시 */ }
-    }
     client.on('message', (topic, payload) => {
+      if (topic === `${ROOM_PREFIX}loop/${cid}`) {
+        this._loopOk = true;
+        return;
+      }
       try {
         const msg = JSON.parse(payload.toString());
         if (msg && msg.trackId && Array.isArray(msg.list)) {
@@ -98,11 +99,61 @@ export class RecordsBoard {
     client.on('close', () => {
       this.connected = false;
       this.client = null;
-      if (this.onStatus) {
-        try { this.onStatus(false); } catch (e) { /* 무시 */ }
+      this._verified = false;
+      this._setStatus('off');
+    });
+    try {
+      await client.subscribe(`${ROOM_PREFIX}records/+`);
+    } catch (e) {
+      this._setStatus('off');
+      throw e;
+    }
+    // 루프백 검증: 발행+구독이 모두 통해야 진짜 공유 중
+    this._setStatus('conn');
+    const ok = await this._loopback();
+    this._verified = ok;
+    this._setStatus(ok ? 'ok' : 'conn');
+    if (!ok) throw new Error('loopback failed');
+  }
+
+  _setStatus(st) {
+    this._status = st;
+    if (this.onStatus) {
+      try { this.onStatus(st); } catch (e) { /* 무시 */ }
+    }
+  }
+
+  _loopback() {
+    return new Promise((resolve) => {
+      const topic = `${ROOM_PREFIX}loop/${this._cid}`;
+      const done = (v) => {
+        try { this.client.removeListener('message', handler); } catch (e) { /* 무시 */ }
+        resolve(v);
+      };
+      const to = setTimeout(() => done(false), 4000);
+      const handler = (t) => {
+        if (t !== topic) return;
+        clearTimeout(to);
+        done(true);
+      };
+      try {
+        this.client.on('message', handler);
+        this.client.subscribe(topic).then(() => {
+          try {
+            this.client.publish(topic, JSON.stringify({ t: 'ping' }), { qos: 0 });
+          } catch (e) {
+            clearTimeout(to);
+            done(false);
+          }
+        }).catch(() => {
+          clearTimeout(to);
+          done(false);
+        });
+      } catch (e) {
+        clearTimeout(to);
+        done(false);
       }
     });
-    await client.subscribe(`${ROOM_PREFIX}records/+`);
   }
 
   // 미동기화 로컬 기록을 공유 보드에 올림 (순위표 열 때 호출)

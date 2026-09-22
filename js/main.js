@@ -1558,11 +1558,16 @@ function updateBoardSync() {
   const b = document.getElementById('boardSync');
   if (b) {
     const st = recordsBoard._status || (recordsBoard.connected ? 'conn' : 'off');
+    let n = 0;
+    try {
+      for (const t of TRACK_DEFS) n += taBoard(t.id).length;
+    } catch (e) { /* 무시 */ }
     let msg = st === 'ok'
       ? '🌐 전원과 공유 중'
       : st === 'conn'
         ? '📡 서버 연결됨 (동기화 확인 중...)'
         : '📴 내 기록만 표시 (오프라인)';
+    msg += ` · 보이는 기록 ${n}개`;
     if (!storageOK) msg += ' · 이 브라우저 저장 불가(이번 실행만 표시)';
     b.textContent = msg;
   }

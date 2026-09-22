@@ -862,7 +862,8 @@ function loop(ts) {
     refreshTick++;
     const visible = document.getElementById('results').style.display !== 'none';
     if (visible && refreshTick % 30 === 0) {
-      hud.showResults(currentStandings(), playerIdx);
+      if (timeAttack && playerDone === 'finished') refreshTAResults();
+      else hud.showResults(currentStandings(), playerIdx);
     }
     if (!autoFinalShown && document.getElementById('results').style.display === 'none') {
       const others = racers.filter((r) => !r.isPlayer);

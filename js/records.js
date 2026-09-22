@@ -83,6 +83,7 @@ export class RecordsBoard {
           clean: true,
           connectTimeout: 6000,
           reconnectPeriod: 5000,
+          keepalive: 15, // 반쯤 끊긴 소켓 조기 감지 (VPN 등)
           username: r.username,
           password: r.password,
         });
@@ -148,6 +149,30 @@ export class RecordsBoard {
     this._verified = ok;
     this._setStatus(ok ? 'ok' : 'conn');
     if (!ok) throw new Error('loopback failed');
+  }
+
+  // 살아있는 연결 보장: 검증 통과한 연결만 사용, 죽었으면 갈아끼움
+  async ensureLive() {
+    if (this.client && this._verified) return true;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (!this.client) {
+        try { await this.connect(); } catch (e) { /* 다음 시도 */ }
+      }
+      if (this._verified) return true;
+      if (this.client) {
+        const ok = await this._verifyLoop(1);
+        if (ok) {
+          this._verified = true;
+          this._setStatus('ok');
+          return true;
+        }
+        try { this.client.end(true); } catch (e) { /* 무시 */ }
+        this.client = null;
+        this.connected = false;
+        this._verified = false;
+      }
+    }
+    return false;
   }
 
   async _verifyLoop(retries) {
@@ -249,9 +274,8 @@ export class RecordsBoard {
   // 미동기화 로컬 기록을 공유 보드에 올림 (순위표 열 때 호출)
   // 로컬 TOP 중 공유 보드에 없는 것을 병합 발행
   async flushPending(getLocal) {
-    if (!this.client) {
-      try { await this.connect(); } catch (e) { return false; }
-    }
+    const live = await this.ensureLive();
+    if (!live) return false;
     try {
       const tracks = await getLocal();
       for (const trackId of Object.keys(tracks)) {
@@ -305,7 +329,7 @@ export class RecordsBoard {
     }
   }
 
-  async publish(trackId, entry) {    // 궤적(trail)은 공유하지 않음 (용량) — 로컬 전용
+    async publish(trackId, entry) {    // 궤적(trail)은 공유하지 않음 (용량) — 로컬 전용
     const slim = { ...entry };
     delete slim.trail;
     // 캐시 병합 후 TOP5 retained 발행
@@ -315,9 +339,8 @@ export class RecordsBoard {
     const top = cur.slice(0, 5);
     if (!top.includes(slim)) return top.indexOf(slim); // 순위 밖이면 발행 안 함
     this.cache[trackId] = top;
-    if (!this.client) {
-      try { await this.connect(); } catch (e) { return top.indexOf(entry); }
-    }
+    const live = await this.ensureLive();
+    if (!live) return top.indexOf(entry);
     const acked = await this.publishAck(
       this.topic(trackId),
       JSON.stringify({ trackId, list: top })

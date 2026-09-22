@@ -11,7 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=14';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=20';
+import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=21';
 import { SkidTrails } from './skids.js?v=14';
 
 const canvas = document.getElementById('game');
@@ -1644,7 +1644,15 @@ onlinePanel = createOnlinePanel({
       .then(() => recordsBoard.flushPending(loadTARecords))
       .catch(() => false)
       .then(() => {
-        updateBoardSync();
+updateBoardSync();
+// 백그라운드에서 주기적으로 동기화 복구 시도 (45초 간격)
+setInterval(() => {
+  try {
+    if (!recordsBoard._verified) {
+      recordsBoard.ensureLive().catch(() => {});
+    }
+  } catch (e) { /* 무시 */ }
+}, 45000);
         if (garageCtl) garageCtl.refreshBoard();
       });
   },

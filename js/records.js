@@ -132,8 +132,9 @@ export class RecordsBoard {
       this._resubscribe();
     });
     try {
-      await client.subscribe(`${ROOM_PREFIX}records/+`);
+      await this._subTimeout(client, `${ROOM_PREFIX}records/+`, 8000);
     } catch (e) {
+      this._loopFail = 'sub-timeout';
       this._setStatus('off');
       throw e;
     }
@@ -143,6 +144,14 @@ export class RecordsBoard {
     this._verified = ok;
     this._setStatus(ok ? 'ok' : 'conn');
     if (!ok) throw new Error('loopback failed');
+  }
+
+  // 구독 (타임아웃 방어 — SUBACK이 안 오면 무한 대기 방지)
+  _subTimeout(client, topic, ms = 8000) {
+    return Promise.race([
+      client.subscribe(topic),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('sub-timeout')), ms)),
+    ]);
   }
 
   // 살아있는 연결 보장: 검증 통과한 연결만 사용, 죽었으면 갈아끼움
@@ -183,8 +192,9 @@ export class RecordsBoard {
     if (!this.client) return;
     this.connected = true;
     try {
-      await this.client.subscribe(`${ROOM_PREFIX}records/+`);
+      await this._subTimeout(this.client, `${ROOM_PREFIX}records/+`, 8000);
     } catch (e) {
+      this._loopFail = 'resub-timeout';
       return;
     }
     this._setStatus('conn');

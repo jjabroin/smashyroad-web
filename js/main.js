@@ -11,7 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=14';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=24';
+import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=25';
 import { SkidTrails } from './skids.js?v=14';
 
 const canvas = document.getElementById('game');
@@ -1573,6 +1573,9 @@ function updateBoardSync() {
     msg += ` · 보이는 기록 ${n}개`;
     if (!storageOK) msg += ' · 이 브라우저 저장 불가(이번 실행만 표시)';
     b.textContent = msg;
+    try {
+      window.__recStatus = msg;
+    } catch (e) { /* 무시 */ }
   }
 }
 function refreshGarageBest() {

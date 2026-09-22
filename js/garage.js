@@ -245,6 +245,14 @@ export function createGarage(onStart, hooks = {}) {
         empty.className = 'bempty';
         empty.textContent = '기록 없음 — 도전!';
         sec.appendChild(empty);
+        try {
+          if (window.__recStatus) {
+            const why = document.createElement('div');
+            why.className = 'bempty';
+            why.textContent = window.__recStatus;
+            sec.appendChild(why);
+          }
+        } catch (e) { /* 무시 */ }
       } else {
         list.slice(0, 5).forEach((e, i) => {
           const row = document.createElement('div');

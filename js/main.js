@@ -1197,6 +1197,7 @@ document.getElementById('garageBtn').addEventListener('click', () => {
   document.getElementById('garage').style.display = 'flex';
   hud.hideResults();
   setSteerHint(false);
+  if (garageCtl && garageCtl.refreshTracks) garageCtl.refreshTracks();
   phase = 'garage';
 });
 document.getElementById('muteBtn').addEventListener('click', (e) => {
@@ -1427,6 +1428,7 @@ function backToOnlineLobby() {
   hud.hideResults();
   document.getElementById('hud').style.display = 'none';
   document.getElementById('garage').style.display = 'flex';
+  if (garageCtl && garageCtl.refreshTracks) garageCtl.refreshTracks();
   if (onlinePanel) onlinePanel.backToLobby();
 }
 
@@ -1565,7 +1567,8 @@ function updateBoardSync() {
     let msg = st === 'ok'
       ? '🌐 전원과 공유 중'
       : st === 'conn'
-        ? '📡 서버 연결됨 (동기화 확인 중...)'
+        ? '📡 서버 연결됨 (동기화 확인 중...' +
+          (recordsBoard._loopFail ? ' 실패:' + recordsBoard._loopFail : '') + ')'
         : '📴 내 기록만 표시 (오프라인)';
     msg += ` · 보이는 기록 ${n}개`;
     if (!storageOK) msg += ' · 이 브라우저 저장 불가(이번 실행만 표시)';

@@ -154,11 +154,15 @@ export class RecordsBoard {
   _loopback() {
     return new Promise((resolve) => {
       const topic = `${ROOM_PREFIX}loop/${this._cid}`;
+      const fail = (why) => {
+        this._loopFail = why;
+        done(false);
+      };
       const done = (v) => {
         try { this.client.removeListener('message', handler); } catch (e) { /* 무시 */ }
         resolve(v);
       };
-      const to = setTimeout(() => done(false), 4000);
+      const to = setTimeout(() => fail('echo-timeout'), 4000);
       const handler = (t) => {
         if (t !== topic) return;
         clearTimeout(to);
@@ -171,15 +175,35 @@ export class RecordsBoard {
             this.client.publish(topic, JSON.stringify({ t: 'ping' }), { qos: 0 });
           } catch (e) {
             clearTimeout(to);
-            done(false);
+            fail('pub-fail');
           }
         }).catch(() => {
           clearTimeout(to);
-          done(false);
+          fail('sub-fail');
         });
       } catch (e) {
         clearTimeout(to);
-        done(false);
+        fail('setup-fail');
+      }
+    });
+  }
+
+  // qos1 발행 (브로커 수신 확인, 타임아웃 시 false)
+  publishAck(topic, payload, timeoutMs = 5000) {
+    return new Promise((resolve) => {
+      if (!this.client) {
+        resolve(false);
+        return;
+      }
+      const to = setTimeout(() => resolve(false), timeoutMs);
+      try {
+        this.client.publish(topic, payload, { qos: 1, retain: true }, () => {
+          clearTimeout(to);
+          resolve(true);
+        });
+      } catch (e) {
+        clearTimeout(to);
+        resolve(false);
       }
     });
   }
@@ -210,11 +234,14 @@ export class RecordsBoard {
           shared.sort((a, b) => a.total - b.total);
           const top = shared.slice(0, 5);
           this.cache[trackId] = top;
-          this.client.publish(
+          const acked = await this.publishAck(
             this.topic(trackId),
-            JSON.stringify({ trackId, list: top }),
-            { qos: 0, retain: true }
+            JSON.stringify({ trackId, list: top })
           );
+          this._lastAck = acked;
+          if (this.onUpdate) {
+            try { this.onUpdate(trackId); } catch (e) { /* 무시 */ }
+          }
         }
       }
       return true;
@@ -253,13 +280,11 @@ export class RecordsBoard {
     if (!this.client) {
       try { await this.connect(); } catch (e) { return top.indexOf(entry); }
     }
-    try {
-      this.client.publish(
-        this.topic(trackId),
-        JSON.stringify({ trackId, list: top }),
-        { qos: 0, retain: true }
-      );
-    } catch (e) { /* 오프라인이면 로컬만 */ }
+    const acked = await this.publishAck(
+      this.topic(trackId),
+      JSON.stringify({ trackId, list: top })
+    );
+    this._lastAck = acked;
     return top.indexOf(entry);
   }
 }

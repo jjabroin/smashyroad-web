@@ -1024,6 +1024,42 @@ function enterFinishedWrecked() {
   updateSpectateUI();
 }
 
+function taResultRows() {
+  const board = taBoard(trackDef.id);
+  return board.map((e) => ({
+    name: `${e.tag ? e.tag + ' · ' : ''}${(e.car || '').toUpperCase()} ${e.total.toFixed(1)}s${
+      lastTAEntry && e.tag === lastTAEntry.tag && e.total === lastTAEntry.total ? ' 🆕' : ''
+    }`,
+    totalTime: e.total,
+    bestLap: e.best === null || e.best === undefined ? Infinity : e.best,
+    isPlayer: !!(lastTAEntry && e.tag === lastTAEntry.tag && e.total === lastTAEntry.total),
+  }));
+}
+
+function setResultSyncMsg(msg) {
+  const m = document.getElementById('resultSyncMsg');
+  if (m) m.textContent = msg;
+}
+
+function refreshTAResults() {
+  hud.showResults(taResultRows(), playerIdx);
+}
+
+// 미동기화 기록을 공유 보드에 올리고 결과표 새로고침
+function syncRecordsToBoard() {
+  setResultSyncMsg('공유 중...');
+  recordsBoard.flushPending(loadTARecords).then((ok) => {
+    setResultSyncMsg(
+      ok ? (recordsBoard.connected ? '🌐 공유 완료' : '📴 오프라인 — 내 기록만 표시') : '📴 공유 실패 — 내 기록만 표시'
+    );
+    if (document.getElementById('results').style.display !== 'none' && timeAttack) {
+      refreshTAResults();
+    }
+  }).catch(() => {
+    setResultSyncMsg('📴 공유 실패 — 내 기록만 표시');
+  });
+}
+
 function onRaceEnd(reason) {
   // 성적표 표시 (경주는 뒤에서 계속 진행 — 라이브 갱신)
   const order = raceOrder();
@@ -1035,19 +1071,9 @@ function onRaceEnd(reason) {
     hud.message(pos === 1 ? '🏆 WINNER!' : `${pos}${ordSuffix(pos)} FINISH`, '', 2000);
   }
   if (timeAttack && reason === 'finished') {
-    // 타임어택 순위표 (공유 보드 우선, 내 기록 🆕)
-    const board = taBoard(trackDef.id);
-    hud.showResults(
-      board.map((e) => ({
-        name: `${e.tag ? e.tag + ' · ' : ''}${e.car.toUpperCase()} ${e.total.toFixed(1)}s${
-          lastTAEntry && e.tag === lastTAEntry.tag && e.total === lastTAEntry.total ? ' 🆕' : ''
-        }`,
-        totalTime: e.total,
-        bestLap: e.best === null ? Infinity : e.best,
-        isPlayer: !!(lastTAEntry && e.tag === lastTAEntry.tag && e.total === lastTAEntry.total),
-      })),
-      playerIdx
-    );
+    // 타임어택 순위표 (공유 보드 우선, 내 기록 🆕) + 공유 재시도
+    refreshTAResults();
+    syncRecordsToBoard();
   } else {
     hud.showResults(currentStandings(), playerIdx);
   }
@@ -1144,6 +1170,15 @@ document.getElementById('finishResultBtn').addEventListener('click', () => {
 });
 document.getElementById('resultClose').addEventListener('click', () => {
   hud.hideResults();
+  setResultSyncMsg('');
+});
+document.getElementById('resultSync').addEventListener('click', () => {
+  if (timeAttack) {
+    refreshTAResults();
+    syncRecordsToBoard();
+  } else {
+    setResultSyncMsg('타임어택 기록만 공유됩니다');
+  }
 });
 
 // ---- 온라인 ----

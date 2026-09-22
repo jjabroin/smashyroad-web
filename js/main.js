@@ -8,7 +8,7 @@ import {
 import { CAR_BUILDERS } from './voxel.js?v=8';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=8';
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=11';
-import { createGarage } from './garage.js?v=14';
+import { createGarage } from './garage.js?v=15';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
 import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=25';
@@ -1618,6 +1618,19 @@ function dbgLog(m) {
 try {
   window.addEventListener('error', (e) => dbgLog(`ERR:${e.message || e.type}`));
   window.addEventListener('unhandledrejection', (e) => dbgLog(`REJ:${e.reason && e.reason.message ? e.reason.message : e.reason}`));
+  // 포커스 복귀 시 보드 열려 있으면 다시 그림 (탭 복원 등 대응)
+  const refocus = () => {
+    try {
+      if (garageCtl && document.getElementById('panelBoard').style.display !== 'none') {
+        dbgLog('refocus rerender');
+        garageCtl.refreshBoard();
+      }
+    } catch (e) { /* 무시 */ }
+  };
+  window.addEventListener('focus', refocus);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refocus();
+  });
 } catch (e) { /* 무시 */ }
 function renderDiag() {
   const d = document.getElementById('diagBox');
@@ -1720,6 +1733,9 @@ setInterval(() => {
     return list.find((e) => e.trail && e.trail.length > 1 && e.tag === entry.tag && e.total === entry.total) || null;
   },
   onGhost: (trackId, entry) => startGhostRace(trackId, entry),
+  onBoardRendered: (n) => {
+    dbgLog(`board rendered rows=${n}`);
+  },
 });
 garageCtl = createGarage(
   (def, track, mode) => {

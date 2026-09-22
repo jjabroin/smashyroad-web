@@ -232,6 +232,7 @@ export function createGarage(onStart, hooks = {}) {
   function renderBoard() {
     const box = document.getElementById('boardTracks');
     box.innerHTML = '';
+    let totalRows = 0;
     TRACK_DEFS.forEach((t) => {
       const sec = document.createElement('div');
       sec.className = 'bsec';
@@ -255,6 +256,7 @@ export function createGarage(onStart, hooks = {}) {
         } catch (e) { /* 무시 */ }
       } else {
         list.slice(0, 5).forEach((e, i) => {
+          totalRows++;
           const row = document.createElement('div');
           row.className = 'brow';
           const gh = hooks.getGhost ? hooks.getGhost(t.id, e) : null;
@@ -276,6 +278,9 @@ export function createGarage(onStart, hooks = {}) {
       }
       box.appendChild(sec);
     });
+    try {
+      if (hooks.onBoardRendered) hooks.onBoardRendered(totalRows);
+    } catch (e) { /* 무시 */ }
   }
 
   // 시작하기 (모드별 분기: 온라인은 바로 방 만들기 화면)

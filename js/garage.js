@@ -129,7 +129,7 @@ export function createGarage(onStart, hooks = {}) {
   }
 
   // --- 서브패널 ---
-  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelPlay', 'panelBoard', 'panelHelp'];
+  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelBoard', 'panelHelp'];
   function openPanel(id) {
     closePanels();
     const e = document.getElementById(id);
@@ -156,7 +156,8 @@ export function createGarage(onStart, hooks = {}) {
   document.getElementById('cardMode').addEventListener('click', () => openPanel('panelMode'));
   document.getElementById('onlineRowBtn').addEventListener('click', () => {
     setMode('online');
-    openPanel('panelPlay');
+    closePanels();
+    if (hooks.onOnline) hooks.onOnline();
   });
   document.getElementById('boardBtn').addEventListener('click', () => openPanel('panelBoard'));
   document.getElementById('helpBtn').addEventListener('click', () => openPanel('panelHelp'));
@@ -221,9 +222,7 @@ export function createGarage(onStart, hooks = {}) {
       closePanels();
     });
   });
-  document.getElementById('onlineRowBtn').addEventListener('click', () => {
-    openPanel('panelPlay');
-  });
+
 
   // 순위표 (전 트랙 TOP5)
   function renderBoard() {
@@ -268,10 +267,11 @@ export function createGarage(onStart, hooks = {}) {
     });
   }
 
-  // 시작하기 (모드별 분기)
+  // 시작하기 (모드별 분기: 온라인은 바로 방 만들기 화면)
   function pressStart() {
     if (mode === 'online') {
-      openPanel('panelPlay');
+      closePanels();
+      if (hooks.onOnline) hooks.onOnline();
       return;
     }
     closePanels();
@@ -279,15 +279,6 @@ export function createGarage(onStart, hooks = {}) {
     onStart(CAR_DEFS[idx], TRACK_DEFS[trackIdx], mode);
   }
   document.getElementById('raceBtn').addEventListener('click', pressStart);
-  document.getElementById('playSingleBtn').addEventListener('click', () => {
-    closePanels();
-    document.getElementById('garage').style.display = 'none';
-    onStart(CAR_DEFS[idx], TRACK_DEFS[trackIdx], 'race');
-  });
-  document.getElementById('playMultiBtn').addEventListener('click', () => {
-    closePanels();
-    if (hooks.onOnline) hooks.onOnline();
-  });
 
   // 키보드: 좌우 차량 변경, Enter 시작
   window.addEventListener('keydown', function nav(e) {

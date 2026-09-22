@@ -36,16 +36,19 @@ export class SkidTrails {
   }
 
   // 타이어 접지점 중심 + 진행 방향으로 한 점 추가
+  // 이전 점과 멀면(텔레포트/재시작) 리본을 끊음 (brk 플래그)
   addPoint(key, x, y, z, dirX, dirZ) {
     const t = this._get(key);
     const last = t.pts[t.pts.length - 1];
-    // 너무 촘촘하면 스킵 (0.6 유닛 이상 간격)
+    let brk = false;
     if (last) {
       const dx = x - last.x;
       const dz = z - last.z;
-      if (dx * dx + dz * dz < 0.36) return;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < 0.36) return;
+      if (d2 > 64) brk = true; // 8유닛 이상 점프 = 끊김
     }
-    t.pts.push({ x, y, z, dx: dirX, dz: dirZ, age: 0 });
+    t.pts.push({ x, y, z, dx: dirX, dz: dirZ, age: 0, brk });
     if (t.pts.length > this.maxPts) t.pts.shift();
     this._rebuild(t);
   }
@@ -75,16 +78,15 @@ export class SkidTrails {
       pos.set([p.x - px, p.y, p.z - pz], i * 6 + 3);
     }
     t.geo.attributes.position.needsUpdate = true;
-    t.geo.setDrawRange(0, n >= 2 ? (n - 1) * 6 : 0);
-    // 삼각형 인덱스 (고정 최대치로 미리 설정)
-    if (!t.geo.index) {
-      const idx = [];
-      for (let i = 0; i < this.maxPts - 1; i++) {
-        const a = i * 2, b = i * 2 + 1, c = i * 2 + 2, d = i * 2 + 3;
-        idx.push(a, b, c, b, d, c);
-      }
-      t.geo.setIndex(idx);
+    // brk 플래그 구간은 삼각형 제외 (끊긴 리본)
+    const idx = [];
+    for (let i = 0; i < n - 1; i++) {
+      if (t.pts[i + 1].brk) continue;
+      const a = i * 2, b = i * 2 + 1, c = i * 2 + 2, d = i * 2 + 3;
+      idx.push(a, b, c, b, d, c);
     }
+    t.geo.setIndex(idx);
+    t.geo.computeBoundingSphere();
   }
 
   clear() {

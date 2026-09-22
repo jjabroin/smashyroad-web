@@ -11,8 +11,8 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=11';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag } from './records.js?v=11';
-import { SkidTrails } from './skids.js?v=10';
+import { RecordsBoard, getRacerTag } from './records.js?v=13';
+import { SkidTrails } from './skids.js?v=13';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -36,12 +36,38 @@ let ITEMS_ON = true;
 let timeAttack = false; // 1인 타임어택 모드
 let soloTA = false; // 솔로 시작 모드 기억 (다시 달리기용)
 const TA_RECORD_KEY = 'blockyracer-ta-records-v1';
+// 저장소 고장(시크릿모드 등) 대비 메모리 미러 — 세션 중엔 항상 집계됨
+const memRecords = {};
+let storageOK = true;
+try {
+  localStorage.setItem('__ta_test', '1');
+  localStorage.removeItem('__ta_test');
+} catch (e) {
+  storageOK = false;
+}
 function loadTARecords() {
+  let local = {};
   try {
     const s = JSON.parse(localStorage.getItem(TA_RECORD_KEY));
-    if (s && typeof s === 'object') return s;
+    if (s && typeof s === 'object') local = s;
   } catch (e) { /* 무시 */ }
-  return {};
+  // 메모리 + 로컬 병합 (중복 제거, TOP5)
+  const out = {};
+  const tids = new Set([...Object.keys(memRecords), ...Object.keys(local)]);
+  for (const tid of tids) {
+    const seen = new Set();
+    const merged = [];
+    for (const e of [...(memRecords[tid] || []), ...((local[tid] || []))]) {
+      const k = `${e.tag}|${e.total}|${e.date}`;
+      if (!seen.has(k)) {
+        seen.add(k);
+        merged.push(e);
+      }
+    }
+    merged.sort((a, b) => a.total - b.total);
+    out[tid] = merged.slice(0, 5);
+  }
+  return out;
 }
 function bestTARecord(trackId) {
   const shared = recordsBoard.get(trackId);
@@ -55,11 +81,20 @@ function bestTARecord(trackId) {
 function saveTARecord(trackId, entry) {
   entry.tag = entry.tag || getRacerTag();
   entry.date = entry.date || Date.now();
+  // 메모리 미러 (항상 성공)
+  const mem = memRecords[trackId] || (memRecords[trackId] = []);
+  if (!mem.some((e) => e.tag === entry.tag && e.total === entry.total && e.date === entry.date)) {
+    mem.push(entry);
+    mem.sort((a, b) => a.total - b.total);
+    memRecords[trackId] = mem.slice(0, 5);
+  }
   const all = loadTARecords();
   const list = all[trackId] || [];
-  list.push(entry);
-  list.sort((a, b) => a.total - b.total);
-  all[trackId] = list.slice(0, 5);
+  if (!list.some((e) => e.tag === entry.tag && e.total === entry.total && e.date === entry.date)) {
+    list.push(entry);
+    list.sort((a, b) => a.total - b.total);
+    all[trackId] = list.slice(0, 5);
+  }
   try {
     localStorage.setItem(TA_RECORD_KEY, JSON.stringify(all));
   } catch (e) { /* 무시 */ }
@@ -1502,7 +1537,9 @@ const recordsBoard = new RecordsBoard((url, opts) => window.mqtt.connect(url, op
 function updateBoardSync() {
   const b = document.getElementById('boardSync');
   if (b) {
-    b.textContent = recordsBoard.connected ? '🌐 전원과 공유 중' : '📴 내 기록만 표시 (오프라인)';
+    let msg = recordsBoard.connected ? '🌐 전원과 공유 중' : '📴 내 기록만 표시 (오프라인)';
+    if (!storageOK) msg += ' · 이 브라우저 저장 불가(이번 실행만 표시)';
+    b.textContent = msg;
   }
 }
 function refreshGarageBest() {

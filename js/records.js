@@ -113,13 +113,7 @@ export class RecordsBoard {
       try {
         const msg = JSON.parse(payload.toString());
         if (msg && msg.trackId && Array.isArray(msg.list)) {
-          // 오염 데이터 방어: total 숫자 + car 문자열만 유지
-          const clean = msg.list.filter(
-            (e) => e && typeof e.total === 'number' && isFinite(e.total) && typeof e.car === 'string'
-          );
-          const top = clean.slice(0, 5);
-          this.cache[msg.trackId] = top;
-          saveSharedCache(msg.trackId, top);
+          this._mergeCache(msg.trackId, msg.list);
           if (this.onUpdate) {
             try { this.onUpdate(msg.trackId); } catch (e) { /* 무시 */ }
           }
@@ -332,6 +326,23 @@ export class RecordsBoard {
     } catch (e) {
       return false;
     }
+  }
+
+  // 수신 병합 (덮어쓰기 금지 — 빈/부분 메시지가 보드를 날리지 못하게)
+  _mergeCache(trackId, list) {
+    const seen = new Set();
+    const merged = [];
+    for (const e of [...(this.cache[trackId] || []), ...(list || [])]) {
+      if (!e || typeof e.total !== 'number' || !isFinite(e.total) || typeof e.car !== 'string') continue;
+      const k = `${e.tag}|${e.total}|${e.date}`;
+      if (!seen.has(k)) {
+        seen.add(k);
+        merged.push(e);
+      }
+    }
+    merged.sort((a, b) => a.total - b.total);
+    this.cache[trackId] = merged.slice(0, 5);
+    saveSharedCache(trackId, this.cache[trackId]);
   }
 
   get(trackId) {

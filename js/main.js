@@ -11,7 +11,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=15';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
 import { createOnlinePanel } from './online.js?v=8';
-import { RecordsBoard, getRacerTag, getCachedShared } from './records.js?v=25';
+import { Board } from './board.js?v=1';
 import { SkidTrails } from './skids.js?v=14';
 
 const canvas = document.getElementById('game');
@@ -35,101 +35,20 @@ const mines = new Map(); // id -> {x,z,mesh,armT}
 let ITEMS_ON = true;
 let timeAttack = false; // 1인 타임어택 모드
 let soloTA = false; // 솔로 시작 모드 기억 (다시 달리기용)
-const TA_RECORD_KEY = 'blockyracer-ta-records-v1';
-// 저장소 고장(시크릿모드 등) 대비 메모리 미러 — 세션 중엔 항상 집계됨
-const memRecords = {};
-let storageOK = true;
-try {
-  localStorage.setItem('__ta_test', '1');
-  localStorage.removeItem('__ta_test');
-} catch (e) {
-  storageOK = false;
-}
+// 순위표 단일 진실 원천 (board.js) — 메모리+저장소+공유 병합
+const board = new Board((url, opts) => window.mqtt.connect(url, opts));
 function loadTARecords() {
-  let local = {};
-  try {
-    const s = JSON.parse(localStorage.getItem(TA_RECORD_KEY));
-    if (s && typeof s === 'object') local = s;
-  } catch (e) { /* 무시 */ }
-  // 메모리 + 로컬 병합 (중복 제거, TOP5)
-  const out = {};
-  const tids = new Set([...Object.keys(memRecords), ...Object.keys(local)]);
-  for (const tid of tids) {
-    const seen = new Set();
-    const merged = [];
-    for (const e of [...(memRecords[tid] || []), ...((local[tid] || []))]) {
-      const k = `${e.tag}|${e.total}|${e.date}`;
-      if (!seen.has(k)) {
-        seen.add(k);
-        merged.push(e);
-      }
-    }
-    merged.sort((a, b) => a.total - b.total);
-    out[tid] = merged.slice(0, 5);
-  }
-  return out;
+  return board.localAll();
 }
 function bestTARecord(trackId) {
-  const b = taBoard(trackId);
-  return b.length > 0 ? b[0] : null;
+  return board.best(trackId);
 }
 function saveTARecord(trackId, entry) {
-  entry.tag = entry.tag || getRacerTag();
-  entry.date = entry.date || Date.now();
-  // 메모리 미러 (항상 성공)
-  const mem = memRecords[trackId] || (memRecords[trackId] = []);
-  if (!mem.some((e) => e.tag === entry.tag && e.total === entry.total && e.date === entry.date)) {
-    mem.push(entry);
-    mem.sort((a, b) => a.total - b.total);
-    memRecords[trackId] = mem.slice(0, 5);
-  }
-  const all = loadTARecords();
-  const list = all[trackId] || [];
-  if (!list.some((e) => e.tag === entry.tag && e.total === entry.total && e.date === entry.date)) {
-    list.push(entry);
-    list.sort((a, b) => a.total - b.total);
-    all[trackId] = list.slice(0, 5);
-  }
-  try {
-    localStorage.setItem(TA_RECORD_KEY, JSON.stringify(all));
-  } catch (e) { /* 무시 */ }
-  const localRank = all[trackId].indexOf(entry);
-  // 공유 저장 (백그라운드, 실패해도 로컬 유지)
-  try {
-    recordsBoard.publish(trackId, entry).catch(() => {});
-  } catch (e) { /* 무시 */ }
-  return localRank;
-}
-function cleanBoardList(list) {
-  return (list || []).filter(
-    (e) => e && typeof e.total === 'number' && isFinite(e.total) && typeof e.car === 'string'
-  );
-}
-// 순위 우선순위: 실시간 공유 > 저장된 공유 캐시(즉시 표시) > 내 기록
-function boardSources(trackId) {
-  const live = recordsBoard.get(trackId);
-  if (live && live.length > 0) return live;
-  const cached = getCachedShared(trackId);
-  if (cached && cached.length > 0) return cached;
-  return null;
+  const { entry: saved, rank } = board.save(trackId, entry);
+  return rank;
 }
 function taBoard(trackId) {
-  const live = recordsBoard.get(trackId);
-  if (live && live.length > 0) {
-    return cleanBoardList(live).sort((a, b) => a.total - b.total).slice(0, 5);
-  }
-  // 실시간이 없으면: 저장된 공유 캐시 + 내 기록 병합 (즉시 표시)
-  const pool = [...cleanBoardList(getCachedShared(trackId)), ...cleanBoardList(loadTARecords()[trackId])];
-  const seen = new Set();
-  const merged = [];
-  for (const e of pool) {
-    const k = `${e.tag}|${e.total}|${e.date}`;
-    if (!seen.has(k)) {
-      seen.add(k);
-      merged.push(e);
-    }
-  }
-  return merged.sort((a, b) => a.total - b.total).slice(0, 5);
+  return board.list(trackId);
 }
 let pingAcc = 0;
 
@@ -1055,7 +974,7 @@ function onLocalFinish() {
       trail,
     });
     lastTAEntry = {
-      tag: getRacerTag(),
+      tag: board.tag,
       total: +me.car.finishTime.toFixed(1),
     };
     hud.message('🏁 FINISH!', '', 1500);
@@ -1103,9 +1022,9 @@ function refreshTAResults() {
 // 미동기화 기록을 공유 보드에 올리고 결과표 새로고침
 function syncRecordsToBoard() {
   setResultSyncMsg('공유 중...');
-  recordsBoard.flushPending(loadTARecords).then((ok) => {
+  board.sync().then((ok) => {
     setResultSyncMsg(
-      ok ? (recordsBoard.connected ? '🌐 공유 완료' : '📴 오프라인 — 내 기록만 표시') : '📴 공유 실패 — 내 기록만 표시'
+      ok ? '🌐 공유 완료' : '📴 공유 실패 — 내 기록만 표시'
     );
     if (document.getElementById('results').style.display !== 'none' && timeAttack) {
       refreshTAResults();
@@ -1554,12 +1473,11 @@ document.getElementById('sizeItem').addEventListener('input', (e) => {
 });
 applyLayout();
 
-// 공유 타임어택 순위표 (중계 브로커, 실패 시 로컬 기록으로 폴백)
-const recordsBoard = new RecordsBoard((url, opts) => window.mqtt.connect(url, opts));
+// 공유 타임어택 순위표 (단일 진실 원천 board.js, 인스턴스는 상단에서 생성)
 function updateBoardSync() {
   const b = document.getElementById('boardSync');
   if (b) {
-    const st = recordsBoard._status || (recordsBoard.connected ? 'conn' : 'off');
+    const st = board.status();
     let n = 0;
     try {
       for (const t of TRACK_DEFS) n += taBoard(t.id).length;
@@ -1568,10 +1486,10 @@ function updateBoardSync() {
       ? '🌐 전원과 공유 중'
       : st === 'conn'
         ? '📡 서버 연결됨 (동기화 확인 중...' +
-          (recordsBoard._loopFail ? ' 실패:' + recordsBoard._loopFail : '') + ')'
+          (board.loopFail ? ' 실패:' + board.loopFail : '') + ')'
         : '📴 내 기록만 표시 (오프라인)';
     msg += ` · 보이는 기록 ${n}개`;
-    if (!storageOK) msg += ' · 이 브라우저 저장 불가(이번 실행만 표시)';
+    if (!board.storageOK) msg += ' · 이 브라우저 저장 불가(이번 실행만 표시)';
     b.textContent = msg;
     try {
       window.__recStatus = msg;
@@ -1593,15 +1511,12 @@ function refreshGarageBest() {
     if (garageCtl.refreshTracks) garageCtl.refreshTracks();
   }
 }
-recordsBoard.onStatus = () => {
+board.onChange = () => {
   updateBoardSync();
   if (garageCtl) refreshGarageBest();
 };
-recordsBoard.onUpdate = () => {
-  if (garageCtl) refreshGarageBest();
-};
 try {
-  recordsBoard.connect().catch(() => {});
+  board.init().catch(() => {});
 } catch (e) { /* MQTT 미지원 환경 무시 */ }
 updateBoardSync();
 
@@ -1637,18 +1552,19 @@ function renderDiag() {
   if (!d) return;
   let cacheInfo = '';
   try {
-    const cc = recordsBoard.cache || {};
+    const cc = board.net.cache || {};
     cacheInfo = Object.keys(cc).map((k) => `${k}:${(cc[k] || []).length}`).join(' ') || '(empty)';
   } catch (e) { cacheInfo = 'n/a'; }
   let memInfo = '';
   try {
-    memInfo = Object.keys(memRecords).map((k) => `${k}:${(memRecords[k] || []).length}`).join(' ') || '(empty)';
+    const mm = board.mem || {};
+    memInfo = Object.keys(mm).map((k) => `${k}:${(mm[k] || []).length}`).join(' ') || '(empty)';
   } catch (e) { memInfo = 'n/a'; }
   d.innerHTML =
     `<b>DIAG ${APP_VERSION}</b> <button id="diagClose">✕</button><br>` +
     `mqtt:${typeof window.mqtt}<br>` +
-    `storage:${storageOK}<br>` +
-    `rec: conn=${recordsBoard.connected} verified=${!!recordsBoard._verified} status=${recordsBoard._status} fail=${recordsBoard._loopFail || '-'}<br>` +
+    `storage:${board.storageOK}<br>` +
+    `rec: conn=${board.connected} verified=${!!board.net._verified} status=${board.net._status} fail=${board.net._loopFail || '-'}<br>` +
     `cache: ${cacheInfo}<br>` +
     `mem: ${memInfo}<br>` +
     dbgLogArr.slice(-12).join('<br>');
@@ -1708,22 +1624,12 @@ onlinePanel = createOnlinePanel({
     if (onlinePanel) onlinePanel.openHome();
   },
   onBoardOpen: () => {
-    // 순위표 열 때: retained 재요청 → 미동기화 병합 → 새로고침
+    // 순위표 열 때: 미동기화 병합 → 새로고침
     updateBoardSync();
-    recordsBoard.resync()
-      .catch(() => false)
-      .then(() => recordsBoard.flushPending(loadTARecords))
+    board.sync()
       .catch(() => false)
       .then(() => {
-updateBoardSync();
-// 백그라운드에서 주기적으로 동기화 복구 시도 (45초 간격)
-setInterval(() => {
-  try {
-    if (!recordsBoard._verified) {
-      recordsBoard.ensureLive().catch(() => {});
-    }
-  } catch (e) { /* 무시 */ }
-}, 45000);
+        updateBoardSync();
         if (garageCtl) garageCtl.refreshBoard();
       });
   },

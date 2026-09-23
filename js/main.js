@@ -3,10 +3,10 @@ import * as THREE from 'three';
 import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=9';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
-  resolveCollisions, collideObstacles, collideWalls, aiInput, progressOf,
-} from './race.js?v=9';
+  resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
+} from './race.js?v=10';
 import { CAR_BUILDERS } from './voxel.js?v=9';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=10';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=11';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -33,6 +33,7 @@ let LAPS = trackDef.laps;
 let worldObjs = []; // 현 트랙 월드 오브젝트 (교체 시 제거)
 let colliders = []; // 장애물 {x,z,r}
 let wallGaps = []; // 벽 틈새(지름길 출입구)
+let corridors = []; // 지름길 복도 [{ax,az,bx,bz,half}]
 let pads = []; // 부스터 패드 {x,z}
 let jumps = []; // 점프대 {x,z}
 let itemBoxes = []; // 아이템 박스 {x,z,mesh,takenT}
@@ -91,6 +92,7 @@ function buildWorldTrack(def) {
   });
   colliders = w.colliders;
   wallGaps = w.wallGaps;
+  corridors = w.corridors || [];
   pads = w.pads;
   jumps = w.jumps;
   itemBoxes = w.itemBoxes;
@@ -637,6 +639,12 @@ function loop(ts) {
       impact,
       collideWalls(r.car, circuit, roadHalf(), { gaps: wallGaps }, dt)
     );
+    for (const co of corridors) {
+      // 복도 중심선 근처(6) + 도로 밖일 때만 안내 (일반 주행·텔레포트 방지)
+      if (Math.abs(r.car.lateral) > roadHalf() + 1 && ptSegDist(r.car.x, r.car.z, co) < 6) {
+        impact = Math.max(impact, collideCorridor(r.car, co, dt));
+      }
+    }
     if (r.car.airT <= 0) {
       impact = Math.max(impact, collideObstacles(r.car, colliders, dt));
     }

@@ -380,10 +380,12 @@ export function collideWalls(car, circuit, roadHalf, walls, dt) {
     if (Math.abs(snap.lateral) <= LIM) continue;
     let inGap = false;
     for (const g of walls.gaps) {
-      if (ptSegDist(fx, fz, g) < 13) {
-        inGap = true;
-        break;
-      }
+      const dA = Math.hypot(fx - g.ax, fz - g.az);
+      const dB = Math.hypot(fx - g.bx, fz - g.bz);
+      const sg = snap.lateral >= 0 ? 1 : -1;
+      // 개구부 끝점 근처 + 해당 측면에서만 벽 해제 (반대편은 막힘)
+      if (dA < 14 && (g.sideA === 0 || g.sideA === sg)) { inGap = true; break; }
+      if (dB < 14 && (g.sideB === 0 || g.sideB === sg)) { inGap = true; break; }
     }
     if (inGap) continue;
     const p = circuit.pointAt(snap.dist);
@@ -415,6 +417,47 @@ export function collideWalls(car, circuit, roadHalf, walls, dt) {
   } else {
     car.vx *= Math.exp(-1.5 * dt);
     car.vz *= Math.exp(-1.5 * dt);
+  }
+  return impact;
+}
+
+// 지름길 복도: 중심선 기준 횡방향 클램프 (입구 t0~t1 구간만, 그 외는 자유)
+// corr = {ax, az, bx, bz, half} — 카트 한 대 겨우 지나가는 좁은 길
+export function collideCorridor(car, corr, dt) {
+  if (car.out) return 0;
+  const dx = corr.bx - corr.ax;
+  const dz = corr.bz - corr.az;
+  const L2 = dx * dx + dz * dz || 1;
+  const L = Math.sqrt(L2);
+  const ux = dx / L;
+  const uz = dz / L;
+  // 복도 좌표계로 투영
+  const rx = car.x - corr.ax;
+  const rz = car.z - corr.az;
+  const along = rx * ux + rz * uz;
+  const t0 = L * 0.06;
+  const t1 = L * 0.94;
+  if (along < t0 || along > t1) return 0; // 입구/출구는 자유
+  const lat = rx * -uz + rz * ux;
+  const lim = corr.half - 2.2; // 차체 반폭 고려
+  if (Math.abs(lat) <= lim) return 0;
+  const s = lat > 0 ? 1 : -1;
+  // 위치 클램프 (튕김 없이 밀어넣기 — 텔레포트 방지)
+  car.x -= -uz * s * (Math.abs(lat) - lim);
+  car.z -= ux * s * (Math.abs(lat) - lim);
+  // 횡속도 제거 + 긁힘 감속
+  const vn = (car.vx * -uz + car.vz * ux) * s;
+  let impact = 0;
+  if (vn > 0) {
+    impact = vn;
+    car.vx -= -uz * s * vn * 1.3;
+    car.vz -= ux * s * vn * 1.3;
+    car.vx *= 0.94;
+    car.vz *= 0.94;
+    if (vn > 18 && car.hitCd <= 0 && !car.finished) {
+      damageWithShield(car, (vn - 15) * 0.5);
+      car.hitCd = 0.6;
+    }
   }
   return impact;
 }

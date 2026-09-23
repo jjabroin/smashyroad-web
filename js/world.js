@@ -272,40 +272,9 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const sideA = sideOf(sg.dA, dx / m, dz / m);
       const sideB = sideOf(sg.dB, -dx / m, -dz / m);
       wallGaps.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z, sideA, sideB });
-      corridors.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z, half: 3 });
+      corridors.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z, half: 3.5 });
       // 복도 양옆 낮은 벽 (입구 제외 t=0.08~0.92)
-      buildCorridorWalls(scene, circuit, A, B, sg.dA, sg.dB, 3);
-      // 지름길 표지: 진행 방향 쉐브론 3개 + 입구 타이어 게이트
-      const yA = trackY(circuit, sg.dA);
-      const yB = trackY(circuit, sg.dB);
-      const yaw = -Math.atan2(dz, dx);
-      for (const tt of [0.12, 0.5, 0.88]) {
-        const ch = new THREE.Mesh(
-          new THREE.BoxGeometry(1.2, 0.25, 4),
-          new THREE.MeshBasicMaterial({ color: 0x27e0f5 })
-        );
-        ch.position.set(
-          A.x + dx * tt,
-          yA + (yB - yA) * tt + 0.25,
-          A.z + dz * tt
-        );
-        ch.rotation.y = yaw;
-        scene.add(ch);
-      }
-      const px = (-dz / m) * 6;
-      const pz = (dx / m) * 6;
-      for (const e of [A, B]) {
-        const ed = e === A ? sg.dA : sg.dB;
-        for (const s of [1, -1]) {
-          const tire = makeTireStack();
-          tire.position.set(
-            e.x + px * s,
-            trackY(circuit, ed),
-            e.z + pz * s
-          );
-          scene.add(tire);
-        }
-      }
+      buildCorridorWalls(scene, circuit, A, B, sg.dA, sg.dB, 3.5);
       // 복도가 가로지르는 다른 도로 지점에 틈 (양측 개방)
       for (let i = 0; i < circuit.count; i += 2) {
         const dd = Math.min(

@@ -450,10 +450,13 @@ export function collideCorridor(car, corr, dt) {
   let impact = 0;
   if (vn > 0) {
     impact = vn;
+    // 법선 반사 + 미끄러지듯 통과 (쎄게 박을 때만 감속)
     car.vx -= -uz * s * vn * 1.3;
     car.vz -= ux * s * vn * 1.3;
-    car.vx *= 0.94;
-    car.vz *= 0.94;
+    if (vn > 3) {
+      car.vx *= 0.97;
+      car.vz *= 0.97;
+    }
     if (vn > 18 && car.hitCd <= 0 && !car.finished) {
       damageWithShield(car, (vn - 15) * 0.5);
       car.hitCd = 0.6;

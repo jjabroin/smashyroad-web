@@ -4,7 +4,7 @@ export function fmtTime(sec) {
   return sec.toFixed(1);
 }
 
-export function createHUD(circuit) {
+export function createHUD(circuit, shortcuts = []) {
   const el = (id) => document.getElementById(id);
 
   // 미니맵 경로 정규화
@@ -38,6 +38,19 @@ export function createHUD(circuit) {
     });
     mctx.closePath();
     mctx.stroke();
+    // 지름길 표시 (갈색 점선)
+    mctx.lineWidth = 3;
+    mctx.strokeStyle = '#b08a5a';
+    mctx.setLineDash([4, 3]);
+    for (const g of shortcuts) {
+      const [x1, y1] = toMap(g.ax, g.az);
+      const [x2, y2] = toMap(g.bx, g.bz);
+      mctx.beginPath();
+      mctx.moveTo(x1, y1);
+      mctx.lineTo(x2, y2);
+      mctx.stroke();
+    }
+    mctx.setLineDash([]);
     cars.forEach((c, i) => {
       const [x, y] = toMap(c.x, c.z);
       mctx.fillStyle = i === playerIdx ? '#ff3b30' : '#222';

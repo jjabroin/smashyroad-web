@@ -260,6 +260,40 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const B = circuit.pointAt(sg.dB);
       drawDirtChord(scene, circuit, A, B, sg.dA, sg.dB, 7);
       wallGaps.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z });
+      // 지름길 표지: 진행 방향 쉐브론 3개 + 입구 타이어 게이트
+      const yA = trackY(circuit, sg.dA);
+      const yB = trackY(circuit, sg.dB);
+      const dx = B.x - A.x;
+      const dz = B.z - A.z;
+      const m = Math.hypot(dx, dz) || 1;
+      const yaw = -Math.atan2(dz, dx);
+      for (const tt of [0.12, 0.5, 0.88]) {
+        const ch = new THREE.Mesh(
+          new THREE.BoxGeometry(1.4, 0.25, 5),
+          new THREE.MeshBasicMaterial({ color: 0x27e0f5 })
+        );
+        ch.position.set(
+          A.x + dx * tt,
+          yA + (yB - yA) * tt + 0.25,
+          A.z + dz * tt
+        );
+        ch.rotation.y = yaw;
+        scene.add(ch);
+      }
+      const px = (-dz / m) * 11;
+      const pz = (dx / m) * 11;
+      for (const e of [A, B]) {
+        const ed = e === A ? sg.dA : sg.dB;
+        for (const s of [1, -1]) {
+          const tire = makeTireStack();
+          tire.position.set(
+            e.x + px * s,
+            trackY(circuit, ed),
+            e.z + pz * s
+          );
+          scene.add(tire);
+        }
+      }
     }
   }
 

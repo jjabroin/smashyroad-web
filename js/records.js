@@ -1,7 +1,7 @@
 // 공유 타임어택 순위표 — 중계 브로커 retained 토픽에 저장
 // records/{trackId} = {list: [{total, best, car, tag, date}]} (최대 5개)
 // 오프라인이면 로컬 기록으로 폴백. 동시 발행 충돌은 last-write-wins.
-import { RELAY, PUBLIC_RELAY, ROOM_PREFIX } from './relay-config.js?v=8';
+import { RELAY, PUBLIC_RELAY, ROOM_PREFIX } from './relay-config.js?v=4fdd2d';
 
 const TAG_KEY = 'blockyracer-tag-v1';
 

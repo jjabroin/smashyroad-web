@@ -1,8 +1,8 @@
 // three.js 월드: 도로 리본·연석·간트리·장식·조명 (사진 1 스타일)
 import * as THREE from 'three';
-import { mat } from './voxel.js?v=9';
-import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=9';
-import { trackY } from './track.js?v=9';
+import { mat } from './voxel.js?v=35aa4d';
+import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=35aa4d';
+import { trackY } from './track.js?v=0850a8';
 
 export const ROAD_HALF = 11;
 

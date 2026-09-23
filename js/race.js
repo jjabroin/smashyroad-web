@@ -1,5 +1,5 @@
 // 경주 로직: 아케이드 관성 물리 + AI + 랩/순위 + 벽/부스터 (three.js 없음 → node 테스트 가능)
-import { trackSlope } from './track.js?v=d8bb15';
+import { trackSlope } from './track.js?v=58d2c4';
 //
 // 물리 모델 (관성 체감용 속도벡터 방식):
 // - vel 벡터가 실제 이동, heading은 차 머리 방향
@@ -436,7 +436,7 @@ export function collideCorridor(car, corr, dt) {
   const rz = car.z - corr.az;
   const along = rx * ux + rz * uz;
   const t0 = L * 0.06;
-  const t1 = L * 0.94;
+  const t1 = L * 1.0;
   if (along < t0 || along > t1) return 0; // 입구/출구는 자유
   const lat = rx * -uz + rz * ux;
   const lim = corr.half - 2.2; // 차체 반폭 고려

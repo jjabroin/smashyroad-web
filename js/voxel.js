@@ -180,8 +180,25 @@ export function makePolice(color = 0xf2f3f5, accent = 0x1c2733) {
   return g;
 }
 
-const _builders = { taxi: makeTaxi, rally: makeRally, monster: makeMonster, police: makePolice };
+const _builders = { taxi: makeTaxi, rally: makeRally, monster: makeMonster, police: makePolice, comet: makeComet };
 Object.assign(CAR_BUILDERS, _builders);
+
+// 날렵한 코멧 (핸들링 특화)
+export function makeComet(color = 0x7a2fd6, accent = 0x27e0f5) {
+  const g = new THREE.Group();
+  const dark = 0x141519;
+  part(g, color, 3.2, 0.55, 1.0, 1.6, 0.7, 0); // 뾰족 노즈
+  part(g, accent, 1.0, 0.2, 1.04, 2.6, 0.72, 0);
+  part(g, color, 2.4, 0.75, 2.0, -0.6, 0.85, 0); // 차체
+  part(g, 0x20242c, 1.2, 0.55, 1.2, -0.2, 1.3, 0); // 콕핏
+  part(g, accent, 0.45, 0.5, 0.45, -0.7, 1.35, 0); // 헬멧
+  part(g, color, 0.35, 1.0, 2.8, -2.7, 1.4, 0); // 리어윙 기둥
+  part(g, color, 1.0, 0.22, 2.8, -2.9, 1.95, 0); // 리어윙
+  part(g, accent, 2.42, 0.14, 0.5, -0.6, 1.25, 0); // 스트라이프
+  const w = wheels(g, dark, [[1.8, 1.25, true], [1.8, -1.25, true], [-1.8, 1.25, false], [-1.8, -1.25, false]], 0.75, 0.65);
+  g.userData.frontWheels = w.front;
+  return g;
+}
 
 // --- 사막/도심 소품 ---
 export function makeCactus() {

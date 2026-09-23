@@ -7,6 +7,11 @@ import {
 } from './race.js?v=8';
 import { CAR_BUILDERS } from './voxel.js?v=8';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=8';
+
+// 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
+function roadHalf() {
+  return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
+}
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=11';
 import { createGarage } from './garage.js?v=15';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
@@ -81,7 +86,7 @@ function updateItemHUD() {
 function buildWorldTrack(def) {
   for (const o of worldObjs) scene.remove(o);
   const before = new Set(scene.children);
-  const w = createWorld(scene, circuit, def.theme, def.id === 'express', {
+  const w = createWorld(scene, circuit, def.theme, def.shortcuts || (def.id === 'express' ? 'apex' : null), {
     boosts: def.boosts, jumps: def.jumps, blocks: def.blocks, items: ITEMS_ON,
   });
   colliders = w.colliders;
@@ -462,7 +467,7 @@ function loop(ts) {
     if (r.isPlayer && !r.car.finished) return spectateIdx == null ? pin : DUMMY;
     if (r.ai) {
       if (!r.local) return DUMMY;
-      return aiInput(r.car, circuit, ROAD_HALF, dt, pProg, progressOf(r.car, circuit), r.ai);
+      return aiInput(r.car, circuit, roadHalf(), dt, pProg, progressOf(r.car, circuit), r.ai);
     }
     // 호스트가 보는 게스트 차량: 수신된 입력으로 시뮬
     if (simAuthority && onlineCtl) {
@@ -607,7 +612,7 @@ function loop(ts) {
   // 물리 + 랩 (시뮬 대상만; 탈락 제외, 완주 차량은 쿨다운 주행 계속)
   racers.forEach((r, i) => {
     if (r.car.out || (!simAll && !r.isPlayer)) return;
-    stepCar(r.car, inputs[i], dt, circuit, ROAD_HALF);
+    stepCar(r.car, inputs[i], dt, circuit, roadHalf());
     if (r.car.finished) return;
     const ev = checkLap(r.car, circuit, LAPS, raceTime);
     if (r.isPlayer) {
@@ -630,7 +635,7 @@ function loop(ts) {
     if (r.car.out || r.car.finished) continue;
     impact = Math.max(
       impact,
-      collideWalls(r.car, circuit, ROAD_HALF, { gaps: wallGaps }, dt)
+      collideWalls(r.car, circuit, roadHalf(), { gaps: wallGaps }, dt)
     );
     if (r.car.airT <= 0) {
       impact = Math.max(impact, collideObstacles(r.car, colliders, dt));

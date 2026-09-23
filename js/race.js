@@ -87,6 +87,16 @@ export const CAR_DEFS = [
     maxSpeed: 58, accel: 35, brake: 66, reverseMax: 16,
     turnRate: 2.0, grip: 5.8, drag: 0.4,
   },
+  {
+    id: 'comet',
+    name: 'COMET',
+    grade: '레어',
+    color: 0x7a2fd6,
+    accent: 0x27e0f5,
+    stats: { speed: 3, handling: 5, durability: 1 },
+    maxSpeed: 52, accel: 36, brake: 68, reverseMax: 16,
+    turnRate: 2.9, grip: 5.4, drag: 0.36,
+  },
 ];
 
 export function makeCarState(def, x, z, heading) {

@@ -140,6 +140,53 @@ function finalizeCircuit(pts) {
   return { pts, cum, length, pointAt, project, curvatureAt, count: n };
 }
 
+// 빌리지 손가락: 직선+원호 프리미티브 직접 샘플링 (스플라인 대신, 기하 확정)
+// (x, z) 평면을 표준 수학 방향으로 취급. 각도: point = (cx + r cos a, cz + r sin a)
+// a 증가 = CCW (진행방향 (-sin a, cos a)), a 감소 = CW (진행방향 (sin a, -cos a))
+export function buildVillage(elev) {
+  const pts = [];
+  const push = (x, z) => pts.push({ x, z });
+  const straight = (x1, z1, step = 3) => {
+    const last = pts[pts.length - 1];
+    const len = Math.hypot(x1 - last.x, z1 - last.z);
+    const n = Math.max(1, Math.round(len / step));
+    for (let i = 1; i <= n; i++) {
+      push(last.x + ((x1 - last.x) * i) / n, last.z + ((z1 - last.z) * i) / n);
+    }
+  };
+  const arc = (cx, cz, r, a0deg, a1deg, stepDeg = 4) => {
+    const n = Math.max(2, Math.round(Math.abs(a1deg - a0deg) / stepDeg));
+    for (let i = 1; i <= n; i++) {
+      const a = ((a0deg + ((a1deg - a0deg) * i) / n) * Math.PI) / 180;
+      push(cx + r * Math.cos(a), cz + r * Math.sin(a));
+    }
+  };
+  push(0, 92); // S0, heading +X
+  straight(130, 90); // L1
+  arc(130, 66, 24, 90, -90); // capR1
+  straight(0, 42); // L2
+  arc(0, 18, 24, 90, 270); // capL1
+  straight(130, -6); // L3
+  arc(130, -30, 24, 90, -90); // capR2
+  straight(0, -54); // L4
+  arc(0, -78, 24, 90, 270); // capL2
+  straight(130, -102); // L5
+  arc(130, -126, 24, 90, -90); // capR3
+  straight(0, -150); // L6
+  arc(0, -174, 24, 90, 270); // capL3
+  straight(130, -198); // L7
+  arc(130, -222, 24, 90, -90); // capR4
+  straight(-40, -246); // L8
+  straight(-150, -240); // 바깥 서쪽으로
+  arc(-150, -195, 45, 270, 180); // 북행으로 커브
+  straight(-195, 30); // 서쪽 직선
+  arc(-150, 30, 45, 180, 90); // 동쪽으로 커브
+  straight(0, 92); // 탑 직선 → S0 합류
+  const c = finalizeCircuit(pts);
+  c.elev = elev || { amp: 0, k: 2 };
+  return c;
+}
+
 // 제어점을 지나는 닫힌 Catmull-Rom 스플라인 서킷
 export function buildSplineCircuit(controls, perSeg = 30, elev = null) {
   const m = controls.length;
@@ -225,22 +272,20 @@ export const TRACK_DEFS = [
     ],
   },
   {
-    id: 'village', name: '빌리지 손가락', mode: 'spline', theme: 'park', laps: 2,
+    id: 'village', name: '빌리지 손가락', mode: 'village', theme: 'park', laps: 2,
     hill: { amp: 5, k: 3 }, boosts: [0.3, 0.7], jumps: [0.5], blocks: [0.6],
-    points: [
-      [-20, 100], [60, 96], [130, 90], [147, 83], [154, 66], [147, 49],
-      [130, 42], [60, 40], [20, 36], [8, 18], [5, -2], [50, -8],
-      [130, -6], [146, -12], [152, -28], [146, -44], [130, -50],
-      [60, -54], [-10, -60], [-90, -64], [-150, -50], [-172, -10],
-      [-172, 30], [-150, 62], [-80, 74],
-    ],
+    roadHalf: 8, shortcuts: [{ d1: 0.122, d2: 0.306 }],
   },
 ];
 
 export function buildTrack(def) {
-  if (def.mode === 'spline') return buildSplineCircuit(def.points, def.perSeg || 30, def.hill);
-  return buildCircuit(def.straight, def.radius, {
+  let c;
+  if (def.mode === 'village') c = buildVillage(def.hill);
+  else if (def.mode === 'spline') c = buildSplineCircuit(def.points, def.perSeg || 30, def.hill);
+  else c = buildCircuit(def.straight, def.radius, {
     waveAmp: def.waveAmp, waveK: def.waveK,
     hillAmp: def.hill && def.hill.amp, hillK: def.hill && def.hill.k,
   });
+  c.roadHalf = def.roadHalf || 11;
+  return c;
 }

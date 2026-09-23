@@ -39,6 +39,7 @@ function ribbonGeometry(circuit, halfW, yFn) {
 
 export function createWorld(scene, circuit, themeId = 'park', shortcuts = false, feat = {}) {
   const theme = THEMES[themeId] || THEMES.park;
+  const RH = circuit.roadHalf || ROAD_HALF;
   const SKY = theme.sky;
   scene.background = new THREE.Color(SKY);
   scene.fog = new THREE.Fog(SKY, theme.fog[0], theme.fog[1]);
@@ -110,7 +111,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
 
   // 아스팔트 (고도 추종)
   const road = new THREE.Mesh(
-    ribbonGeometry(circuit, ROAD_HALF, (d) => trackY(circuit, d) + 0.05),
+    ribbonGeometry(circuit, RH, (d) => trackY(circuit, d) + 0.05),
     new THREE.MeshLambertMaterial({ color: 0x41454e })
   );
   road.receiveShadow = true;
@@ -141,7 +142,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     const n = circuit.count;
     const pos = new Float32Array(n * 2 * 3);
     const idx = [];
-    const off = ROAD_HALF - 0.9;
+    const off = RH - 0.9;
     for (let i = 0; i < n; i++) {
       const p = circuit.pts[i];
       const px = -p.dz;
@@ -179,9 +180,9 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       for (const side of [1, -1]) {
         const useRed = (i + (side > 0 ? 0 : 1)) % 2 === 0;
         dummy.position.set(
-          p.x + -p.dz * side * (ROAD_HALF + 1.4),
+          p.x + -p.dz * side * (RH + 1.4),
           trackY(circuit, i * step) + 0.18,
-          p.z + p.dx * side * (ROAD_HALF + 1.4)
+          p.z + p.dx * side * (RH + 1.4)
         );
         dummy.rotation.set(0, ang, 0);
         dummy.updateMatrix();
@@ -201,10 +202,10 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     const ang = -Math.atan2(p0.dz, p0.dx);
     const across = 8;
     for (let i = 0; i < across * 2; i++) {
-      const lat = -ROAD_HALF + (i + 0.5) * ((ROAD_HALF * 2) / (across * 2));
+      const lat = -RH + (i + 0.5) * ((RH * 2) / (across * 2));
       for (let r = 0; r < 2; r++) {
         const m = new THREE.Mesh(
-          new THREE.BoxGeometry(1.4, 0.07, (ROAD_HALF * 2) / (across * 2)),
+          new THREE.BoxGeometry(1.4, 0.07, (RH * 2) / (across * 2)),
           mat((i + r) % 2 ? 0x111111 : 0xffffff)
         );
         const along = r * 1.4 - 0.7;
@@ -217,42 +218,54 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
         scene.add(m);
       }
     }
-    const gantry = makeGantry(ROAD_HALF * 2 + 8);
+    const gantry = makeGantry(RH * 2 + 8);
     gantry.position.set(p0.x, 0, p0.z);
     gantry.rotation.y = ang; // 도로를 가로지르게 (로컬 Z = 측면 방향)
     scene.add(gantry);
     // 간트리 기둥도 장애물 (도로 양옆, 주행선에서 충분히 벗어남)
     for (const s of [-1, 1]) {
-      const v = new THREE.Vector3(0, 0, (s * (ROAD_HALF * 2 + 8)) / 2);
+      const v = new THREE.Vector3(0, 0, (s * (RH * 2 + 8)) / 2);
       gantry.localToWorld(v);
       colliders.push({ x: v.x, z: v.z, r: 1.2 });
     }
   }
 
-  // 지름길 흙길: 양쪽 180° 코너를 가로지르는 현(chord) — 잔디로 커팅 가능
+  // 지름길 흙길: 명시 구간([{d1,d2} 분율] 또는 'apex' 자동) — 잔디로 커팅 가능
   const wallGaps = []; // 물리 벽 틈새 (지름길 출입구)
-  if (shortcuts) {
-    const apexDist = (cmp) => {
-      let bi = 0;
-      for (let i = 0; i < circuit.count; i++) {
-        if (cmp(circuit.pts[i].x, circuit.pts[bi].x)) bi = i;
+  {
+    const L = circuit.length;
+    let segs = [];
+    if (Array.isArray(shortcuts)) {
+      segs = shortcuts.map((s) => ({
+        dA: (((s.d1 % 1) + 1) % 1) * L,
+        dB: (((s.d2 % 1) + 1) % 1) * L,
+      }));
+    } else if (shortcuts === 'apex') {
+      const apexDist = (cmp) => {
+        let bi = 0;
+        for (let i = 0; i < circuit.count; i++) {
+          if (cmp(circuit.pts[i].x, circuit.pts[bi].x)) bi = i;
+        }
+        return circuit.cum[bi];
+      };
+      for (const dC of [apexDist((a, b) => a > b), apexDist((a, b) => a < b)]) {
+        segs.push({
+          dA: (((dC - 60) % L) + L) % L,
+          dB: (((dC + 60) % L) + L) % L,
+        });
       }
-      return circuit.cum[bi];
-    };
-    for (const dC of [apexDist((a, b) => a > b), apexDist((a, b) => a < b)]) {
-      const L = circuit.length;
-      const dA = (((dC - 60) % L) + L) % L;
-      const dB = (((dC + 60) % L) + L) % L;
-      const A = circuit.pointAt(dA);
-      const B = circuit.pointAt(dB);
-      drawDirtChord(scene, circuit, A, B, dA, dB, 7);
+    }
+    for (const sg of segs) {
+      const A = circuit.pointAt(sg.dA);
+      const B = circuit.pointAt(sg.dB);
+      drawDirtChord(scene, circuit, A, B, sg.dA, sg.dB, 7);
       wallGaps.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z });
     }
   }
 
   // 가드레일 벽 (양옆 연속 + 빨강/흰 기둥, 지름길 틈새 제외)
   {
-    const off = ROAD_HALF + 2.2; // 물리 LIM과 일치 (범퍼 접촉 시점에 시각 일치)
+    const off = RH + 2.2; // 물리 LIM과 일치 (범퍼 접촉 시점에 시각 일치)
     const H = 1.1;
     const circDist = (a, b) => {
       const L = circuit.length;
@@ -431,7 +444,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       if (placed.some((q) => Math.hypot(q.x - x, q.z - z) < 18)) continue;
       // 다른 샘플과도 너무 가깝지 않게
       const pr = circuit.project(x, z);
-      if (Math.abs(pr.lateral) < ROAD_HALF + 3) continue;
+      if (Math.abs(pr.lateral) < RH + 3) continue;
       obj.position.set(x, groundHeightAt(x, z), z);
       obj.rotation.y = rnd() * Math.PI * 2;
       scene.add(obj);

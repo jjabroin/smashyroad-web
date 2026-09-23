@@ -4,7 +4,7 @@ import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=9';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
-} from './race.js?v=11';
+} from './race.js?v=12';
 import { CAR_BUILDERS } from './voxel.js?v=9';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=12';
 
@@ -13,9 +13,9 @@ function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=12';
-import { createGarage } from './garage.js?v=17';
+import { createGarage } from './garage.js?v=19';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
-import { createOnlinePanel } from './online.js?v=10';
+import { createOnlinePanel } from './online.js?v=12';
 import { Board } from './board.js?v=2';
 import { SkidTrails } from './skids.js?v=14';
 

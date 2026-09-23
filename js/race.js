@@ -442,9 +442,12 @@ export function collideCorridor(car, corr, dt) {
   const lim = corr.half - 2.2; // 차체 반폭 고려
   if (Math.abs(lat) <= lim) return 0;
   const s = lat > 0 ? 1 : -1;
-  // 위치 클램프 (튕김 없이 밀어넣기 — 텔레포트 방지)
-  car.x -= -uz * s * (Math.abs(lat) - lim);
-  car.z -= ux * s * (Math.abs(lat) - lim);
+  // 위치 클램프 (프레임당 최대 이동 제한 — 텔레포트·튕김 방지)
+  const over = Math.abs(lat) - lim;
+  const vn0 = (car.vx * -uz + car.vz * ux) * s;
+  const pull = Math.min(over, 2.0 + Math.max(0, -vn0) * 0.08);
+  car.x -= -uz * s * pull;
+  car.z -= ux * s * pull;
   // 횡속도 제거 + 긁힘 감속
   const vn = (car.vx * -uz + car.vz * ux) * s;
   let impact = 0;

@@ -6,6 +6,15 @@ import { trackY } from './track.js?v=9';
 
 export const ROAD_HALF = 11;
 
+function ptSegDistWorld(px, pz, g) {
+  const dx = g.bx - g.ax;
+  const dz = g.bz - g.az;
+  const L2 = dx * dx + dz * dz || 1;
+  let t = ((px - g.ax) * dx + (pz - g.az) * dz) / L2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (g.ax + dx * t), pz - (g.az + dz * t));
+}
+
 export const THEMES = {
   park: { sky: 0xa8dcf0, ground: 0x7fd08a, patch: 0x74c47f, fog: [260, 800] },
   desert: { sky: 0xf6d9a0, ground: 0xe3c48d, patch: 0xd9b67f, fog: [260, 800] },
@@ -234,6 +243,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   // wallGaps: 끝점+측면(side) 지정 개구부. crossings: 통과 지점 양측 개방
   const wallGaps = []; // {ax,az,bx,bz,sideA,sideB}
   const corridors = []; // {ax,az,bx,bz,half} 물리 복도
+  const chordSegs = []; // 장식물 제외용 [{ax,az,bx,bz}]
   {
     const L = circuit.length;
     let segs = [];
@@ -273,6 +283,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const sideB = sideOf(sg.dB, -dx / m, -dz / m);
       wallGaps.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z, sideA, sideB });
       corridors.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z, half: 3.5 });
+      chordSegs.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z });
       // 복도 양옆 낮은 벽 (입구 제외 t=0.08~0.92)
       buildCorridorWalls(scene, circuit, A, B, sg.dA, sg.dB, 3.5);
       // 복도가 가로지르는 다른 도로 지점에 틈 (양측 개방)
@@ -296,7 +307,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
   }
 
-  // 가드레일 벽 (양옆 연속 + 빨강/흰 기둥, 지름길 틈새 제외)
+  // 가드레일 벽 (양옆 복셀 블록 + 빨강/흰 기둥, 지름길 틈새 제외)
   {
     const off = RH + 2.2; // 물리 LIM과 일치 (범퍼 접촉 시점에 시각 일치)
     const H = 1.1;
@@ -311,34 +322,27 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const pb = circuit.project(g.bx, g.bz);
       gapDists.push(pa.dist, pb.dist);
     }
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0xe8ecf1, side: THREE.DoubleSide });
-    const n = circuit.count;
-    for (const side of [1, -1]) {
-      const pos = [];
-      const idx = [];
-      for (let i = 0; i < n; i++) {
-        const mid = (circuit.cum[i] + circuit.cum[i + 1]) / 2;
-        if (gapDists.some((g) => circDist(mid, g) < 16)) continue;
-        const p0 = circuit.pts[i];
-        const p1 = circuit.pts[(i + 1) % n];
-        const y0 = trackY(circuit, circuit.cum[i]);
-        const y1 = trackY(circuit, circuit.cum[i + 1]);
-        const e0x = p0.x + -p0.dz * side * off;
-        const e0z = p0.z + p0.dx * side * off;
-        const e1x = p1.x + -p1.dz * side * off;
-        const e1z = p1.z + p1.dx * side * off;
-        const b = pos.length / 3;
-        pos.push(e0x, y0, e0z, e0x, y0 + H, e0z, e1x, y1, e1z, e1x, y1 + H, e1z);
-        idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
+    const wallStep = 3.4;
+    const wallCount = Math.floor(circuit.length / wallStep);
+    const wallGeo = new THREE.BoxGeometry(3.0, H, 0.7);
+    const white = new THREE.InstancedMesh(wallGeo, new THREE.MeshLambertMaterial({ color: 0xf2f5f9 }), wallCount * 2);
+    let wi = 0;
+    for (let i = 0; i < wallCount; i++) {
+      const d = i * wallStep;
+      if (gapDists.some((g) => circDist(d, g) < 16)) continue;
+      const p = circuit.pointAt(d);
+      const y = trackY(circuit, d);
+      for (const side of [1, -1]) {
+        dummy.position.set(p.x + -p.dz * side * off, y + H / 2, p.z + p.dx * side * off);
+        dummy.rotation.set(0, -Math.atan2(p.dz, p.dx), 0);
+        dummy.updateMatrix();
+        white.setMatrixAt(wi++, dummy.matrix);
       }
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
-      g.setIndex(idx);
-      g.computeVertexNormals();
-      const mesh = new THREE.Mesh(g, wallMat);
-      mesh.castShadow = true;
-      scene.add(mesh);
     }
+    white.count = wi;
+    white.castShadow = true;
+    white.receiveShadow = true;
+    scene.add(white);
     // 기둥 (12유닛 간격, 빨강/흰 교대)
     const step = 12;
     const count = Math.floor(circuit.length / step);
@@ -478,6 +482,15 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       // 다른 샘플과도 너무 가깝지 않게
       const pr = circuit.project(x, z);
       if (Math.abs(pr.lateral) < RH + 3) continue;
+      // 지름길 복도 주변엔 장식물 없음 (주행선 확보)
+      let nearChord = false;
+      for (const g of chordSegs) {
+        if (ptSegDistWorld(x, z, g) < 13) {
+          nearChord = true;
+          break;
+        }
+      }
+      if (nearChord) continue;
       obj.position.set(x, groundHeightAt(x, z), z);
       obj.rotation.y = rnd() * Math.PI * 2;
       scene.add(obj);

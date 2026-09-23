@@ -635,15 +635,23 @@ function loop(ts) {
   );
   for (const r of racers) {
     if (r.car.out || r.car.finished) continue;
-    impact = Math.max(
-      impact,
-      collideWalls(r.car, circuit, roadHalf(), { gaps: wallGaps }, dt)
-    );
+    // 복도 안에 있으면 복도 벽만 적용 (일반 벽과 배타 — 밀고당기기 방지)
+    let inCorr = false;
     for (const co of corridors) {
-      // 복도 중심선 근처(6) + 도로 밖일 때만 안내 (일반 주행·텔레포트 방지)
       if (Math.abs(r.car.lateral) > roadHalf() + 1 && ptSegDist(r.car.x, r.car.z, co) < 6) {
+        inCorr = true;
+        break;
+      }
+    }
+    if (inCorr) {
+      for (const co of corridors) {
         impact = Math.max(impact, collideCorridor(r.car, co, dt));
       }
+    } else {
+      impact = Math.max(
+        impact,
+        collideWalls(r.car, circuit, roadHalf(), { gaps: wallGaps }, dt)
+      );
     }
     if (r.car.airT <= 0) {
       impact = Math.max(impact, collideObstacles(r.car, colliders, dt));

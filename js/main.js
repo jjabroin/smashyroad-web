@@ -1,21 +1,21 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=8';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=9';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, aiInput, progressOf,
-} from './race.js?v=8';
-import { CAR_BUILDERS } from './voxel.js?v=8';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=8';
+} from './race.js?v=9';
+import { CAR_BUILDERS } from './voxel.js?v=9';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=9';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=11';
-import { createGarage } from './garage.js?v=15';
+import { createGarage } from './garage.js?v=16';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=8';
-import { createOnlinePanel } from './online.js?v=8';
+import { createOnlinePanel } from './online.js?v=9';
 import { Board } from './board.js?v=2';
 import { SkidTrails } from './skids.js?v=14';
 

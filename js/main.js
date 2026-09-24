@@ -992,6 +992,7 @@ function startGhostRace(trackId, entry) {
   scene.add(mesh);
   ghost = { samples: entry.trail, boosts: entry.boosts || [], prevD: null };
   ghost.mesh = mesh;
+  ghost.opp = { total: entry.total, tag: entry.tag }; // 격파 판정용 상대 기록
   startCountdown();
 }
 
@@ -1073,21 +1074,29 @@ function onLocalFinish() {
       const s = rawTrail[i];
       trail.push({ t: s.t, d: s.d, x: s.x, z: s.z, h: s.h });
     }
-    lastTARank = saveTARecord(trackDef.id, {
-      total: +me.car.finishTime.toFixed(1),
-      best: isFinite(me.car.bestLap) ? +me.car.bestLap.toFixed(1) : null,
-      car: me.car.def.id,
-      trail,
-      boosts: boostEv.slice(),
-    });
-    lastTAEntry = {
-      tag: board.tag,
-      total: +me.car.finishTime.toFixed(1),
-    };
-    hud.message('🏁 FINISH!', '', 1500);
+    const myTotal = +me.car.finishTime.toFixed(1);
+    // 고스트전: 상대 기록보다 빠를 때만 TA 기록으로 인정
+    const opp = ghost && ghost.opp ? ghost.opp : null;
+    const beat = opp ? myTotal < opp.total : true;
+    if (beat) {
+      lastTARank = saveTARecord(trackDef.id, {
+        total: myTotal,
+        best: isFinite(me.car.bestLap) ? +me.car.bestLap.toFixed(1) : null,
+        car: me.car.def.id,
+        trail,
+        boosts: boostEv.slice(),
+      });
+      lastTAEntry = { tag: board.tag, total: myTotal };
+    } else {
+      lastTARank = -1;
+      lastTAEntry = null;
+    }
+    hud.message(opp ? (beat ? '👻 고스트 격파!' : `👻 아쉽! +${(myTotal - opp.total).toFixed(1)}s`) : '🏁 FINISH!', '', 1500);
     showFinishBanner(
       '⏱ TIME ATTACK',
-      `TOTAL ${me.car.finishTime.toFixed(1)}s · BEST ${fmtTime(me.car.bestLap)} · 역대 ${lastTARank + 1}위`
+      opp && beat
+        ? `👻 격파! TOTAL ${me.car.finishTime.toFixed(1)}s · 역대 ${lastTARank + 1}위`
+        : `TOTAL ${me.car.finishTime.toFixed(1)}s · BEST ${fmtTime(me.car.bestLap)}${beat ? ` · 역대 ${lastTARank + 1}위` : ''}`
     );
   } else {
     hud.message(`🏆 ${pos}${ordSuffix(pos)}!`, '', 1500);

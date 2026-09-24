@@ -16,8 +16,8 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=390e26';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
-import { Board } from './board.js?v=989e4d';
-import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=6cc48e';
+import { Board } from './board.js?v=0c3eac';
+import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=b96302';
 import { SkidTrails } from './skids.js?v=591055';
 
 const canvas = document.getElementById('game');

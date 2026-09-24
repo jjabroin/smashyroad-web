@@ -3,7 +3,7 @@
 // - list() 하나로 개수·행 모두 생성 (불일치 원천 차단)
 // - 신원(identity): 로그인 시 계정ID, 로그아웃 시 기기 태그. 기록의 tag가 신원.
 import { RecordsBoard, getRacerTag } from './records.js?v=3d02a7';
-import { retagLists } from './accounts.js?v=6cc48e';
+import { retagLists } from './accounts.js?v=b96302';
 
 const TA_KEY = 'blockyracer-ta-records-v1';
 const TAG_KEY = 'blockyracer-tag-v1';
@@ -185,17 +185,37 @@ export class Board {
     ) || null;
   }
 
-  // 기기 태그 기록을 현 신원(계정)으로 이전 (메모리+저장소, TOP5 유지)
+  // 기기 태그 기록을 현 신원(계정)으로 이전 + 기기 잔재 삭제
+  // (브라우저엔 계정 기록만 남김. 반환 {moved, purged})
   migrateTag(fromTag) {
-    if (!fromTag || fromTag === this.tag) return 0;
+    const none = { moved: 0, purged: 0 };
+    if (!fromTag || fromTag === this.tag) return none;
     const stored = readStorage();
     const r1 = retagLists(this.mem, fromTag, this.tag, this.name);
     const r2 = retagLists(stored, fromTag, this.tag, this.name);
+    // 소탕: 혹시 남은 fromTag 기록 삭제 (이전漏れ 방지)
+    const sweep = (list) => {
+      const kept = [];
+      let n = 0;
+      for (const e of list || []) {
+        if (e && e.tag === fromTag) n++;
+        else kept.push(e);
+      }
+      return { kept, n };
+    };
+    let purged = 0;
+    for (const tid of Object.keys(r1.map)) {
+      const s = sweep(r1.map[tid]);
+      r1.map[tid] = s.kept;
+      purged += s.n;
+    }
     this.mem = r1.map;
     for (const tid of Object.keys(r2.map)) {
-      const sl = (r2.map[tid] || []).slice();
+      const s = sweep(r2.map[tid]);
+      const sl = (s.kept || []).slice();
       sl.sort((a, b) => a.total - b.total);
       r2.map[tid] = sl.slice(0, 5);
+      purged += s.n;
     }
     writeStorage(r2.map);
     // 이전된 기록을 공유에도 반영 (best-effort)
@@ -209,7 +229,7 @@ export class Board {
       }
     } catch (e) { /* 무시 */ }
     this._changed();
-    return r1.count + r2.count;
+    return { moved: r1.count + r2.count, purged };
   }
 
   // 공유 보드에서 내 계정 기록을 끌어와 세션에 합침 (두 기기 통합)

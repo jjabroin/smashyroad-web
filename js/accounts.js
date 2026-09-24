@@ -164,10 +164,12 @@ export function createAccountPanel(api) {
       // 신원 먼저 전환 후 이전 (순서 중요: migrateTag는 현 신원으로 옮김)
       saveSession({ id, name, pinHash, deviceTag: deviceTag(), createdAt: Date.now() });
       await applyIdentity(loadSession());
-      // 이 기기 기록을 계정으로 이전
-      const moved = board.migrateTag(deviceTag());
+      // 이 기기 기록을 계정으로 이전 + 기기 잔재 삭제 (브라우저엔 계정 기록만)
+      const res = board.migrateTag(deviceTag());
       await board.sync().catch(() => {});
-      msg(moved > 0 ? `가입 완료! 기기 기록 ${moved}개를 계정으로 옮겼습니다.` : '가입 완료!');
+      msg(res.moved > 0
+        ? `가입 완료! 기기 기록 ${res.moved}개를 계정으로 옮기고 기기 기록은 삭제했습니다.`
+        : '가입 완료!');
     } catch (e) {
       msg('가입 실패: ' + ((e && e.message) || e));
     }
@@ -196,10 +198,14 @@ export function createAccountPanel(api) {
         });
         await applyIdentity(loadSession());
         const pulled = board.pullAccount();
+        // 이 기기에 남은 기기 기록도 계정으로 귀속 + 삭제
+        const res = board.migrateTag(deviceTag());
         await board.sync().catch(() => {});
-        msg(pulled > 0
-          ? `로그인! 다른 기기 기록 ${pulled}개를 가져왔습니다.`
-          : '로그인! (이 기기 기록은 그대로 — 합치려면 아래 버튼)');
+        const parts = ['로그인!'];
+        if (pulled > 0) parts.push(`다른 기기 기록 ${pulled}개를 가져왔습니다.`);
+        if (res.moved > 0) parts.push(`이 기기 기록 ${res.moved}개를 계정으로 옮기고 삭제했습니다.`);
+        if (pulled === 0 && res.moved === 0) parts.push('(합칠 기록이 없습니다)');
+        msg(parts.join(' '));
       } else if (found.reason === 'offline') {
         // 오프라인: 이 기기에 저장된 세션과 대조
         const s = session();
@@ -207,7 +213,10 @@ export function createAccountPanel(api) {
           const pinHash = await hashPin(pin);
           if (s.pinHash && s.pinHash !== pinHash) { msg('PIN이 다릅니다.'); return; }
           await applyIdentity(s);
-          msg('오프라인 로그인 (이 기기 기록만 표시)');
+          const res = board.migrateTag(deviceTag());
+          msg(res.moved > 0
+            ? `오프라인 로그인 (기기 기록 ${res.moved}개를 계정으로 옮겼습니다)`
+            : '오프라인 로그인 (이 기기 기록만 표시)');
         } else {
           msg('오프라인에서는 이 기기에서 쓰던 계정만 로그인됩니다.');
         }
@@ -228,12 +237,14 @@ export function createAccountPanel(api) {
   el('accMerge').addEventListener('click', async () => {
     const s = session();
     if (!s) return;
-    const moved = board.migrateTag(deviceTag());
+    const res = board.migrateTag(deviceTag());
     await board.sync().catch(() => {});
     if (api.refresh) {
       try { api.refresh(); } catch (e) { /* 무시 */ }
     }
-    msg(moved > 0 ? `기기 기록 ${moved}개를 ${s.id} 계정으로 합쳤습니다.` : '합칠 기기 기록이 없습니다.');
+    msg(res.moved > 0
+      ? `기기 기록 ${res.moved}개를 ${s.id} 계정으로 합치고 삭제했습니다.`
+      : '합칠 기기 기록이 없습니다.');
   });
 
   el('accPull').addEventListener('click', async () => {

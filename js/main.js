@@ -13,10 +13,10 @@ function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=91fd49';
-import { createGarage } from './garage.js?v=390e26';
+import { createGarage } from './garage.js?v=255886';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
-import { Board } from './board.js?v=3344bb';
+import { Board } from './board.js?v=663662';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
 import { SkidTrails } from './skids.js?v=591055';
 
@@ -51,12 +51,15 @@ try {
 } catch (e) { /* 무시 */ }
 let accPanel = null;
 function refreshAccountUI() {
-  refreshGarageBest();
-  if (garageCtl) {
-    garageCtl.refreshBoard();
-    if (garageCtl.refreshTracks) garageCtl.refreshTracks();
-  }
-  updateBoardSync();
+  // 단계별 독립 가드: 하나가 죽어도 나머지는 갱신 (순위표 미갱신 방지)
+  try { refreshGarageBest(); } catch (e) { /* 무시 */ }
+  try {
+    if (garageCtl) {
+      garageCtl.refreshBoard();
+      if (garageCtl.refreshTracks) garageCtl.refreshTracks();
+    }
+  } catch (e) { /* 무시 */ }
+  try { updateBoardSync(); } catch (e) { /* 무시 */ }
 }
 accPanel = createAccountPanel({
   board,
@@ -1591,8 +1594,10 @@ function refreshGarageBest() {
   }
 }
 board.onChange = () => {
-  updateBoardSync();
-  if (garageCtl) refreshGarageBest();
+  // 단계별 독립 가드 + 보드 직접 새로고침 (공유 기록 도착 시 패널 즉시 반영)
+  try { updateBoardSync(); } catch (e) { /* 무시 */ }
+  try { refreshGarageBest(); } catch (e) { /* 무시 */ }
+  try { if (garageCtl) garageCtl.refreshBoard(); } catch (e) { /* 무시 */ }
 };
 try {
   board.init().catch(() => {});
@@ -1770,7 +1775,7 @@ onlinePanel = createOnlinePanel({
         if (garageCtl) garageCtl.refreshBoard();
       });
   },
-  getBoard: (trackId) => taBoard(trackId),
+  getBoard: (trackId, mineOnly) => (mineOnly ? board.listMine(trackId) : taBoard(trackId)),
   getGhost: (trackId, entry) => {
     // 공유(전원 기록) + 로컬에서 궤적 탐색 — 남의 기록과도 대결 가능
     const list = board.list(trackId) || [];

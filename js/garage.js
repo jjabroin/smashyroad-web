@@ -254,8 +254,26 @@ export function createGarage(onStart, hooks = {}) {
   });
 
 
-  // 순위표 (전 트랙 TOP5)
+  // 순위표 (전 트랙 TOP5) — 전체/내 기록 탭
+  let boardMineOnly = false;
+  function paintBoardTabs() {
+    const a = document.getElementById('boardTabAll');
+    const m = document.getElementById('boardTabMine');
+    if (a) a.classList.toggle('sel', !boardMineOnly);
+    if (m) m.classList.toggle('sel', boardMineOnly);
+  }
+  document.getElementById('boardTabAll').addEventListener('click', () => {
+    boardMineOnly = false;
+    paintBoardTabs();
+    renderBoard();
+  });
+  document.getElementById('boardTabMine').addEventListener('click', () => {
+    boardMineOnly = true;
+    paintBoardTabs();
+    renderBoard();
+  });
   function renderBoard() {
+    paintBoardTabs();
     const box = document.getElementById('boardTracks');
     box.innerHTML = '';
     let totalRows = 0;
@@ -264,7 +282,7 @@ export function createGarage(onStart, hooks = {}) {
       sec.className = 'bsec';
       const title = document.createElement('div');
       title.className = 'btitle';
-      const list = hooks.getBoard ? hooks.getBoard(t.id) || [] : [];
+      const list = hooks.getBoard ? hooks.getBoard(t.id, boardMineOnly) || [] : [];
       title.textContent = `${t.name} · ${t.laps}LAP · ${list.length}개`;
       sec.appendChild(title);
       if (list.length === 0) {

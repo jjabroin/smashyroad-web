@@ -7,7 +7,7 @@
   <meta name="description" content="복셀 3D 트랙 경주 게임. 차고에서 차를 고르고 3랩 서킷에서 결승선을 노리세요." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=06c3c1" />
+  <link rel="stylesheet" href="css/style.css?v=dbfe65" />
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
@@ -80,6 +80,10 @@
 
     <div id="panelBoard" class="subpanel" style="display:none">
       <div class="phead"><b>🏆 타임어택 순위표</b><span><button id="boardRefresh" title="새로고침">↻</button><button class="pclose" data-p="panelBoard">✕</button></span></div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button id="boardTabAll" class="btab sel">🌐 전체 기록</button>
+        <button id="boardTabMine" class="btab">👤 내 기록</button>
+      </div>
       <div id="boardSync" class="o-hint"></div>
       <div id="boardTracks"></div>
     </div>
@@ -229,7 +233,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=f9d8f1"></script>
+  <script type="module" src="js/main.js?v=d13c8e"></script>
   <script>
     // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
     // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.

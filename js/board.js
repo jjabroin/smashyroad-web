@@ -122,6 +122,12 @@ export class Board {
     return mergeTop(this.net.get(trackId), (this.localAll()[trackId] || []));
   }
 
+  // 내 기록만 (공유+로컬, 현 신원 기준)
+  listMine(trackId) {
+    const shared = ((this.net.get(trackId)) || []).filter((e) => e && e.tag === this.tag);
+    return mergeTop(shared, (this.localAll()[trackId] || []));
+  }
+
   // 원천별 개수 (진단·표시용)
   sources(trackIds) {
     let shared = 0;

@@ -177,13 +177,14 @@ export class Board {
     return n;
   }
 
-  save(trackId, { total, best, car, trail }) {
+  save(trackId, { total, best, car, trail, boosts }) {
     const entry = {
       total, best: best === undefined ? null : best,
       car, tag: this.tag, date: Date.now(),
     };
     if (this.name) entry.name = this.name;
     if (trail && trail.length > 1) entry.trail = trail;
+    if (boosts && boosts.length > 0) entry.boosts = boosts.slice(0, 60);
     const mem = this.mem[trackId] || (this.mem[trackId] = []);
     mem.push(entry);
     mem.sort((a, b) => a.total - b.total);

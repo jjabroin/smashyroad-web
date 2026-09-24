@@ -12,11 +12,11 @@ import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=c790e0';
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=91fd49';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=8c894b';
 import { createGarage } from './garage.js?v=179cfd';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
-import { Board } from './board.js?v=c9a2f1';
+import { Board } from './board.js?v=2830fb';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
 import { SkidTrails } from './skids.js?v=591055';
 
@@ -187,6 +187,8 @@ let onlineCtl = null; // {room, players, ai, track, myId} | null (solo면 null)
 let garageCtl = null;
 let ghost = null; // {samples, mesh, dur} 고스트 대결용
 let recAcc = 0;
+let boostEv = []; // 이번 주행 부스터 사용 지점 (total dist, 고스트 재생용)
+let prevBoostT = 0;
 const camPos = new THREE.Vector3();
 const skids = new SkidTrails(scene);
 
@@ -420,6 +422,8 @@ function startCountdown() {
   autoFinalShown = false;
   playerDone = null;
   recAcc = 0;
+  boostEv = [];
+  prevBoostT = 0;
   hideFinishBanner();
   // 아이템전 OFF면 아이템 버튼 숨김
   for (const id of ['btnItemL', 'btnItemR']) {
@@ -711,10 +715,14 @@ function loop(ts) {
     return;
   }
 
-  // 고스트용 궤적 기록 (TA 솔로, 5Hz)
+  // 고스트용 궤적 기록 (TA 솔로, 5Hz) + 부스터 사용 지점
   if (timeAttack && !onlineCtl && phase === 'racing') {
     const pc = racers[playerIdx] && racers[playerIdx].car;
     if (pc && !pc.out && !pc.finished) {
+      if (pc.boostT > 0 && prevBoostT <= 0 && boostEv.length < 60) {
+        boostEv.push(+pc.dist.toFixed(1));
+      }
+      prevBoostT = pc.boostT;
       recAcc += dt;
       if (recAcc >= 0.2) {
         recAcc = 0;
@@ -843,7 +851,13 @@ function loop(ts) {
   }
 
   // HUD (피니시 후에도 라이브 갱신)
-  hud.drawMinimap(racers.map((r) => r.car), playerIdx);
+  hud.drawMinimap(
+    racers.map((r) => r.car),
+    playerIdx,
+    ghost && ghost.mesh && ghost.mesh.visible
+      ? { x: ghost.mesh.position.x, z: ghost.mesh.position.z }
+      : null
+  );
   hud.setLap(p.lap, LAPS);
   hud.setTimer(raceTime);
   hud.setHp(p.hp, p.maxHp);
@@ -976,7 +990,7 @@ function startGhostRace(trackId, entry) {
   });
   mesh.visible = false;
   scene.add(mesh);
-  ghost = { samples: entry.trail };
+  ghost = { samples: entry.trail, boosts: entry.boosts || [], prevD: null };
   ghost.mesh = mesh;
   startCountdown();
 }
@@ -1012,6 +1026,27 @@ function updateGhost() {
   ghost.mesh.visible = true;
   ghost.mesh.position.set(g.x, trackY(circuit, g.d) + 0.1, g.z);
   ghost.mesh.rotation.y = -g.h;
+  // 고스트 부스터 이펙트 (기록된 사용 지점 통과 시 시안 펑)
+  if (ghost.boosts && ghost.boosts.length > 0) {
+    if (ghost.prevD === null || g.d < ghost.prevD - circuit.length / 2) {
+      ghost.prevD = g.d; // 시작·랩 리셋
+    } else {
+      for (const bd of ghost.boosts) {
+        if (bd > ghost.prevD && bd <= g.d) {
+          for (let k = 0; k < 5; k++) {
+            puff(
+              g.x + (Math.random() - 0.5) * 3, g.z + (Math.random() - 0.5) * 3,
+              0x35e0ff, 1, trackY(circuit, g.d) + 1.2
+            );
+          }
+          break;
+        }
+      }
+      ghost.prevD = g.d;
+    }
+  } else {
+    ghost.prevD = g.d;
+  }
   const p = racers[playerIdx].car;
   const dm = g.d - p.dist;
   if (d) {
@@ -1043,6 +1078,7 @@ function onLocalFinish() {
       best: isFinite(me.car.bestLap) ? +me.car.bestLap.toFixed(1) : null,
       car: me.car.def.id,
       trail,
+      boosts: boostEv.slice(),
     });
     lastTAEntry = {
       tag: board.tag,

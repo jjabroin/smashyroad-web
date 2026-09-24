@@ -25,7 +25,7 @@ export function createHUD(circuit, shortcuts = []) {
     ];
   };
 
-  function drawMinimap(cars, playerIdx) {
+  function drawMinimap(cars, playerIdx, ghostPt) {
     mctx.clearRect(0, 0, mapC.width, mapC.height);
     mctx.lineWidth = 5;
     mctx.strokeStyle = '#e8ecf1';
@@ -63,6 +63,17 @@ export function createHUD(circuit, shortcuts = []) {
         mctx.stroke();
       }
     });
+    // 고스트 (반투명 흰 점)
+    if (ghostPt) {
+      const [gx, gy] = toMap(ghostPt.x, ghostPt.z);
+      mctx.fillStyle = 'rgba(255,255,255,0.85)';
+      mctx.beginPath();
+      mctx.arc(gx, gy, 4, 0, Math.PI * 2);
+      mctx.fill();
+      mctx.strokeStyle = '#222';
+      mctx.lineWidth = 1.5;
+      mctx.stroke();
+    }
   }
 
   function setLap(lap, total) {

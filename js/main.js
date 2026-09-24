@@ -15,7 +15,7 @@ function roadHalf() {
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=dd0306';
 import { createGarage } from './garage.js?v=73bdb6';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=56e91b';
-import { createOnlinePanel } from './online.js?v=d7bda7';
+import { createOnlinePanel } from './online.js?v=23d08d';
 import { Board } from './board.js?v=eca9bd';
 import { SkidTrails } from './skids.js?v=591055';
 
@@ -1685,7 +1685,25 @@ onlinePanel = createOnlinePanel({
     lobbyRoom = room;
   },
   onOnline: () => {
-    if (onlinePanel) onlinePanel.openHome();
+    try {
+      if (onlinePanel) {
+        onlinePanel.openHome();
+      } else {
+        dbgLog('ERR:onOnline panel null');
+        try {
+          const d = document.getElementById('diagBox');
+          if (d) { renderDiag(); d.style.display = 'block'; }
+        } catch (_) { /* 무시 */ }
+        alert('온라인 패널이 준비되지 않았습니다(panel null). 새로고침 후 다시 시도해주세요.');
+      }
+    } catch (e) {
+      dbgLog('ERR:onOnline ' + ((e && e.message) || e));
+      try {
+        const d = document.getElementById('diagBox');
+        if (d) { renderDiag(); d.style.display = 'block'; }
+      } catch (_) { /* 무시 */ }
+      alert('온라인 화면 오류: ' + String((e && e.message) || e).slice(0, 200));
+    }
   },
   onBoardOpen: () => {
     // 순위표 열 때: 미동기화 병합 → 새로고침

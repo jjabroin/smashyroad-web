@@ -15,6 +15,20 @@ const trackNameOf = (id) => {
 export function createOnlinePanel(api) {
   // api: { getCar()->def, getTrack()->def, onStartOnline({room, players, ai, track, myId, items}), onLobbyClosed(), onRoom(room|null) }
   const el = (id) => document.getElementById(id);
+  // 패널 열기 실패는 조용히 묻히지 않게 화면에 크게 표시 (원인 확정용 진단)
+  function loudErr(where, e) {
+    const msg = String((e && e.stack) || (e && e.message) || e).slice(0, 500);
+    try {
+      const d = document.getElementById('diagBox');
+      if (d) {
+        d.innerHTML = `<b>ONLINE ERR @${where}</b><br>` + msg.replace(/</g, '&lt;');
+        d.style.display = 'block';
+      }
+    } catch (_) { /* 무시 */ }
+    try {
+      alert(`온라인 오류(${where}): ${String((e && e.message) || e).slice(0, 200)}`);
+    } catch (_) { /* 무시 */ }
+  }
   let room = null;
   let rtcConfig = RTC_CONFIG;
 
@@ -24,9 +38,11 @@ export function createOnlinePanel(api) {
   };
 
   function show(view) {
-    el('onlinePanel').style.display = 'flex';
-    el('onlineHome').style.display = view === 'home' ? 'block' : 'none';
-    el('onlineLobby').style.display = view === 'lobby' ? 'block' : 'none';
+    try {
+      el('onlinePanel').style.display = 'flex';
+      el('onlineHome').style.display = view === 'home' ? 'block' : 'none';
+      el('onlineLobby').style.display = view === 'lobby' ? 'block' : 'none';
+    } catch (e) { loudErr('show', e); }
   }
   function hide() {
     el('onlinePanel').style.display = 'none';
@@ -96,14 +112,16 @@ export function createOnlinePanel(api) {
   }
 
   function openHome() {
-    show('home');
-    status('');
-    diag('');
-    el('joinCode').value = '';
-    const t = getTurnSettings();
-    el('turnApp').value = t ? t.app : '';
-    el('turnKey').value = t ? t.key : '';
-    el('turnState').textContent = t ? '✅ 중계 키 설정됨' : '미설정 (직접 연결만 시도)';
+    try {
+      show('home');
+      status('');
+      diag('');
+      el('joinCode').value = '';
+      const t = getTurnSettings();
+      el('turnApp').value = t ? t.app : '';
+      el('turnKey').value = t ? t.key : '';
+      el('turnState').textContent = t ? '✅ 중계 키 설정됨' : '미설정 (직접 연결만 시도)';
+    } catch (e) { loudErr('openHome', e); }
   }
   el('turnSave').addEventListener('click', () => {
     const app = el('turnApp').value.trim();

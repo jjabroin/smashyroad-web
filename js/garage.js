@@ -284,7 +284,11 @@ export function createGarage(onStart, hooks = {}) {
       sec.className = 'bsec';
       const title = document.createElement('div');
       title.className = 'btitle';
-      const list = hooks.getBoard ? hooks.getBoard(t.id, boardMineOnly) || [] : [];
+      let list = [];
+      try {
+        list = hooks.getBoard ? hooks.getBoard(t.id, boardMineOnly) || [] : [];
+      } catch (e) { list = []; }
+      totalRows += list.length;
       title.textContent = `${t.name} · ${t.laps}LAP · ${list.length}개`;
       sec.appendChild(title);
       if (list.length === 0) {
@@ -305,28 +309,51 @@ export function createGarage(onStart, hooks = {}) {
         } catch (e) { /* 무시 */ }
       } else {
         list.slice(0, 5).forEach((e, i) => {
-          totalRows++;
-          const row = document.createElement('div');
-          row.className = 'brow';
-          const gh = hooks.getGhost ? hooks.getGhost(t.id, e) : null;
-          row.innerHTML = `<span>${i + 1}. ${e.name || e.tag ? (e.name || e.tag) + ' · ' : ''}${(e.car || '').toUpperCase()}</span><span>${e.total.toFixed(1)}s</span>`;
-          if (gh && hooks.onGhost) {
-            row.style.cursor = 'pointer';
-            row.title = '이 기록과 대결!';
-            const vb = document.createElement('button');
-            vb.className = 'ghostbtn';
-            vb.textContent = '👻 대결';
-            vb.addEventListener('click', (ev) => {
-              ev.stopPropagation();
-              hooks.onGhost(t.id, gh);
-            });
-            row.appendChild(vb);
+          let row = null;
+          try {
+            row = document.createElement('div');
+            row.className = 'brow';
+            const gh = hooks.getGhost ? hooks.getGhost(t.id, e) : null;
+            row.innerHTML = `<span>${i + 1}. ${e.name || e.tag ? (e.name || e.tag) + ' · ' : ''}${(e.car || '').toUpperCase()}</span><span>${e.total.toFixed(1)}s</span>`;
+            if (gh && hooks.onGhost) {
+              row.style.cursor = 'pointer';
+              row.title = '이 기록과 대결!';
+              const vb = document.createElement('button');
+              vb.className = 'ghostbtn';
+              vb.textContent = '👻 대결';
+              vb.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                hooks.onGhost(t.id, gh);
+              });
+              row.appendChild(vb);
+            }
+          } catch (err) { row = null; }
+          if (row) sec.appendChild(row);
+          else {
+            totalRows--;
+            const bad = document.createElement('div');
+            bad.className = 'bempty';
+            bad.textContent = '깨진 기록 1개 (표시 생략)';
+            sec.appendChild(bad);
           }
-          sec.appendChild(row);
         });
       }
       box.appendChild(sec);
     });
+    // 개수 확정: 화면에 그린 것과 동일한 숫자를 상태줄에 (따로 세서 어긋나는 구조 제거)
+    try {
+      if (hooks.onBoardCounts) hooks.onBoardCounts(totalRows, boardMineOnly);
+    } catch (e) { /* 무시 */ }
+    // 진단 푸터 (문제 보고 시 원인 특정용)
+    try {
+      if (hooks.getBoardDiag) {
+        const d = hooks.getBoardDiag();
+        const f = document.createElement('div');
+        f.className = 'bempty';
+        f.textContent = `diag tag=${d.tag} mem=${d.mem} stored=${d.stored} shared=${d.shared}`;
+        box.appendChild(f);
+      }
+    } catch (e) { /* 무시 */ }
     try {
       if (hooks.onBoardRendered) hooks.onBoardRendered(totalRows);
     } catch (e) { /* 무시 */ }

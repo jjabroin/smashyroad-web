@@ -13,7 +13,7 @@ function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=91fd49';
-import { createGarage } from './garage.js?v=205519';
+import { createGarage } from './garage.js?v=179cfd';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=c9a2f1';
@@ -1551,6 +1551,8 @@ document.getElementById('sizeItem').addEventListener('input', (e) => {
 applyLayout();
 
 // 공유 타임어택 순위표 (단일 진실 원천 board.js, 인스턴스는 상단에서 생성)
+// 보이는 개수 = 마지막 렌더가 그린 숫자 그대로 (따로 세서 어긋나지 않게)
+let boardCounts = null; // {n, mine}
 function updateBoardSync() {
   const b = document.getElementById('boardSync');
   if (b) {
@@ -1561,14 +1563,16 @@ function updateBoardSync() {
     let ns = 0;
     let nl = 0;
     try {
-      if (mine) {
+      if (boardCounts && boardCounts.mine === mine) {
+        n = boardCounts.n;
+      } else if (mine) {
         for (const t of TRACK_DEFS) n += board.listMine(t.id).length;
       } else {
         for (const t of TRACK_DEFS) n += board.listAll(t.id).length;
-        const src = board.sources(TRACK_DEFS.map((t) => t.id));
-        ns = src.shared;
-        nl = src.local;
       }
+      const src = board.sources(TRACK_DEFS.map((t) => t.id));
+      ns = src.shared;
+      nl = src.local;
     } catch (e) { /* 무시 */ }
     let msg = st === 'ok'
       ? '🌐 전원과 공유 중'
@@ -1651,7 +1655,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260924-04';
+const APP_VERSION = '20260924-05';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {
@@ -1785,6 +1789,22 @@ onlinePanel = createOnlinePanel({
   },
   getBoard: (trackId, mineOnly) => (mineOnly ? board.listMine(trackId) : board.listAll(trackId)),
   isLoggedIn: () => !!loadSession(),
+  onBoardCounts: (n, mineTab) => {
+    boardCounts = { n, mine: !!mineTab };
+    updateBoardSync();
+  },
+  getBoardDiag: () => {
+    let mem = 0;
+    let stored = 0;
+    let shared = 0;
+    try { mem = Object.keys(board.mem || {}).length; } catch (e) { /* 무시 */ }
+    try {
+      const s = JSON.parse(localStorage.getItem('blockyracer-ta-records-v1') || '{}');
+      stored = Object.keys(s || {}).length;
+    } catch (e) { /* 무시 */ }
+    try { shared = Object.keys(board.net.cache || {}).length; } catch (e) { /* 무시 */ }
+    return { tag: board.tag, mem, stored, shared };
+  },
   getGhost: (trackId, entry) => {
     // 공유(전원 기록) + 로컬에서 궤적 탐색 — 남의 기록과도 대결 가능
     const list = board.list(trackId) || [];

@@ -1729,19 +1729,33 @@ try {
   const av = document.getElementById('appVer');
   if (av) av.textContent = 'v' + APP_VERSION;
 } catch (e) { /* 무시 */ }
+function checkUpdate() {
+  try {
+    fetch('version.json', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((v) => {
+        if (v && v.version && v.version !== APP_VERSION) {
+          const b = document.getElementById('updateBanner');
+          if (b) b.style.display = 'flex';
+        }
+      })
+      .catch(() => {});
+  } catch (e) { /* 무시 */ }
+}
+checkUpdate();
+// 백그라운드 복귀 시에도 버전 확인 (멈춰 있던 낡은 코드 방지)
 try {
-  fetch('version.json', { cache: 'no-store' })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((v) => {
-      if (v && v.version && v.version !== APP_VERSION) {
-        const b = document.getElementById('updateBanner');
-        if (b) b.style.display = 'flex';
-      }
-    })
-    .catch(() => {});
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkUpdate();
+  });
 } catch (e) { /* 무시 */ }
 document.getElementById('updateReload').addEventListener('click', () => {
-  location.reload();
+  // 강력 새로고침: 캐시된 index.html 우회 (쿼리 변경 → 별도 캐시 항목)
+  try {
+    location.href = location.pathname + '?up=' + Date.now();
+  } catch (e) {
+    location.reload();
+  }
 });
 // 온라인 화면 열기 (차고 후크·패널 api 공유)
 function openOnlineHome() {

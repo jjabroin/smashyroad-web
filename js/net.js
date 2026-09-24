@@ -325,11 +325,11 @@ export class NetRoom {
         if (err) reject(err);
         else resolve();
       };
-      // 다른 망 NAT 뒤에서는 ICE가 안 뚫려 open이 안 옴 → 12초면 실패 확정
+      // 다른 망 NAT 뒤에서는 ICE가 늦게 뚫리기도 해서 20초까지 대기
       const timer = setTimeout(() => {
         try { conn.close(); } catch (e) { /* 무시 */ }
         finish(new Error('host unreachable'));
-      }, 12000);
+      }, 20000);
       // 존재하지 않는 방: 에러가 DataConnection이 아니라 Peer에 옴 → 직접 연결
       const onPeerErr = (err) => {
         if (err && err.type === 'peer-unavailable') finish(new Error('room not found'));

@@ -14,8 +14,8 @@ function roadHalf() {
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=dd0306';
 import { createGarage } from './garage.js?v=864ca1';
-import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=1e546d';
-import { createOnlinePanel } from './online.js?v=cf24d7';
+import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=81ca22';
+import { createOnlinePanel } from './online.js?v=e8713c';
 import { Board } from './board.js?v=eca9bd';
 import { SkidTrails } from './skids.js?v=591055';
 

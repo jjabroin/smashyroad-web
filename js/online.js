@@ -166,7 +166,7 @@ export function createOnlinePanel(api) {
       status('코드 4글자를 입력하세요.');
       return;
     }
-    status('참가 중... (최대 12초)');
+    status('참가 중... (최대 20초)');
     try {
       rtcConfig = await resolveRTCConfig().catch(() => RTC_CONFIG);
       room = new NetRoom(peerFactory);

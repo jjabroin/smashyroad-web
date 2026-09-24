@@ -457,7 +457,7 @@ export function createBeeper() {
           src.start();
           skidSmp = { src, gain };
         }
-        skidSmp.src.playbackRate.setTargetAtTime(0.92 + amount * 0.25, a.currentTime, 0.05);
+        skidSmp.src.playbackRate.setTargetAtTime(0.85 + amount * 0.55, a.currentTime, 0.05);
         skidSmp.gain.gain.setTargetAtTime(amount * 0.4, a.currentTime, 0.05);
         return;
       }

@@ -278,14 +278,22 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const dx = B.x - A.x;
       const dz = B.z - A.z;
       const m = Math.hypot(dx, dz) || 1;
-      drawDirtChord(scene, circuit, A, B, sg.dA, sg.dB, 3);
-      const sideA = sideOf(sg.dA, dx / m, dz / m);
-      const sideB = sideOf(sg.dB, -dx / m, -dz / m);
-      wallGaps.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z, sideA, sideB });
-      corridors.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z, half: 3.5 });
-      chordSegs.push({ ax: A.x, az: A.z, bx: B.x, bz: B.z });
+      // 흙길이 손가락 도로 위를 덮지 않게: 양끝을 도로반폭만큼 안쪽으로
+      // (잔디 사이만 관통, 아스팔트 위 겹침 제거)
+      const RH2 = circuit.roadHalf || ROAD_HALF;
+      const inset = Math.min(RH2, m / 2 - 1);
+      const ux = dx / m;
+      const uz = dz / m;
+      const A2 = { x: A.x + ux * inset, z: A.z + uz * inset, dx: A.dx, dz: A.dz };
+      const B2 = { x: B.x - ux * inset, z: B.z - uz * inset, dx: B.dx, dz: B.dz };
+      drawDirtChord(scene, circuit, A2, B2, sg.dA, sg.dB, 3);
+      const sideA = sideOf(sg.dA, ux, uz);
+      const sideB = sideOf(sg.dB, -ux, -uz);
+      wallGaps.push({ ax: A2.x, az: A2.z, bx: B2.x, bz: B2.z, sideA, sideB });
+      corridors.push({ ax: A2.x, az: A2.z, bx: B2.x, bz: B2.z, half: 3.5 });
+      chordSegs.push({ ax: A2.x, az: A2.z, bx: B2.x, bz: B2.z });
       // 복도 양옆 낮은 벽 (입구 제외 t=0.08~0.92)
-      buildCorridorWalls(scene, circuit, A, B, sg.dA, sg.dB, 3.5);
+      buildCorridorWalls(scene, circuit, A2, B2, sg.dA, sg.dB, 3.5);
       // 복도가 가로지르는 다른 도로 지점에 틈 (양측 개방)
       for (let i = 0; i < circuit.count; i += 2) {
         const dd = Math.min(
@@ -296,8 +304,8 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
         const p = circuit.pts[i];
         let md = Infinity;
         for (let k = 0; k <= 8; k++) {
-          const x = A.x + dx * (k / 8);
-          const z = A.z + dz * (k / 8);
+          const x = A2.x + (B2.x - A2.x) * (k / 8);
+          const z = A2.z + (B2.z - A2.z) * (k / 8);
           md = Math.min(md, Math.hypot(x - p.x, z - p.z));
         }
         if (md < 7) {

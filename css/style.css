@@ -6,11 +6,28 @@ html, body {
   font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   overflow: hidden;
   height: 100%;
+  /* 확대·스크롤 체이닝·롱프레스 차단 (게임 전체) */
+  touch-action: none;
+  overscroll-behavior: none;
   /* 조종 중 텍스트 선택·파란 하이라이트·콜아웃 방지 */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+}
+/* 스크롤 필요한 메뉴 패널만 세로 스크롤 허용 */
+#garage, .subpanel, #onlineCard {
+  touch-action: pan-y;
+}
+/* 입력창은 키보드·선택 동작 보장 */
+input, textarea, select {
+  touch-action: manipulation;
+  user-select: text;
+  -webkit-user-select: text;
+}
+img {
+  -webkit-user-drag: none;
+  pointer-events: none;
 }
 .pix { font-family: "Press Start 2P", monospace; }
 

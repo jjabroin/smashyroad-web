@@ -7,7 +7,7 @@
   <meta name="description" content="복셀 3D 트랙 경주 게임. 차고에서 차를 고르고 3랩 서킷에서 결승선을 노리세요." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=5789dc" />
+  <link rel="stylesheet" href="css/style.css?v=3fd772" />
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
@@ -213,8 +213,32 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=a0b4a7"></script>
+  <script type="module" src="js/main.js?v=4d5349"></script>
   <script>
+    // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
+    // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.
+    (function () {
+      var isForm = function (e) {
+        return e.target && e.target.closest && e.target.closest('input, textarea, select');
+      };
+      document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+      document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+      var lastTouchEnd = 0;
+      document.addEventListener('touchend', function (e) {
+        if (isForm(e)) return;
+        var now = Date.now();
+        if (now - lastTouchEnd <= 300) e.preventDefault();
+        lastTouchEnd = now;
+      }, false);
+      document.addEventListener('contextmenu', function (e) {
+        if (isForm(e)) return;
+        e.preventDefault();
+      });
+      document.addEventListener('selectstart', function (e) {
+        if (isForm(e)) return;
+        e.preventDefault();
+      });
+    })();
     // 결과 화면 버튼 (온라인 모드에서 main.js가 오버라이드)
     window.__raceAgain = () => document.getElementById('restartBtn').click();
     window.__raceChange = () => document.getElementById('garageBtn').click();

@@ -42,10 +42,15 @@ export function createOnlinePanel(api) {
       el('onlinePanel').style.display = 'flex';
       el('onlineHome').style.display = view === 'home' ? 'block' : 'none';
       el('onlineLobby').style.display = view === 'lobby' ? 'block' : 'none';
+      // 온라인 패널이 열려 있는 동안엔 차고 중앙 시작하기 숨김 (로비 START와 중복·오탭 방지)
+      const rb = document.getElementById('raceBtn');
+      if (rb) rb.style.display = 'none';
     } catch (e) { loudErr('show', e); }
   }
   function hide() {
     el('onlinePanel').style.display = 'none';
+    const rb = document.getElementById('raceBtn');
+    if (rb) rb.style.display = 'block';
   }
   function status(msg) {
     el('onlineStatus').textContent = msg;

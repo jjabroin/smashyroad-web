@@ -351,11 +351,12 @@ export function createBeeper() {
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   // 엔진: 속도 연동 지속음 (saw + 옥타브 아래 서브 사인 저음 + 로우패스, ratio 0~1)
+  // 부스트 중엔 피치·볼륨이 더 격해짐
   let engOsc = null;
   let engGain = null;
   let engSub = null;
   let engSubGain = null;
-  function engine(ratio) {
+  function engine(ratio, boosting) {
     try {
       if (muted) { engineStop(); return; }
       const a = ac();
@@ -381,11 +382,12 @@ export function createBeeper() {
         engSub.start();
       }
       const r = Math.max(0, Math.min(1, ratio));
-      const f = 60 + r * 170;
+      const b = boosting ? 1.3 : 1; // 부스트: 피치 1.3배·볼륨 증폭
+      const f = (60 + r * 170) * b;
       engOsc.frequency.setTargetAtTime(f, a.currentTime, 0.06);
-      engGain.gain.setTargetAtTime(0.015 + r * 0.05, a.currentTime, 0.1);
+      engGain.gain.setTargetAtTime((0.015 + r * 0.05) * (boosting ? 1.6 : 1), a.currentTime, 0.1);
       engSub.frequency.setTargetAtTime(f * 0.5, a.currentTime, 0.06);
-      engSubGain.gain.setTargetAtTime(0.02 + r * 0.045, a.currentTime, 0.1);
+      engSubGain.gain.setTargetAtTime((0.02 + r * 0.045) * (boosting ? 1.4 : 1), a.currentTime, 0.1);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   function engineStop() {
@@ -406,47 +408,60 @@ export function createBeeper() {
   }
   // 스키드: 타이어 끽 소리 (amount 0~1 슬립량)
   // 가이드(s&box SkidAudio·bleepsandpops 타이어 파트) 처방:
-  // 1) 광대역 노이즈가 아니라 좁은 공명(고Q 밴드패스) — 끽 하는 음높이가 있어야 모래 소리가 안 남
+  // 1) 음높이가 있는 비명 — 톤 오실레이터가 몸통, 노이즈 공명은 질감만
+  //    (노이즈만 고Q로 걸면 에너지가 잘려나가 무음이 됨 — 전 버전 무음 원인)
   // 2) 볼륨+피치가 슬립량에 같이 탐 — 살짝 미끄러지면 속삭이고 풀 슬라이드에서 비명
-  // 3) 공명 주파수에 느린 워블(LFO) — 끽끽 떨리는 질감
-  let skidSrc = null;
-  let skidGain = null;
-  let skidFilter = null;
+  // 3) 음높이에 느린 워블(LFO) — 끽끽 떨리는 질감
+  let skidNodes = null; // {saw, sawGain, noiseGain, filter}
   function skid(amount) {
     try {
       if (muted) amount = 0;
       amount = Math.max(0, Math.min(1, amount || 0));
       const a = ac();
-      if (!skidSrc) {
+      if (!skidNodes) {
+        // 몸통: 톱니파 톤
+        const saw = a.createOscillator();
+        saw.type = 'sawtooth';
+        saw.frequency.value = 1400;
+        const sawGain = a.createGain();
+        sawGain.gain.value = 0;
+        saw.connect(sawGain);
+        sawGain.connect(a.destination);
+        saw.start();
+        // 질감: 고Q 밴드패스 노이즈
         const len = a.sampleRate;
         const buf = a.createBuffer(1, len, a.sampleRate);
         const ch = buf.getChannelData(0);
         for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
-        skidSrc = a.createBufferSource();
-        skidSrc.buffer = buf;
-        skidSrc.loop = true;
-        skidFilter = a.createBiquadFilter();
-        skidFilter.type = 'bandpass';
-        skidFilter.frequency.value = 1400;
-        skidFilter.Q.value = 9; // 좁은 공명 = 끽 소리의 몸통
-        skidGain = a.createGain();
-        skidGain.gain.value = 0;
-        skidSrc.connect(skidFilter);
-        skidFilter.connect(skidGain);
-        skidGain.connect(a.destination);
-        skidSrc.start();
-        // 워블: 초당 7회 공명점을 ±220Hz 흔듦
+        const src = a.createBufferSource();
+        src.buffer = buf;
+        src.loop = true;
+        const bp = a.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 1400;
+        bp.Q.value = 9;
+        const noiseGain = a.createGain();
+        noiseGain.gain.value = 0;
+        src.connect(bp);
+        bp.connect(noiseGain);
+        noiseGain.connect(a.destination);
+        src.start();
+        // 워블: 초당 7회 톤 높이를 ±90Hz 흔듦
         const lfo = a.createOscillator();
         lfo.type = 'sine';
         lfo.frequency.value = 7;
         const lfoGain = a.createGain();
-        lfoGain.gain.value = 220;
+        lfoGain.gain.value = 90;
         lfo.connect(lfoGain);
-        lfoGain.connect(skidFilter.frequency);
+        lfoGain.connect(saw.frequency);
         lfo.start();
+        skidNodes = { saw, sawGain, noiseGain, filter: bp };
       }
-      skidFilter.frequency.setTargetAtTime(1100 + amount * 900, a.currentTime, 0.05);
-      skidGain.gain.setTargetAtTime(amount * 0.13, a.currentTime, 0.05);
+      const f = 1100 + amount * 900;
+      skidNodes.saw.frequency.setTargetAtTime(f, a.currentTime, 0.05);
+      skidNodes.filter.frequency.setTargetAtTime(f, a.currentTime, 0.05);
+      skidNodes.sawGain.gain.setTargetAtTime(amount * 0.07, a.currentTime, 0.05);
+      skidNodes.noiseGain.gain.setTargetAtTime(amount * 0.05, a.currentTime, 0.05);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   return {

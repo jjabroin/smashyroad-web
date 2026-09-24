@@ -12,7 +12,7 @@ import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=c790e0';
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=17ae63';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=c1f462';
 import { createGarage } from './garage.js?v=864ca1';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
@@ -897,7 +897,7 @@ function loop(ts) {
   // 엔진음 + 스키드음 (관전 시점 기준, 스키드는 횡슬립량으로 세기 조절)
   const fc = racers[focusIdx()].car;
   const spdF = Math.hypot(fc.vx, fc.vz);
-  beeper.engine(Math.min(1, spdF / 60));
+  beeper.engine(Math.min(1, spdF / 60), fc.boostT > 0);
   const latF = Math.abs(fc.vx * -Math.sin(fc.heading) + fc.vz * Math.cos(fc.heading));
   const skidAmt =
     !fc.out && fc.drifting && fc.airT <= 0 &&

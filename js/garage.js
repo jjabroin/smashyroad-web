@@ -277,6 +277,8 @@ export function createGarage(onStart, hooks = {}) {
     const box = document.getElementById('boardTracks');
     box.innerHTML = '';
     let totalRows = 0;
+    let whyShown = false; // 상태 문구는 첫 빈 칸에만 (도배 방지)
+    const loggedIn = hooks.isLoggedIn ? hooks.isLoggedIn() : false;
     TRACK_DEFS.forEach((t) => {
       const sec = document.createElement('div');
       sec.className = 'bsec';
@@ -288,10 +290,13 @@ export function createGarage(onStart, hooks = {}) {
       if (list.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'bempty';
-        empty.textContent = '기록 없음 — 도전!';
+        empty.textContent = boardMineOnly
+          ? (loggedIn ? '내 기록 없음 — 달리거나 기기 기록을 합치세요' : '내 기록 없음 — 👤 계정에서 로그인하면 보입니다')
+          : '기록 없음 — 도전!';
         sec.appendChild(empty);
         try {
-          if (window.__recStatus) {
+          if (!whyShown && window.__recStatus) {
+            whyShown = true;
             const why = document.createElement('div');
             why.className = 'bempty';
             why.textContent = window.__recStatus;
@@ -376,6 +381,9 @@ export function createGarage(onStart, hooks = {}) {
     },
     refreshBoard() {
       if (document.getElementById('panelBoard').style.display !== 'none') renderBoard();
+    },
+    isBoardMineOnly() {
+      return boardMineOnly;
     },
     refreshTracks() {
       // 기록 도착 시 목록의 BEST 표시 갱신 (차고가 열려 있을 때)

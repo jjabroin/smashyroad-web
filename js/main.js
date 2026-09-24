@@ -13,7 +13,7 @@ function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=91fd49';
-import { createGarage } from './garage.js?v=255886';
+import { createGarage } from './garage.js?v=205519';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=663662';
@@ -1555,14 +1555,20 @@ function updateBoardSync() {
   const b = document.getElementById('boardSync');
   if (b) {
     const st = board.status;
+    // 개수 표시는 현재 탭 기준 (전체/내 기록 따로)
+    const mine = garageCtl && garageCtl.isBoardMineOnly ? garageCtl.isBoardMineOnly() : false;
     let n = 0;
     let ns = 0;
     let nl = 0;
     try {
-      for (const t of TRACK_DEFS) n += taBoard(t.id).length;
-      const src = board.sources(TRACK_DEFS.map((t) => t.id));
-      ns = src.shared;
-      nl = src.local;
+      if (mine) {
+        for (const t of TRACK_DEFS) n += board.listMine(t.id).length;
+      } else {
+        for (const t of TRACK_DEFS) n += taBoard(t.id).length;
+        const src = board.sources(TRACK_DEFS.map((t) => t.id));
+        ns = src.shared;
+        nl = src.local;
+      }
     } catch (e) { /* 무시 */ }
     let msg = st === 'ok'
       ? '🌐 전원과 공유 중'
@@ -1570,7 +1576,9 @@ function updateBoardSync() {
         ? '📡 서버 연결됨 (동기화 확인 중...' +
           (board.loopFail ? ' 실패:' + board.loopFail : '') + ')'
         : '📴 내 기록만 표시 (오프라인)';
-    msg += ` · 보이는 기록 ${n}개 (공유 ${ns} · 내 기기 ${nl})`;
+    msg += mine
+      ? ` · 보이는 기록 ${n}개 (내 기록)`
+      : ` · 보이는 기록 ${n}개 (공유 ${ns} · 내 기기 ${nl})`;
     if (!board.storageOK) msg += ' · 이 브라우저 저장 불가(이번 실행만 표시)';
     b.textContent = msg;
     try {
@@ -1776,6 +1784,7 @@ onlinePanel = createOnlinePanel({
       });
   },
   getBoard: (trackId, mineOnly) => (mineOnly ? board.listMine(trackId) : taBoard(trackId)),
+  isLoggedIn: () => !!loadSession(),
   getGhost: (trackId, entry) => {
     // 공유(전원 기록) + 로컬에서 궤적 탐색 — 남의 기록과도 대결 가능
     const list = board.list(trackId) || [];

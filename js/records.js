@@ -70,6 +70,60 @@ export class RecordsBoard {
     return `${ROOM_PREFIX}records/${trackId}`;
   }
 
+  // 계정 메타 토픽 (retained): {id, name, pinHash, devices[], updatedAt}
+  accountTopic(id) {
+    return `${ROOM_PREFIX}accounts/${id}`;
+  }
+
+  // 계정 조회: retained 수신 대기 (없으면 notfound, 연결 불가면 offline)
+  async fetchAccount(id, timeoutMs = 8000) {
+    const live = await this.ensureLive();
+    if (!live) return { ok: false, reason: 'offline' };
+    const topic = this.accountTopic(id);
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (v) => {
+        if (done) return;
+        done = true;
+        try { this.client.unsubscribe(topic); } catch (e) { /* 무시 */ }
+        try { this.client.removeListener('message', handler); } catch (e) { /* 무시 */ }
+        resolve(v);
+      };
+      const handler = (t, payload) => {
+        if (t !== topic) return;
+        try {
+          const m = JSON.parse(payload.toString());
+          if (m && m.id === id) finish({ ok: true, meta: m });
+        } catch (e) { /* 무시 */ }
+      };
+      try {
+        this.client.on('message', handler);
+      } catch (e) {
+        finish({ ok: false, reason: 'sub-fail' });
+        return;
+      }
+      const doWait = () => {
+        setTimeout(() => finish({ ok: false, reason: 'notfound' }), timeoutMs);
+      };
+      try {
+        const sub = this.client.subscribe(topic);
+        if (sub && typeof sub.then === 'function') {
+          sub.then(doWait).catch(() => finish({ ok: false, reason: 'sub-fail' }));
+        } else {
+          doWait();
+        }
+      } catch (e) {
+        finish({ ok: false, reason: 'sub-fail' });
+      }
+    });
+  }
+
+  async publishAccount(meta) {
+    const live = await this.ensureLive();
+    if (!live) return false;
+    return this.publishAck(this.accountTopic(meta.id), JSON.stringify(meta));
+  }
+
   async connect() {
     if (this.client && this.connected) return;
     this._setStatus('off');

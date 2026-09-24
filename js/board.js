@@ -1,7 +1,9 @@
 // 순위표 단일 진실 원천: 로컬+공유 병합, 읽기는 항상 같은 배열에서
 // - 메모리(세션) + localStorage + 브로커 retained 3원천 병합
 // - list() 하나로 개수·행 모두 생성 (불일치 원천 차단)
-import { RecordsBoard, getRacerTag } from './records.js';
+// - 신원(identity): 로그인 시 계정ID, 로그아웃 시 기기 태그. 기록의 tag가 신원.
+import { RecordsBoard, getRacerTag } from './records.js?v=3d02a7';
+import { retagLists } from './accounts.js?v=90159c';
 
 const TA_KEY = 'blockyracer-ta-records-v1';
 const TAG_KEY = 'blockyracer-tag-v1';
@@ -66,6 +68,7 @@ export class Board {
     this.net = new RecordsBoard(mqttFactory);
     this.mem = {};
     this.tag = tagOf();
+    this.name = null; // 로그인 시 계정 표시 이름 (entries의 name으로 발행)
     this.storageOK = true;
     try {
       if (typeof localStorage === 'undefined') this.storageOK = false;
@@ -94,12 +97,22 @@ export class Board {
     } catch (e) { /* 무시 */ }
   }
 
+  // 신원 전환 (로그인·로그아웃): 세션 메모리 비우고 태그 교체
+  setIdentity(tag, name) {
+    this.tag = tag;
+    this.name = name || null;
+    this.mem = {};
+    this._changed();
+  }
+
   localAll() {
     const stored = readStorage();
     const out = {};
     const tids = new Set([...Object.keys(this.mem), ...Object.keys(stored)]);
     for (const tid of tids) {
-      out[tid] = mergeTop(this.mem[tid], stored[tid]);
+      // 한 기기·다계정 전환 대비: 현 신원 기록만
+      const mine = (l) => (l || []).filter((e) => e && e.tag === this.tag);
+      out[tid] = mergeTop(mine(this.mem[tid]), mine(stored[tid]));
     }
     return out;
   }
@@ -140,6 +153,7 @@ export class Board {
       total, best: best === undefined ? null : best,
       car, tag: this.tag, date: Date.now(),
     };
+    if (this.name) entry.name = this.name;
     if (trail && trail.length > 1) entry.trail = trail;
     const mem = this.mem[trackId] || (this.mem[trackId] = []);
     mem.push(entry);
@@ -171,23 +185,61 @@ export class Board {
     ) || null;
   }
 
-  // 미동기화 로컬 기록을 공유 보드에 올림
-  async sync() {
-    let ok = true;
+  // 기기 태그 기록을 현 신원(계정)으로 이전 (메모리+저장소, TOP5 유지)
+  migrateTag(fromTag) {
+    if (!fromTag || fromTag === this.tag) return 0;
+    const stored = readStorage();
+    const r1 = retagLists(this.mem, fromTag, this.tag, this.name);
+    const r2 = retagLists(stored, fromTag, this.tag, this.name);
+    this.mem = r1.map;
+    for (const tid of Object.keys(r2.map)) {
+      const sl = (r2.map[tid] || []).slice();
+      sl.sort((a, b) => a.total - b.total);
+      r2.map[tid] = sl.slice(0, 5);
+    }
+    writeStorage(r2.map);
+    // 이전된 기록을 공유에도 반영 (best-effort)
     try {
-      const local = this.localAll();
-      for (const trackId of Object.keys(local)) {
-        for (const e of local[trackId]) {
-          const slim = { ...e };
-          delete slim.trail;
-          await this.net.publish(trackId, slim);
+      for (const tid of Object.keys(r1.map)) {
+        for (const e of r1.map[tid] || []) {
+          if (e.tag === this.tag && !tid.startsWith('__')) {
+            this.net.publish(tid, e).catch(() => {});
+          }
         }
       }
-    } catch (e) {
-      ok = false;
-    }
+    } catch (e) { /* 무시 */ }
     this._changed();
-    return ok && this.net._verified === true;
+    return r1.count + r2.count;
+  }
+
+  // 공유 보드에서 내 계정 기록을 끌어와 세션에 합침 (두 기기 통합)
+  pullAccount() {
+    let count = 0;
+    try {
+      const tids = new Set([
+        ...Object.keys(this.mem),
+        ...Object.keys(readStorage()),
+        ...Object.keys(this.net.cache || {}),
+      ]);
+      for (const tid of tids) {
+        const shared = (this.net.get(tid) || []).filter((e) => e && e.tag === this.tag);
+        if (shared.length === 0) continue;
+        const cur = (this.mem[tid] || []).slice();
+        const seen = new Set(cur.map((e) => `${e.tag}|${e.total}|${e.date}`));
+        for (const e of shared) {
+          const k = `${e.tag}|${e.total}|${e.date}`;
+          if (!seen.has(k)) {
+            seen.add(k);
+            cur.push({ ...e });
+            count++;
+          }
+        }
+        cur.sort((a, b) => a.total - b.total);
+        this.mem[tid] = cur.slice(0, 5);
+      }
+    } catch (e) { /* 무시 */ }
+    if (count > 0) this._changed();
+    return count;
   }
 
   // 미동기화 로컬 기록을 공유 보드에 올림 (순위표 열 때 호출)

@@ -13,10 +13,11 @@ function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=91fd49';
-import { createGarage } from './garage.js?v=864ca1';
+import { createGarage } from './garage.js?v=390e26';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
-import { Board } from './board.js?v=eca9bd';
+import { Board } from './board.js?v=989e4d';
+import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=90159c';
 import { SkidTrails } from './skids.js?v=591055';
 
 const canvas = document.getElementById('game');
@@ -43,6 +44,25 @@ let timeAttack = false; // 1인 타임어택 모드
 let soloTA = false; // 솔로 시작 모드 기억 (다시 달리기용)
 // 순위표 단일 진실 원천 (board.js) — 메모리+저장소+공유 병합
 const board = new Board((url, opts) => window.mqtt.connect(url, opts));
+// 저장된 계정 세션 복원 (로그인 유지)
+try {
+  const s = loadSession();
+  if (s) board.setIdentity(s.id, s.name);
+} catch (e) { /* 무시 */ }
+let accPanel = null;
+function refreshAccountUI() {
+  refreshGarageBest();
+  if (garageCtl) {
+    garageCtl.refreshBoard();
+    if (garageCtl.refreshTracks) garageCtl.refreshTracks();
+  }
+  updateBoardSync();
+}
+accPanel = createAccountPanel({
+  board,
+  onIdentity: () => refreshAccountUI(),
+  refresh: () => refreshAccountUI(),
+});
 function loadTARecords() {
   return board.localAll();
 }
@@ -1048,7 +1068,7 @@ function enterFinishedWrecked() {
 function taResultRows() {
   const board = taBoard(trackDef.id);
   return board.map((e) => ({
-    name: `${e.tag ? e.tag + ' · ' : ''}${(e.car || '').toUpperCase()} ${e.total.toFixed(1)}s${
+    name: `${e.name || e.tag ? (e.name || e.tag) + ' · ' : ''}${(e.car || '').toUpperCase()} ${e.total.toFixed(1)}s${
       lastTAEntry && e.tag === lastTAEntry.tag && e.total === lastTAEntry.total ? ' 🆕' : ''
     }`,
     totalTime: e.total,
@@ -1757,6 +1777,9 @@ onlinePanel = createOnlinePanel({
   onGhost: (trackId, entry) => startGhostRace(trackId, entry),
   onBoardRendered: (n) => {
     dbgLog(`board rendered rows=${n}`);
+  },
+  onAccountOpen: () => {
+    if (accPanel) accPanel.render();
   },
 });
 garageCtl = createGarage(

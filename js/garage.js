@@ -145,7 +145,7 @@ export function createGarage(onStart, hooks = {}) {
   }
 
   // --- 서브패널 ---
-  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelBoard', 'panelHelp'];
+  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelBoard', 'panelHelp', 'panelAccount'];
   function openPanel(id) {
     closePanels();
     const e = document.getElementById(id);
@@ -182,6 +182,10 @@ export function createGarage(onStart, hooks = {}) {
     } catch (e) { exOnline('row', e); }
   });
   document.getElementById('boardBtn').addEventListener('click', () => openPanel('panelBoard'));
+  document.getElementById('accBtn').addEventListener('click', () => {
+    openPanel('panelAccount');
+    if (hooks.onAccountOpen) hooks.onAccountOpen();
+  });
   document.getElementById('boardRefresh').addEventListener('click', () => {
     renderBoard();
     if (hooks.onBoardOpen) hooks.onBoardOpen();
@@ -282,7 +286,7 @@ export function createGarage(onStart, hooks = {}) {
           const row = document.createElement('div');
           row.className = 'brow';
           const gh = hooks.getGhost ? hooks.getGhost(t.id, e) : null;
-          row.innerHTML = `<span>${i + 1}. ${e.tag ? e.tag + ' · ' : ''}${(e.car || '').toUpperCase()}</span><span>${e.total.toFixed(1)}s</span>`;
+          row.innerHTML = `<span>${i + 1}. ${e.name || e.tag ? (e.name || e.tag) + ' · ' : ''}${(e.car || '').toUpperCase()}</span><span>${e.total.toFixed(1)}s</span>`;
           if (gh && hooks.onGhost) {
             row.style.cursor = 'pointer';
             row.title = '이 기록과 대결!';

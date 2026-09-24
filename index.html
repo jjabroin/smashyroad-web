@@ -21,6 +21,7 @@
       <div class="menu-title">🏁 BLOCKY RACER</div>
       <div class="menu-topbtns">
         <button id="boardBtn">🏆 순위표</button>
+        <button id="accBtn">👤 계정</button>
         <button id="helpBtn">❓ 도움말</button>
       </div>
     </div>
@@ -81,6 +82,21 @@
       <div class="phead"><b>🏆 타임어택 순위표</b><span><button id="boardRefresh" title="새로고침">↻</button><button class="pclose" data-p="panelBoard">✕</button></span></div>
       <div id="boardSync" class="o-hint"></div>
       <div id="boardTracks"></div>
+    </div>
+
+    <div id="panelAccount" class="subpanel" style="display:none">
+      <div class="phead"><b>👤 계정</b><button class="pclose" data-p="panelAccount">✕</button></div>
+      <div id="accStatus" class="o-hint">📴 로그인 안 됨</div>
+      <input id="accId" class="ocode" maxlength="16" placeholder="ID (영문·숫자 3~16자)" autocomplete="off" />
+      <input id="accName" class="ocode" maxlength="12" placeholder="표시 이름 (가입 시)" autocomplete="off" />
+      <input id="accPin" class="ocode" type="password" maxlength="4" inputmode="numeric" placeholder="PIN 4자리" autocomplete="off" />
+      <button id="accSignup" class="mbtn">📝 회원가입</button>
+      <button id="accLogin" class="mbtn">🔑 로그인</button>
+      <button id="accLogout" class="mbtn" style="display:none">🚪 로그아웃</button>
+      <button id="accMerge" class="mbtn" style="display:none">📥 이 기기 기록 계정으로 합치기</button>
+      <button id="accPull" class="mbtn" style="display:none">📥 다른 기기 기록 가져오기</button>
+      <div id="accMsg" class="o-hint"></div>
+      <div class="o-hint">서버 없이 기기끼리 직접 공유하는 방식이라 PIN은 간이 잠금입니다. ID·PIN을 아는 기기는 기록을 볼 수 있어요.</div>
     </div>
 
     <div id="panelHelp" class="subpanel" style="display:none">
@@ -213,7 +229,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=fd3bba"></script>
+  <script type="module" src="js/main.js?v=8078dc"></script>
   <script>
     // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
     // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.

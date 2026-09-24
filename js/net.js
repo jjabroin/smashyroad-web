@@ -122,6 +122,7 @@ export function blendSnapshot(car, s, a) {
   if (s.shield !== undefined) car.shieldT = s.shield ? 999 : 0;
 }
 // 반환: [{slot, carId, local, isMine, isAI, peerId}]
+// local = 이 기기에서 시뮬하는 차량 (호스트는 권위 시뮬이라 게스트 포함, 게스트는 자기 차만)
 // ※ 내 슬롯이 없으면 0번을 로컬로 강제 (전체 CPU/동결 방지)
 // 온라인 그리드 배치 (순수 함수 → 테스트 가능)
 export function planOnlineGrid(players, aiCarIds, myId, isHost) {
@@ -129,7 +130,7 @@ export function planOnlineGrid(players, aiCarIds, myId, isHost) {
   players.forEach((pl, i) => {
     const mine = pl.id === myId;
     entries.push({
-      slot: i, carId: pl.carId, local: mine, isMine: mine,
+      slot: i, carId: pl.carId, local: mine || isHost, isMine: mine,
       isAI: false, peerId: mine ? null : pl.id,
     });
   });

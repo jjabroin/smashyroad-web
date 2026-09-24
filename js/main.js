@@ -12,7 +12,7 @@ import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=c790e0';
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=1d75bf';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=37ebaf';
 import { createGarage } from './garage.js?v=864ca1';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
@@ -903,7 +903,7 @@ function loop(ts) {
     !fc.out && fc.drifting && fc.airT <= 0 &&
     Math.abs(fc.steerSm || 0) > 0.25 && spdF > 10
       // 아케이드 그립상 횡속도가 작게 나와도 게이트 통과 시 최소 음량 보장
-      ? Math.max(0.45, Math.min(1, latF / 18))
+      ? Math.max(0.6, Math.min(1, latF / 15))
       : 0;
   beeper.skid(skidAmt);
 

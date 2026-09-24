@@ -420,27 +420,26 @@ export function createBeeper() {
   }
   // 스키드: 타이어 끽 소리 (amount 0~1 슬립량)
   // 가이드(s&box SkidAudio·bleepsandpops 타이어 파트) 처방:
-  // 1) 음높이가 있는 비명 — 톤 오실레이터가 몸통, 노이즈 공명은 질감만
-  //    (노이즈만 고Q로 걸면 에너지가 잘려나가 무음이 됨 — 전 버전 무음 원인)
+  // 1) 음높이가 있는 비명 — 순음에 가까운 톤이 몸통 (톱니파 생톤은 버즈만 남고 짜증나짐)
   // 2) 볼륨+피치가 슬립량에 같이 탐 — 살짝 미끄러지면 속삭이고 풀 슬라이드에서 비명
   // 3) 음높이에 느린 워블(LFO) — 끽끽 떨리는 질감
-  let skidNodes = null; // {saw, sawGain, noiseGain, filter}
+  let skidNodes = null; // {tone, toneGain, noiseGain, filter}
   function skid(amount) {
     try {
       if (muted) amount = 0;
       amount = Math.max(0, Math.min(1, amount || 0));
       const a = ac();
       if (!skidNodes) {
-        // 몸통: 톱니파 톤
-        const saw = a.createOscillator();
-        saw.type = 'sawtooth';
-        saw.frequency.value = 1400;
-        const sawGain = a.createGain();
-        sawGain.gain.value = 0;
-        saw.connect(sawGain);
-        sawGain.connect(a.destination);
-        saw.start();
-        // 질감: 고Q 밴드패스 노이즈
+        // 몸통: 삼각파 톤 (생톱니 대비 자극적 고조파 제거)
+        const tone = a.createOscillator();
+        tone.type = 'triangle';
+        tone.frequency.value = 1500;
+        const toneGain = a.createGain();
+        toneGain.gain.value = 0;
+        tone.connect(toneGain);
+        toneGain.connect(a.destination);
+        tone.start();
+        // 질감: 고Q 밴드패스 노이즈 (작게)
         const len = a.sampleRate;
         const buf = a.createBuffer(1, len, a.sampleRate);
         const ch = buf.getChannelData(0);
@@ -450,7 +449,7 @@ export function createBeeper() {
         src.loop = true;
         const bp = a.createBiquadFilter();
         bp.type = 'bandpass';
-        bp.frequency.value = 1400;
+        bp.frequency.value = 1500;
         bp.Q.value = 9;
         const noiseGain = a.createGain();
         noiseGain.gain.value = 0;
@@ -458,22 +457,22 @@ export function createBeeper() {
         bp.connect(noiseGain);
         noiseGain.connect(a.destination);
         src.start();
-        // 워블: 초당 7회 톤 높이를 ±90Hz 흔듦
+        // 워블: 초당 8회 톤 높이를 ±50Hz 흔듦
         const lfo = a.createOscillator();
         lfo.type = 'sine';
-        lfo.frequency.value = 7;
+        lfo.frequency.value = 8;
         const lfoGain = a.createGain();
-        lfoGain.gain.value = 90;
+        lfoGain.gain.value = 50;
         lfo.connect(lfoGain);
-        lfoGain.connect(saw.frequency);
+        lfoGain.connect(tone.frequency);
         lfo.start();
-        skidNodes = { saw, sawGain, noiseGain, filter: bp };
+        skidNodes = { tone, toneGain, noiseGain, filter: bp };
       }
-      const f = 1100 + amount * 900;
-      skidNodes.saw.frequency.setTargetAtTime(f, a.currentTime, 0.05);
+      const f = 1300 + amount * 800;
+      skidNodes.tone.frequency.setTargetAtTime(f, a.currentTime, 0.05);
       skidNodes.filter.frequency.setTargetAtTime(f, a.currentTime, 0.05);
-      skidNodes.sawGain.gain.setTargetAtTime(amount * 0.08, a.currentTime, 0.05);
-      skidNodes.noiseGain.gain.setTargetAtTime(amount * 0.05, a.currentTime, 0.05);
+      skidNodes.toneGain.gain.setTargetAtTime(amount * 0.06, a.currentTime, 0.05);
+      skidNodes.noiseGain.gain.setTargetAtTime(amount * 0.03, a.currentTime, 0.05);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   return {

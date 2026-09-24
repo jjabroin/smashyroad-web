@@ -276,6 +276,16 @@ export const TRACK_DEFS = [
     hill: { amp: 0, k: 2 }, boosts: [0.3, 0.7], jumps: [0.5], blocks: [0.6],
     roadHalf: 8, shortcuts: [{ d1: 0.306, d2: 0.393 }],
   },
+  {
+    id: 'track9', name: '트랙9', mode: 'spline', theme: 'city', laps: 2,
+    hill: { amp: 22, k: 1 }, boosts: [0.25, 0.6], jumps: [0.45], blocks: [0.5],
+    pillars: true,
+    points: [
+      [0, 0], [0, -150], [-20, -200], [-70, -245], [-140, -265], [-205, -245],
+      [-240, -185], [-225, -120], [-180, -75], [-130, -65], [-70, -45],
+      [-60, 20], [0, 50], [70, 40], [60, -5],
+    ],
+  },
 ];
 
 export function buildTrack(def) {

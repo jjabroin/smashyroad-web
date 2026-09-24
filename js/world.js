@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mat } from './voxel.js?v=35aa4d';
 import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=35aa4d';
-import { trackY } from './track.js?v=58d2c4';
+import { trackY } from './track.js?v=d88ddf';
 
 export const ROAD_HALF = 11;
 
@@ -125,6 +125,32 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   );
   road.receiveShadow = true;
   scene.add(road);
+
+  // 고가 지지 기둥 (수직 맵용: 도로가 뜬 곳에 콘크리트 기둥)
+  if (feat.pillars) {
+    const step = 24;
+    const count = Math.floor(circuit.length / step);
+    const inst = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(7, 1, 7),
+      new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }),
+      count
+    );
+    const dm = new THREE.Object3D();
+    let placed = 0;
+    for (let i = 0; i < count; i++) {
+      const d = i * step;
+      const p = circuit.pointAt(d);
+      const y = trackY(circuit, d);
+      if (y < 4) continue;
+      dm.position.set(p.x, (y - 0.5) / 2, p.z);
+      dm.scale.set(1, Math.max(1, y - 0.5), 1);
+      dm.rotation.set(0, 0, 0);
+      dm.updateMatrix();
+      inst.setMatrixAt(placed++, dm.matrix);
+    }
+    inst.count = placed;
+    scene.add(inst);
+  }
 
   const dummy = new THREE.Object3D();
 

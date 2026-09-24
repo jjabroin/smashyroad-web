@@ -1,12 +1,12 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=58d2c4';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=d88ddf';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
 } from './race.js?v=3d5ad3';
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=c790e0';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=bf3cee';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -113,6 +113,7 @@ function buildWorldTrack(def) {
   const before = new Set(scene.children);
   const w = createWorld(scene, circuit, def.theme, def.shortcuts || (def.id === 'express' ? 'apex' : null), {
     boosts: def.boosts, jumps: def.jumps, blocks: def.blocks, items: ITEMS_ON,
+    pillars: !!def.pillars,
   });
   colliders = w.colliders;
   wallGaps = w.wallGaps;

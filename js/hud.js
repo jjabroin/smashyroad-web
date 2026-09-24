@@ -350,9 +350,11 @@ export function createBeeper() {
       o.stop(a.currentTime + 0.55);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
-  // 엔진: 속도 연동 지속음 (saw + 로우패스, ratio 0~1)
+  // 엔진: 속도 연동 지속음 (saw + 옥타브 아래 서브 사인 저음 + 로우패스, ratio 0~1)
   let engOsc = null;
   let engGain = null;
+  let engSub = null;
+  let engSubGain = null;
   function engine(ratio) {
     try {
       if (muted) { engineStop(); return; }
@@ -369,10 +371,21 @@ export function createBeeper() {
         lp.connect(engGain);
         engGain.connect(a.destination);
         engOsc.start();
+        // 저음 울림: 한 옥타브 아래 서브 레이어
+        engSub = a.createOscillator();
+        engSub.type = 'sine';
+        engSubGain = a.createGain();
+        engSubGain.gain.value = 0;
+        engSub.connect(engSubGain);
+        engSubGain.connect(a.destination);
+        engSub.start();
       }
       const r = Math.max(0, Math.min(1, ratio));
-      engOsc.frequency.setTargetAtTime(60 + r * 170, a.currentTime, 0.06);
+      const f = 60 + r * 170;
+      engOsc.frequency.setTargetAtTime(f, a.currentTime, 0.06);
       engGain.gain.setTargetAtTime(0.015 + r * 0.05, a.currentTime, 0.1);
+      engSub.frequency.setTargetAtTime(f * 0.5, a.currentTime, 0.06);
+      engSubGain.gain.setTargetAtTime(0.02 + r * 0.045, a.currentTime, 0.1);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   function engineStop() {
@@ -381,21 +394,30 @@ export function createBeeper() {
         engOsc.stop();
         engOsc.disconnect();
       }
+      if (engSub) {
+        engSub.stop();
+        engSub.disconnect();
+      }
     } catch (e) { /* 무시 */ }
     engOsc = null;
     engGain = null;
+    engSub = null;
+    engSubGain = null;
   }
-  // 스키드: 드리프트 중 타이어 끽 소리 (밴드패스 노이즈 루프 + 게인 전환)
+  // 스키드: 타이어 끽 소리 (amount 0~1 슬립량)
+  // 가이드(s&box SkidAudio·bleepsandpops 타이어 파트) 처방:
+  // 1) 광대역 노이즈가 아니라 좁은 공명(고Q 밴드패스) — 끽 하는 음높이가 있어야 모래 소리가 안 남
+  // 2) 볼륨+피치가 슬립량에 같이 탐 — 살짝 미끄러지면 속삭이고 풀 슬라이드에서 비명
+  // 3) 공명 주파수에 느린 워블(LFO) — 끽끽 떨리는 질감
   let skidSrc = null;
   let skidGain = null;
-  let skidOn = false;
-  function skid(on) {
+  let skidFilter = null;
+  function skid(amount) {
     try {
-      if (muted) on = false;
-      if (on === skidOn && skidSrc) return;
-      skidOn = on;
+      if (muted) amount = 0;
+      amount = Math.max(0, Math.min(1, amount || 0));
       const a = ac();
-      if (on && !skidSrc) {
+      if (!skidSrc) {
         const len = a.sampleRate;
         const buf = a.createBuffer(1, len, a.sampleRate);
         const ch = buf.getChannelData(0);
@@ -403,18 +425,28 @@ export function createBeeper() {
         skidSrc = a.createBufferSource();
         skidSrc.buffer = buf;
         skidSrc.loop = true;
-        const bp = a.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.value = 950;
-        bp.Q.value = 0.8;
+        skidFilter = a.createBiquadFilter();
+        skidFilter.type = 'bandpass';
+        skidFilter.frequency.value = 1400;
+        skidFilter.Q.value = 9; // 좁은 공명 = 끽 소리의 몸통
         skidGain = a.createGain();
         skidGain.gain.value = 0;
-        skidSrc.connect(bp);
-        bp.connect(skidGain);
+        skidSrc.connect(skidFilter);
+        skidFilter.connect(skidGain);
         skidGain.connect(a.destination);
         skidSrc.start();
+        // 워블: 초당 7회 공명점을 ±220Hz 흔듦
+        const lfo = a.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.value = 7;
+        const lfoGain = a.createGain();
+        lfoGain.gain.value = 220;
+        lfo.connect(lfoGain);
+        lfoGain.connect(skidFilter.frequency);
+        lfo.start();
       }
-      if (skidGain) skidGain.gain.setTargetAtTime(on ? 0.11 : 0, a.currentTime, 0.05);
+      skidFilter.frequency.setTargetAtTime(1100 + amount * 900, a.currentTime, 0.05);
+      skidGain.gain.setTargetAtTime(amount * 0.13, a.currentTime, 0.05);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   return {

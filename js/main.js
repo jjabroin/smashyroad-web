@@ -12,7 +12,7 @@ import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=c790e0';
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=a51f92';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=17ae63';
 import { createGarage } from './garage.js?v=864ca1';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
@@ -894,14 +894,17 @@ function loop(ts) {
   // 스키드마크 aging (경주 중 계속)
   skids.update(dt);
 
-  // 엔진음 + 스키드음 (관전 시점 기준)
+  // 엔진음 + 스키드음 (관전 시점 기준, 스키드는 횡슬립량으로 세기 조절)
   const fc = racers[focusIdx()].car;
   const spdF = Math.hypot(fc.vx, fc.vz);
   beeper.engine(Math.min(1, spdF / 60));
-  beeper.skid(
+  const latF = Math.abs(fc.vx * -Math.sin(fc.heading) + fc.vz * Math.cos(fc.heading));
+  const skidAmt =
     !fc.out && fc.drifting && fc.airT <= 0 &&
     Math.abs(fc.steerSm || 0) > 0.25 && spdF > 10
-  );
+      ? Math.min(1, latF / 22)
+      : 0;
+  beeper.skid(skidAmt);
 
   renderer.render(scene, camera);
 }

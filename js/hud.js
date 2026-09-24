@@ -428,6 +428,7 @@ export function createBeeper() {
   let skidLoading = false;
   let skidSmp = null; // {src, gain}
   let skidSyn = null; // {tone, toneGain, noiseGain, filter}
+  let skidSm = 0; // 스무딩된 슬립량 (어택 빠르게·릴리스 꼬리 있게)
   function ensureSkidSample(a) {
     if (skidBuf || skidLoading) return;
     skidLoading = true;
@@ -443,6 +444,10 @@ export function createBeeper() {
     try {
       if (muted) amount = 0;
       amount = Math.max(0, Math.min(1, amount || 0));
+      // 켜질 땐 즉시, 꺼질 땐 0.3초 꼬리 (뚝 끊김 방지)
+      skidSm += (amount - skidSm) * (amount > skidSm ? 0.5 : 0.12);
+      if (skidSm < 0.003) skidSm = 0;
+      const s = skidSm;
       const a = ac();
       ensureSkidSample(a);
       if (skidBuf) {
@@ -457,8 +462,8 @@ export function createBeeper() {
           src.start();
           skidSmp = { src, gain };
         }
-        skidSmp.src.playbackRate.setTargetAtTime(0.85 + amount * 0.55, a.currentTime, 0.05);
-        skidSmp.gain.gain.setTargetAtTime(amount * 0.4, a.currentTime, 0.05);
+        skidSmp.src.playbackRate.setTargetAtTime(0.85 + s * 0.55, a.currentTime, 0.05);
+        skidSmp.gain.gain.setTargetAtTime(s * 0.4, a.currentTime, 0.05);
         return;
       }
       // 폴백 신스 (샘플 준비 전)
@@ -501,11 +506,11 @@ export function createBeeper() {
         lfo.start();
         skidSyn = { tone, toneGain, noiseGain, filter: bp };
       }
-      const f = 1300 + amount * 800;
+      const f = 1300 + s * 800;
       skidSyn.tone.frequency.setTargetAtTime(f, a.currentTime, 0.05);
       skidSyn.filter.frequency.setTargetAtTime(f, a.currentTime, 0.05);
-      skidSyn.toneGain.gain.setTargetAtTime(amount * 0.06, a.currentTime, 0.05);
-      skidSyn.noiseGain.gain.setTargetAtTime(amount * 0.03, a.currentTime, 0.05);
+      skidSyn.toneGain.gain.setTargetAtTime(s * 0.06, a.currentTime, 0.05);
+      skidSyn.noiseGain.gain.setTargetAtTime(s * 0.03, a.currentTime, 0.05);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   return {

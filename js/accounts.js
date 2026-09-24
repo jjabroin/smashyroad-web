@@ -161,10 +161,11 @@ export function createAccountPanel(api) {
       };
       const pub = await board.net.publishAccount(meta);
       if (!pub) { msg('계정 발행 실패 — 인터넷 확인 후 재시도.'); return; }
-      // 이 기기 기록을 계정으로 이전
-      const moved = board.migrateTag(deviceTag());
+      // 신원 먼저 전환 후 이전 (순서 중요: migrateTag는 현 신원으로 옮김)
       saveSession({ id, name, pinHash, deviceTag: deviceTag(), createdAt: Date.now() });
       await applyIdentity(loadSession());
+      // 이 기기 기록을 계정으로 이전
+      const moved = board.migrateTag(deviceTag());
       await board.sync().catch(() => {});
       msg(moved > 0 ? `가입 완료! 기기 기록 ${moved}개를 계정으로 옮겼습니다.` : '가입 완료!');
     } catch (e) {

@@ -3,7 +3,7 @@
 // - list() 하나로 개수·행 모두 생성 (불일치 원천 차단)
 // - 신원(identity): 로그인 시 계정ID, 로그아웃 시 기기 태그. 기록의 tag가 신원.
 import { RecordsBoard, getRacerTag } from './records.js?v=3d02a7';
-import { retagLists } from './accounts.js?v=90159c';
+import { retagLists } from './accounts.js?v=6cc48e';
 
 const TA_KEY = 'blockyracer-ta-records-v1';
 const TAG_KEY = 'blockyracer-tag-v1';

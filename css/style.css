@@ -45,24 +45,30 @@ img {
 }
 .g-head {
   display: flex;
-  gap: 26px;
+  gap: 14px;
   align-items: flex-start;
   width: min(680px, 94vw);
   margin-top: 8px;
 }
+.g-head > div:first-child {
+  min-width: 0;
+  flex-shrink: 1;
+}
 #carName {
   font-family: "Press Start 2P", monospace;
-  font-size: 30px;
+  font-size: 20px;
   color: #fff;
   text-shadow: 3px 3px 0 #7a5f22;
+  line-height: 1.4;
+  overflow-wrap: break-word;
 }
 #carGrade {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 800;
   margin-top: 6px;
   text-shadow: 1px 1px 0 rgba(0,0,0,.4);
 }
-.g-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.g-stats { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .srow { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: #fff; }
 .srow span { width: 92px; }
 .stat { flex: 1; height: 14px; background: rgba(0,0,0,.35); border-radius: 3px; overflow: hidden; }
@@ -400,7 +406,11 @@ img {
 #onlineStatus { color: #ffb300; font-size: 13px; margin-top: 10px; min-height: 18px; }
 #netDiag { color: #7dff9b; font-size: 12px; margin-top: 4px; min-height: 16px; }
 @media (max-width: 640px) {
-  #onlineCard { width: 250px; }
+  #carName { font-size: 16px; }
+  #carGrade { font-size: 13px; }
+  .g-head { gap: 10px; }
+  .srow { font-size: 12px; }
+  .srow span { width: 72px; }
 }
 
 /* ============ 경주 스테이지 (사진 1) ============ */

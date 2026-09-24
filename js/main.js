@@ -14,7 +14,7 @@ function roadHalf() {
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=dd0306';
 import { createGarage } from './garage.js?v=864ca1';
-import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=81ca22';
+import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=e4efa2';
 import { createOnlinePanel } from './online.js?v=e8713c';
 import { Board } from './board.js?v=eca9bd';
 import { SkidTrails } from './skids.js?v=591055';
@@ -507,15 +507,25 @@ function loop(ts) {
       }
     }
     if (c.finished) continue;
-    // 드리프트 미니 터보 (플레이어만 차지, 버튼을 놓으면 발사)
-    if (r.isPlayer) {
+    // 드리프트 미니 터보 (인간 조종 차량만 차지, 버튼을 놓으면 발사)
+    // 권위 측(솔로/호스트)이 각 운전자의 입력으로 해제 처리 — 게스트는 원격 입력 사용
+    // (호스트가 안 해주면 게스트 미니터보가 다음 스냅샷에 지워져 1틱만 작동함)
+    let drvDrift = false;
+    if (r.isPlayer) drvDrift = !!pin.drift;
+    else if (simAuthority && onlineCtl && r.local && !r.ai) {
+      const st = onlineCtl.room.remoteInputs.get(r.peerId);
+      drvDrift = !!(st && st.input && st.input.drift);
+    }
+    if (r.isPlayer || drvDrift || c.driftHeld) {
       const fwdSpd = c.vx * Math.cos(c.heading) + c.vz * Math.sin(c.heading);
-      const held = !!pin.drift && Math.abs(fwdSpd) > 8;
+      const held = drvDrift && Math.abs(fwdSpd) > 8;
       if (c.driftHeld && !held) {
         if ((c.driftCharge || 0) > 0.4) {
           c.boostT = Math.max(c.boostT, Math.min(1.5, 0.5 + c.driftCharge));
-          beeper.boost();
-          hud.message('MINI TURBO!', '', 700);
+          if (r.isPlayer) {
+            beeper.boost();
+            hud.message('MINI TURBO!', '', 700);
+          }
         }
         c.driftCharge = 0;
       }

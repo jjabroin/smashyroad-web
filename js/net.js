@@ -457,11 +457,12 @@ export class NetRoom {
 
   broadcastLobby() {
     if (!this.isHost) return;
-    const msg = { t: 'lobby', players: this.players, trackId: this.trackId, items: this.itemsOn !== false };
+    const items = this.itemsOn !== false;
+    const msg = { t: 'lobby', players: this.players, trackId: this.trackId, items };
     for (const [, c] of this.conns) {
       try { c.send(msg); } catch (e) { /* 무시 */ }
     }
-    this._emit({ type: 'lobby', players: this.players, trackId: this.trackId });
+    this._emit({ type: 'lobby', players: this.players, trackId: this.trackId, items });
   }
 
   startRace(aiCarIds, itemsOn = true) {

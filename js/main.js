@@ -16,7 +16,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=205519';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
-import { Board } from './board.js?v=663662';
+import { Board } from './board.js?v=2cc38a';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
 import { SkidTrails } from './skids.js?v=591055';
 

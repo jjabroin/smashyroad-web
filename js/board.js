@@ -68,6 +68,7 @@ export class Board {
     this.net = new RecordsBoard(mqttFactory);
     this.mem = {};
     this.tag = tagOf();
+    this.deviceTag = this.tag; // 이 브라우저 고유 태그 (신원 전환 후에도 유지)
     this.name = null; // 로그인 시 계정 표시 이름 (entries의 name으로 발행)
     this.storageOK = true;
     try {
@@ -105,12 +106,23 @@ export class Board {
     this._changed();
   }
 
+  // 저장소+메모리 전체 (무필터 TOP5) — 내 기록 탭 전용
+  localAllRaw() {
+    const stored = readStorage();
+    const out = {};
+    const tids = new Set([...Object.keys(this.mem), ...Object.keys(stored)]);
+    for (const tid of tids) {
+      out[tid] = mergeTop(this.mem[tid], stored[tid]);
+    }
+    return out;
+  }
+
   localAll() {
     const stored = readStorage();
     const out = {};
     const tids = new Set([...Object.keys(this.mem), ...Object.keys(stored)]);
     for (const tid of tids) {
-      // 한 기기·다계정 전환 대비: 현 신원 기록만
+      // 한 기기·다계정 전환 대비: 현 신원 기록만 (발행·개수용)
       const mine = (l) => (l || []).filter((e) => e && e.tag === this.tag);
       out[tid] = mergeTop(mine(this.mem[tid]), mine(stored[tid]));
     }
@@ -122,10 +134,14 @@ export class Board {
     return mergeTop(this.net.get(trackId), (this.localAll()[trackId] || []));
   }
 
-  // 내 기록만 (공유+로컬, 현 신원 기준)
+  // 내 기록 (공유 계정분 + 이 기기 전체)
+  // 경주 후 결과 화면(전체 집계)에 나온 내 기록이 여기 빠지면 안 됨:
+  // 미이전 기기 기록도 포함 (합치기 전 과도기). 필터 후 병합이라 TOP5 잘림 없음.
   listMine(trackId) {
     const shared = ((this.net.get(trackId)) || []).filter((e) => e && e.tag === this.tag);
-    return mergeTop(shared, (this.localAll()[trackId] || []));
+    const keep = (l) => (l || []).filter((e) => e && (e.tag === this.tag || e.tag === this.deviceTag));
+    const stored = readStorage();
+    return mergeTop(shared, keep(this.mem[trackId]), keep(stored[trackId]));
   }
 
   // 원천별 개수 (진단·표시용)

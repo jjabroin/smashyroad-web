@@ -1791,46 +1791,6 @@ onlinePanel = createOnlinePanel({
     lobbyRoom = room;
   },
   onOnline: () => openOnlineHome(),
-  onBoardOpen: () => {
-    // 순위표 열 때: 미동기화 병합 → 새로고침
-    updateBoardSync();
-    board.sync()
-      .catch(() => false)
-      .then(() => {
-        updateBoardSync();
-        if (garageCtl) garageCtl.refreshBoard();
-      });
-  },
-  getBoard: (trackId, mineOnly) => (mineOnly ? board.listMine(trackId) : board.listAll(trackId)),
-  isLoggedIn: () => !!loadSession(),
-  onBoardCounts: (n, mineTab) => {
-    boardCounts = { n, mine: !!mineTab };
-    updateBoardSync();
-  },
-  getBoardDiag: () => {
-    let mem = 0;
-    let stored = 0;
-    let shared = 0;
-    try { mem = Object.keys(board.mem || {}).length; } catch (e) { /* 무시 */ }
-    try {
-      const s = JSON.parse(localStorage.getItem('blockyracer-ta-records-v1') || '{}');
-      stored = Object.keys(s || {}).length;
-    } catch (e) { /* 무시 */ }
-    try { shared = Object.keys(board.net.cache || {}).length; } catch (e) { /* 무시 */ }
-    return { tag: board.tag, mem, stored, shared };
-  },
-  getGhost: (trackId, entry) => {
-    // 공유(전원 기록) + 로컬에서 궤적 탐색 — 남의 기록과도 대결 가능
-    const list = board.list(trackId) || [];
-    return list.find((e) => e.trail && e.trail.length > 1 && e.tag === entry.tag && e.total === entry.total) || null;
-  },
-  onGhost: (trackId, entry) => startGhostRace(trackId, entry),
-  onBoardRendered: (n) => {
-    dbgLog(`board rendered rows=${n}`);
-  },
-  onAccountOpen: () => {
-    if (accPanel) accPanel.render();
-  },
 });
 garageCtl = createGarage(
   (def, track, mode) => {
@@ -1861,6 +1821,46 @@ garageCtl = createGarage(
     },
     // 차고(모드 선택·시작하기)에서 온라인 화면 열기
     onOnline: () => openOnlineHome(),
+    onBoardOpen: () => {
+      // 순위표 열 때: 미동기화 병합 → 새로고침
+      updateBoardSync();
+      board.sync()
+        .catch(() => false)
+        .then(() => {
+          updateBoardSync();
+          if (garageCtl) garageCtl.refreshBoard();
+        });
+    },
+    getBoard: (trackId, mineOnly) => (mineOnly ? board.listMine(trackId) : board.listAll(trackId)),
+    isLoggedIn: () => !!loadSession(),
+    onBoardCounts: (n, mineTab) => {
+      boardCounts = { n, mine: !!mineTab };
+      updateBoardSync();
+    },
+    getBoardDiag: () => {
+      let mem = 0;
+      let stored = 0;
+      let shared = 0;
+      try { mem = Object.keys(board.mem || {}).length; } catch (e) { /* 무시 */ }
+      try {
+        const s = JSON.parse(localStorage.getItem('blockyracer-ta-records-v1') || '{}');
+        stored = Object.keys(s || {}).length;
+      } catch (e) { /* 무시 */ }
+      try { shared = Object.keys(board.net.cache || {}).length; } catch (e) { /* 무시 */ }
+      return { tag: board.tag, mem, stored, shared };
+    },
+    getGhost: (trackId, entry) => {
+      // 공유(전원 기록) + 로컬에서 궤적 탐색 — 남의 기록과도 대결 가능
+      const list = board.listAll(trackId) || [];
+      return list.find((e) => e.trail && e.trail.length > 1 && e.tag === entry.tag && e.total === entry.total) || null;
+    },
+    onGhost: (trackId, entry) => startGhostRace(trackId, entry),
+    onBoardRendered: (n) => {
+      dbgLog(`board rendered rows=${n}`);
+    },
+    onAccountOpen: () => {
+      if (accPanel) accPanel.render();
+    },
   }
 );
 requestAnimationFrame((t) => {

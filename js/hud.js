@@ -422,14 +422,18 @@ export function createBeeper() {
   // 스키드: 드리프트 소리 (amount 0~1 슬립량)
   // 실제 녹음 샘플(assets/skid.mp3, 약 2초)을 루프로 틀고 볼륨·피치를 슬립량에 연동
   // (가이드 처방: 스크럽은 속삭이고 풀 슬라이드에서 비명 + 재생속도 가변)
-  // 샘플 앞뒤 0.4초는 페이드인·여음이라 루프에서 제외 (실측: 0.0~0.3초·2.0초~ 무음)
+  // 샘플 앞뒤 0.4초는 페이드인·여음이라 재생 구간에서 제외 (실측: 0.0~0.3초·2.0초~ 무음)
+  // 단일 loop=true는 이음매(1.9→0.4초 점프)가 긴 드리프트에서 들리므로,
+  // 같은 구간을 0.25초 겹쳐서 크로스페이드로 이어 붙이는 듀얼 보이스 방식
   // 샘플 로드 전/실패 시엔 신스 폴백(삼각파+고Q노이즈)
   const SKID_URL = 'assets/skid.mp3?v=1056a2';
   const SKID_LOOP_START = 0.4;
   const SKID_LOOP_END = 1.9;
+  const SKID_XFADE = 0.25;
   let skidBuf = null;
   let skidLoading = false;
-  let skidSmp = null; // {src, gain}
+  let skidBus = null; // 마스터 게인 (슬립량으로 여닫음)
+  let skidTimer = null; // 크로스페이드 스케줄러
   let skidSyn = null; // {tone, toneGain, noiseGain, filter}
   let skidSm = 0; // 스무딩된 슬립량 (어택 빠르게·릴리스 꼬리 있게)
   function ensureSkidSample(a) {
@@ -454,21 +458,38 @@ export function createBeeper() {
       const a = ac();
       ensureSkidSample(a);
       if (skidBuf) {
-        if (!skidSmp) {
-          const src = a.createBufferSource();
-          src.buffer = skidBuf;
-          src.loop = true;
-          src.loopStart = SKID_LOOP_START;
-          src.loopEnd = Math.min(SKID_LOOP_END, skidBuf.duration || SKID_LOOP_END);
-          const gain = a.createGain();
-          gain.gain.value = 0;
-          src.connect(gain);
-          gain.connect(a.destination);
-          src.start();
-          skidSmp = { src, gain };
+        if (!skidBus) {
+          skidBus = a.createGain();
+          skidBus.gain.value = 0;
+          skidBus.connect(a.destination);
+          const region = SKID_LOOP_END - SKID_LOOP_START;
+          const launch = () => {
+            try {
+              // 발사 시점 슬립으로 재생속도 고정 (목소리마다 살짝 달라 반복감이 옅어짐)
+              const rate = 0.85 + skidSm * 0.55;
+              const src = a.createBufferSource();
+              src.buffer = skidBuf;
+              const g = a.createGain();
+              const t = a.currentTime + 0.02;
+              const dur = region / rate;
+              src.playbackRate.value = rate;
+              g.gain.setValueAtTime(0, t);
+              g.gain.linearRampToValueAtTime(1, t + SKID_XFADE);
+              g.gain.setValueAtTime(1, Math.max(t + SKID_XFADE, t + dur - SKID_XFADE));
+              g.gain.linearRampToValueAtTime(0, t + dur);
+              src.connect(g);
+              g.connect(skidBus);
+              src.start(t, SKID_LOOP_START, region + 0.05); // duration은 버퍼 기준
+              src.stop(t + dur + 0.05);
+              src.onended = () => {
+                try { src.disconnect(); g.disconnect(); } catch (e) { /* 무시 */ }
+              };
+              skidTimer = setTimeout(launch, Math.max(200, (dur - SKID_XFADE) * 1000));
+            } catch (e) { /* 무시 */ }
+          };
+          launch();
         }
-        skidSmp.src.playbackRate.setTargetAtTime(0.85 + s * 0.55, a.currentTime, 0.05);
-        skidSmp.gain.gain.setTargetAtTime(s * 0.4, a.currentTime, 0.05);
+        skidBus.gain.setTargetAtTime(s * 0.4, a.currentTime, 0.05);
         return;
       }
       // 폴백 신스 (샘플 준비 전)

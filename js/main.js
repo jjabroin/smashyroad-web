@@ -12,7 +12,7 @@ import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=c790e0';
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=e0989e';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=ff6e7d';
 import { createGarage } from './garage.js?v=864ca1';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';

@@ -422,8 +422,11 @@ export function createBeeper() {
   // 스키드: 드리프트 소리 (amount 0~1 슬립량)
   // 실제 녹음 샘플(assets/skid.mp3, 약 2초)을 루프로 틀고 볼륨·피치를 슬립량에 연동
   // (가이드 처방: 스크럽은 속삭이고 풀 슬라이드에서 비명 + 재생속도 가변)
+  // 샘플 앞뒤 0.4초는 페이드인·여음이라 루프에서 제외 (실측: 0.0~0.3초·2.0초~ 무음)
   // 샘플 로드 전/실패 시엔 신스 폴백(삼각파+고Q노이즈)
   const SKID_URL = 'assets/skid.mp3?v=1056a2';
+  const SKID_LOOP_START = 0.4;
+  const SKID_LOOP_END = 1.9;
   let skidBuf = null;
   let skidLoading = false;
   let skidSmp = null; // {src, gain}
@@ -455,6 +458,8 @@ export function createBeeper() {
           const src = a.createBufferSource();
           src.buffer = skidBuf;
           src.loop = true;
+          src.loopStart = SKID_LOOP_START;
+          src.loopEnd = Math.min(SKID_LOOP_END, skidBuf.duration || SKID_LOOP_END);
           const gain = a.createGain();
           gain.gain.value = 0;
           src.connect(gain);

@@ -302,19 +302,47 @@ export class NetRoom {
     this.joinedAs = this.myId;
     this.phase = 'lobby';
     const conn = this.peer.connect(this.hostId, { reliable: true });
+    // 연결 전 ICE 진행 상황 표시 (호스트 찾음 vs 직접 연결 중 구분)
+    try {
+      const pc0 = conn.peerConnection;
+      if (pc0) {
+        pc0.addEventListener('iceconnectionstatechange', () => {
+          this._emit({ type: 'conn-state', id: this.hostId, state: pc0.iceConnectionState });
+        });
+      }
+    } catch (e) { /* 구형 브라우저 무시 */ }
+    this._emit({ type: 'conn-state', id: this.hostId, state: 'searching' });
     await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('host unreachable')), 30000);
-      conn.on('open', () => {
+      let done = false;
+      const finish = (err) => {
+        if (done) return;
+        done = true;
         clearTimeout(timer);
+        try {
+          if (this.peer && this.peer.off) this.peer.off('error', onPeerErr);
+          else if (this.peer && this.peer.removeListener) this.peer.removeListener('error', onPeerErr);
+        } catch (e) { /* 무시 */ }
+        if (err) reject(err);
+        else resolve();
+      };
+      // 다른 망 NAT 뒤에서는 ICE가 안 뚫려 open이 안 옴 → 12초면 실패 확정
+      const timer = setTimeout(() => {
+        try { conn.close(); } catch (e) { /* 무시 */ }
+        finish(new Error('host unreachable'));
+      }, 12000);
+      // 존재하지 않는 방: 에러가 DataConnection이 아니라 Peer에 옴 → 직접 연결
+      const onPeerErr = (err) => {
+        if (err && err.type === 'peer-unavailable') finish(new Error('room not found'));
+      };
+      try { this.peer.on('error', onPeerErr); } catch (e) { /* 무시 */ }
+      conn.on('open', () => {
         this.conns.set(this.hostId, conn);
         this._wireConn(conn, this.hostId);
         try { conn.send({ t: 'hello', carId: myCarId }); } catch (e) { /* 무시 */ }
-        resolve();
+        finish(null);
       });
-      conn.on('error', () => {
-        clearTimeout(timer);
-        reject(new Error('host unreachable'));
-      });
+      conn.on('error', () => finish(new Error('host unreachable')));
+      conn.on('close', () => finish(new Error('host unreachable')));
     });
   }
 

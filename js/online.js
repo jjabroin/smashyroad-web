@@ -32,9 +32,9 @@ export function createOnlinePanel(api) {
   let room = null;
   let rtcConfig = RTC_CONFIG;
 
-  const peerFactory = (id) => {
+  const peerFactory = (id, config) => {
     if (!window.Peer) throw new Error('PeerJS CDN 로드 실패');
-    return new window.Peer(id, { debug: 0, config: rtcConfig });
+    return new window.Peer(id, { debug: 0, config: config || rtcConfig });
   };
 
   function show(view) {
@@ -96,7 +96,8 @@ export function createOnlinePanel(api) {
         setTimeout(() => leave(), 1500);
       } else if (ev.type === 'conn-state') {
         if (ev.state === 'connected' || ev.state === 'completed') diag('');
-        else if (ev.state === 'failed') diag('직접 연결 실패 → 중계 시도 중...');
+        else if (ev.state === 'searching') diag('호스트 탐색 중...');
+        else if (ev.state === 'failed') diag('직접 연결 실패: 같은 와이파이가 아니면 아래 중계 설정을 해주세요.');
         else if (ev.state === 'disconnected') diag('연결 끊김 감지 → 복구 시도 중...');
         else diag(`연결 중... (${ev.state})`);
       } else if (ev.type === 'net-kind') {
@@ -165,7 +166,7 @@ export function createOnlinePanel(api) {
       status('코드 4글자를 입력하세요.');
       return;
     }
-    status('참가 중... (최대 30초)');
+    status('참가 중... (최대 12초)');
     try {
       rtcConfig = await resolveRTCConfig().catch(() => RTC_CONFIG);
       room = new NetRoom(peerFactory);
@@ -175,9 +176,11 @@ export function createOnlinePanel(api) {
       show('lobby');
       status('');
     } catch (e) {
-      status('참가 실패: ' + (e.message === 'host unreachable'
-        ? '호스트에 닿지 않습니다. 코드·인터넷 상태를 확인하고 다시 시도해주세요.'
-        : e.message));
+      status('참가 실패: ' + (e.message === 'room not found'
+        ? '방을 찾을 수 없음: 코드 4글자 + 호스트가 방을 연 상태인지 확인해주세요.'
+        : e.message === 'host unreachable'
+          ? '호스트에 닿지 않습니다. 같은 와이파이가 아니라면 아래 중계 설정이 필요합니다.'
+          : e.message));
       if (room) {
         room.destroy();
         room = null;

@@ -56,6 +56,27 @@ export function getCachedShared(trackId) {
   return null;
 }
 
+// 고스트 공유용 궤적 축소 (최대 200점, 용량 제한)
+export function capTrail(trail, max = 200) {
+  if (!Array.isArray(trail) || trail.length <= 1) return undefined;
+  if (trail.length <= max) return trail;
+  const out = [];
+  const step = trail.length / max;
+  for (let i = 0; i < max; i++) out.push(trail[Math.floor(i * step)]);
+  return out;
+}
+
+// slim 복사 (공유 발행용: 궤적은 축소해서 포함 — 전원과 고스트 대결용)
+export function slimEntry(e) {
+  const slim = { ...e };
+  if (slim.trail) {
+    const capped = capTrail(slim.trail);
+    if (capped) slim.trail = capped;
+    else delete slim.trail;
+  }
+  return slim;
+}
+
 export class RecordsBoard {
   constructor(mqttFactory) {
     this.mqttFactory = mqttFactory;
@@ -366,9 +387,7 @@ export class RecordsBoard {
             (s) => s.tag === e.tag && s.total === e.total && s.date === e.date
           );
           if (!dup) {
-            const slim = { ...e };
-            delete slim.trail;
-            shared.push(slim);
+            shared.push(slimEntry(e));
             changed = true;
           }
         }
@@ -426,9 +445,8 @@ export class RecordsBoard {
     }
   }
 
-    async publish(trackId, entry) {    // 궤적(trail)은 공유하지 않음 (용량) — 로컬 전용
-    const slim = { ...entry };
-    delete slim.trail;
+    async publish(trackId, entry) {    // 궤적은 축소해서 공유 (전원 고스트 대결용)
+    const slim = slimEntry(entry);
     // 캐시 병합 후 TOP5 retained 발행
     const cur = (this.cache[trackId] || []).slice();
     cur.push(slim);

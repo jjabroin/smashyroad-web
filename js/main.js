@@ -16,8 +16,8 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=390e26';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
-import { Board } from './board.js?v=0c3eac';
-import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=b96302';
+import { Board } from './board.js?v=3344bb';
+import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
 import { SkidTrails } from './skids.js?v=591055';
 
 const canvas = document.getElementById('game');
@@ -63,6 +63,7 @@ accPanel = createAccountPanel({
   onIdentity: () => refreshAccountUI(),
   refresh: () => refreshAccountUI(),
 });
+accPanel.render(); // 부트 시 로그인 표시 반영
 function loadTARecords() {
   return board.localAll();
 }
@@ -1771,7 +1772,8 @@ onlinePanel = createOnlinePanel({
   },
   getBoard: (trackId) => taBoard(trackId),
   getGhost: (trackId, entry) => {
-    const list = loadTARecords()[trackId] || [];
+    // 공유(전원 기록) + 로컬에서 궤적 탐색 — 남의 기록과도 대결 가능
+    const list = board.list(trackId) || [];
     return list.find((e) => e.trail && e.trail.length > 1 && e.tag === entry.tag && e.total === entry.total) || null;
   },
   onGhost: (trackId, entry) => startGhostRace(trackId, entry),

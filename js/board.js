@@ -2,8 +2,8 @@
 // - 메모리(세션) + localStorage + 브로커 retained 3원천 병합
 // - list() 하나로 개수·행 모두 생성 (불일치 원천 차단)
 // - 신원(identity): 로그인 시 계정ID, 로그아웃 시 기기 태그. 기록의 tag가 신원.
-import { RecordsBoard, getRacerTag } from './records.js?v=3d02a7';
-import { retagLists } from './accounts.js?v=b96302';
+import { RecordsBoard, getRacerTag, slimEntry } from './records.js?v=560122';
+import { retagLists } from './accounts.js?v=7e6ad7';
 
 const TA_KEY = 'blockyracer-ta-records-v1';
 const TAG_KEY = 'blockyracer-tag-v1';
@@ -269,9 +269,7 @@ export class Board {
       const local = this.localAll();
       for (const trackId of Object.keys(local)) {
         for (const e of local[trackId]) {
-          const slim = { ...e };
-          delete slim.trail;
-          await this.net.publish(trackId, slim);
+          await this.net.publish(trackId, slimEntry(e));
         }
       }
       return this.net._verified === true;

@@ -630,7 +630,7 @@ body.editing .ctlbtn { outline: 3px dashed #ffd75d; cursor: move; }
 
 /* 사진 스타일 메뉴 (오버라이드) */
 #garage {
-  background: #79b4e0 url('../assets/menu-bg.jpg?v=abaf0a') center 32%/cover no-repeat;
+  background: #79b4e0 url('../assets/menu-bg.jpg?v=1840ed') center 32%/cover no-repeat;
 }
 #garageCanvas {
   background: transparent;

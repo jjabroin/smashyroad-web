@@ -12,7 +12,7 @@ import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=c790e0';
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=dd0306';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=a51f92';
 import { createGarage } from './garage.js?v=864ca1';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
@@ -421,13 +421,14 @@ function loop(ts) {
   // 폭파 연출: 2.5초간 불꽃을 보여준 뒤 성적표
   if (phase === 'wreck-anim') {
     wreckTimer -= dt;
+    beeper.engineStop();
+    beeper.skid(false);
     updatePuffs(dt);
     snapCamera(false, dt);
     renderer.render(scene, camera);
     if (wreckTimer <= 0) enterFinishedWrecked();
     return;
   }
-
   if (phase === 'countdown') {
     countdownT -= dt;
     const c = Math.ceil(countdownT);
@@ -449,6 +450,8 @@ function loop(ts) {
   }
 
   if (phase !== 'racing' && phase !== 'finished') {
+    beeper.engineStop();
+    beeper.skid(false);
     renderer.render(scene, camera);
     return;
   }
@@ -891,6 +894,15 @@ function loop(ts) {
   // 스키드마크 aging (경주 중 계속)
   skids.update(dt);
 
+  // 엔진음 + 스키드음 (관전 시점 기준)
+  const fc = racers[focusIdx()].car;
+  const spdF = Math.hypot(fc.vx, fc.vz);
+  beeper.engine(Math.min(1, spdF / 60));
+  beeper.skid(
+    !fc.out && fc.drifting && fc.airT <= 0 &&
+    Math.abs(fc.steerSm || 0) > 0.25 && spdF > 10
+  );
+
   renderer.render(scene, camera);
 }
 
@@ -1147,6 +1159,8 @@ document.getElementById('garageBtn').addEventListener('click', () => {
   document.getElementById('garage').style.display = 'flex';
   hud.hideResults();
   setSteerHint(false);
+  beeper.engineStop();
+  beeper.skid(false);
   if (garageCtl && garageCtl.refreshTracks) garageCtl.refreshTracks();
   phase = 'garage';
 });
@@ -1329,6 +1343,8 @@ function onRaceNetEvent(ev) {
     }
   } else if (ev.type === 'host-left') {
     hud.message('호스트 연결 종료', '', 2000);
+    beeper.engineStop();
+    beeper.skid(false);
     setTimeout(() => {
       if (onlineCtl) onlineCtl.room.destroy();
       onlineCtl = null;
@@ -1376,6 +1392,8 @@ function backToOnlineLobby() {
   hideFinishBanner();
   phase = 'garage';
   hud.hideResults();
+  beeper.engineStop();
+  beeper.skid(false);
   document.getElementById('hud').style.display = 'none';
   document.getElementById('garage').style.display = 'flex';
   if (garageCtl && garageCtl.refreshTracks) garageCtl.refreshTracks();

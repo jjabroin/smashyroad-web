@@ -350,6 +350,73 @@ export function createBeeper() {
       o.stop(a.currentTime + 0.55);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
+  // 엔진: 속도 연동 지속음 (saw + 로우패스, ratio 0~1)
+  let engOsc = null;
+  let engGain = null;
+  function engine(ratio) {
+    try {
+      if (muted) { engineStop(); return; }
+      const a = ac();
+      if (!engOsc) {
+        engOsc = a.createOscillator();
+        engOsc.type = 'sawtooth';
+        const lp = a.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 900;
+        engGain = a.createGain();
+        engGain.gain.value = 0;
+        engOsc.connect(lp);
+        lp.connect(engGain);
+        engGain.connect(a.destination);
+        engOsc.start();
+      }
+      const r = Math.max(0, Math.min(1, ratio));
+      engOsc.frequency.setTargetAtTime(60 + r * 170, a.currentTime, 0.06);
+      engGain.gain.setTargetAtTime(0.015 + r * 0.05, a.currentTime, 0.1);
+    } catch (e) { /* 오디오 미지원 무시 */ }
+  }
+  function engineStop() {
+    try {
+      if (engOsc) {
+        engOsc.stop();
+        engOsc.disconnect();
+      }
+    } catch (e) { /* 무시 */ }
+    engOsc = null;
+    engGain = null;
+  }
+  // 스키드: 드리프트 중 타이어 끽 소리 (밴드패스 노이즈 루프 + 게인 전환)
+  let skidSrc = null;
+  let skidGain = null;
+  let skidOn = false;
+  function skid(on) {
+    try {
+      if (muted) on = false;
+      if (on === skidOn && skidSrc) return;
+      skidOn = on;
+      const a = ac();
+      if (on && !skidSrc) {
+        const len = a.sampleRate;
+        const buf = a.createBuffer(1, len, a.sampleRate);
+        const ch = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+        skidSrc = a.createBufferSource();
+        skidSrc.buffer = buf;
+        skidSrc.loop = true;
+        const bp = a.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 950;
+        bp.Q.value = 0.8;
+        skidGain = a.createGain();
+        skidGain.gain.value = 0;
+        skidSrc.connect(bp);
+        bp.connect(skidGain);
+        skidGain.connect(a.destination);
+        skidSrc.start();
+      }
+      if (skidGain) skidGain.gain.setTargetAtTime(on ? 0.11 : 0, a.currentTime, 0.05);
+    } catch (e) { /* 오디오 미지원 무시 */ }
+  }
   return {
     count: () => beep(440, 0.15),
     go: () => beep(880, 0.4),
@@ -357,7 +424,17 @@ export function createBeeper() {
     crash: () => thud(0.32, 90),
     land: () => thud(0.18, 70),
     boost: () => sweep(),
-    toggle: () => (muted = !muted),
+    engine,
+    engineStop,
+    skid,
+    toggle: () => {
+      muted = !muted;
+      if (muted) {
+        engineStop();
+        skid(false);
+      }
+      return muted;
+    },
     get muted() { return muted; },
   };
 }

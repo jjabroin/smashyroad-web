@@ -363,6 +363,7 @@ export function createBeeper() {
     try {
       if (muted) { engineStop(); return; }
       const a = ac();
+      ensureSkidSample(a); // 첫 드리프트 전에 샘플 미리 받기
       if (!engOsc) {
         engOsc = a.createOscillator();
         engOsc.type = 'sawtooth';
@@ -418,18 +419,50 @@ export function createBeeper() {
     bHi = 0;
     bLo = 0;
   }
-  // 스키드: 타이어 끽 소리 (amount 0~1 슬립량)
-  // 가이드(s&box SkidAudio·bleepsandpops 타이어 파트) 처방:
-  // 1) 음높이가 있는 비명 — 순음에 가까운 톤이 몸통 (톱니파 생톤은 버즈만 남고 짜증나짐)
-  // 2) 볼륨+피치가 슬립량에 같이 탐 — 살짝 미끄러지면 속삭이고 풀 슬라이드에서 비명
-  // 3) 음높이에 느린 워블(LFO) — 끽끽 떨리는 질감
-  let skidNodes = null; // {tone, toneGain, noiseGain, filter}
+  // 스키드: 드리프트 소리 (amount 0~1 슬립량)
+  // 실제 녹음 샘플(assets/skid.mp3, 약 2초)을 루프로 틀고 볼륨·피치를 슬립량에 연동
+  // (가이드 처방: 스크럽은 속삭이고 풀 슬라이드에서 비명 + 재생속도 가변)
+  // 샘플 로드 전/실패 시엔 신스 폴백(삼각파+고Q노이즈)
+  const SKID_URL = 'assets/skid.mp3?v=1056a2';
+  let skidBuf = null;
+  let skidLoading = false;
+  let skidSmp = null; // {src, gain}
+  let skidSyn = null; // {tone, toneGain, noiseGain, filter}
+  function ensureSkidSample(a) {
+    if (skidBuf || skidLoading) return;
+    skidLoading = true;
+    try {
+      fetch(SKID_URL)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('http ' + r.status))))
+        .then((ab) => a.decodeAudioData(ab))
+        .then((buf) => { skidBuf = buf; })
+        .catch(() => { skidBuf = null; });
+    } catch (e) { skidBuf = null; }
+  }
   function skid(amount) {
     try {
       if (muted) amount = 0;
       amount = Math.max(0, Math.min(1, amount || 0));
       const a = ac();
-      if (!skidNodes) {
+      ensureSkidSample(a);
+      if (skidBuf) {
+        if (!skidSmp) {
+          const src = a.createBufferSource();
+          src.buffer = skidBuf;
+          src.loop = true;
+          const gain = a.createGain();
+          gain.gain.value = 0;
+          src.connect(gain);
+          gain.connect(a.destination);
+          src.start();
+          skidSmp = { src, gain };
+        }
+        skidSmp.src.playbackRate.setTargetAtTime(0.92 + amount * 0.25, a.currentTime, 0.05);
+        skidSmp.gain.gain.setTargetAtTime(amount * 0.4, a.currentTime, 0.05);
+        return;
+      }
+      // 폴백 신스 (샘플 준비 전)
+      if (!skidSyn) {
         // 몸통: 삼각파 톤 (생톱니 대비 자극적 고조파 제거)
         const tone = a.createOscillator();
         tone.type = 'triangle';
@@ -466,13 +499,13 @@ export function createBeeper() {
         lfo.connect(lfoGain);
         lfoGain.connect(tone.frequency);
         lfo.start();
-        skidNodes = { tone, toneGain, noiseGain, filter: bp };
+        skidSyn = { tone, toneGain, noiseGain, filter: bp };
       }
       const f = 1300 + amount * 800;
-      skidNodes.tone.frequency.setTargetAtTime(f, a.currentTime, 0.05);
-      skidNodes.filter.frequency.setTargetAtTime(f, a.currentTime, 0.05);
-      skidNodes.toneGain.gain.setTargetAtTime(amount * 0.06, a.currentTime, 0.05);
-      skidNodes.noiseGain.gain.setTargetAtTime(amount * 0.03, a.currentTime, 0.05);
+      skidSyn.tone.frequency.setTargetAtTime(f, a.currentTime, 0.05);
+      skidSyn.filter.frequency.setTargetAtTime(f, a.currentTime, 0.05);
+      skidSyn.toneGain.gain.setTargetAtTime(amount * 0.06, a.currentTime, 0.05);
+      skidSyn.noiseGain.gain.setTargetAtTime(amount * 0.03, a.currentTime, 0.05);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   return {

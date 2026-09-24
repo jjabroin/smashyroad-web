@@ -1673,6 +1673,28 @@ try {
 document.getElementById('updateReload').addEventListener('click', () => {
   location.reload();
 });
+// 온라인 화면 열기 (차고 후크·패널 api 공유)
+function openOnlineHome() {
+  try {
+    if (onlinePanel) {
+      onlinePanel.openHome();
+    } else {
+      dbgLog('ERR:onOnline panel null');
+      try {
+        const d = document.getElementById('diagBox');
+        if (d) { renderDiag(); d.style.display = 'block'; }
+      } catch (_) { /* 무시 */ }
+      alert('온라인 패널이 준비되지 않았습니다(panel null). 새로고침 후 다시 시도해주세요.');
+    }
+  } catch (e) {
+    dbgLog('ERR:onOnline ' + ((e && e.message) || e));
+    try {
+      const d = document.getElementById('diagBox');
+      if (d) { renderDiag(); d.style.display = 'block'; }
+    } catch (_) { /* 무시 */ }
+    alert('온라인 화면 오류: ' + String((e && e.message) || e).slice(0, 200));
+  }
+}
 onlinePanel = createOnlinePanel({
   getCar: () => pendingCar || CAR_DEFS[0],
   getTrack: () => pendingTrack || TRACK_DEFS[0],
@@ -1684,27 +1706,7 @@ onlinePanel = createOnlinePanel({
   onRoom: (room) => {
     lobbyRoom = room;
   },
-  onOnline: () => {
-    try {
-      if (onlinePanel) {
-        onlinePanel.openHome();
-      } else {
-        dbgLog('ERR:onOnline panel null');
-        try {
-          const d = document.getElementById('diagBox');
-          if (d) { renderDiag(); d.style.display = 'block'; }
-        } catch (_) { /* 무시 */ }
-        alert('온라인 패널이 준비되지 않았습니다(panel null). 새로고침 후 다시 시도해주세요.');
-      }
-    } catch (e) {
-      dbgLog('ERR:onOnline ' + ((e && e.message) || e));
-      try {
-        const d = document.getElementById('diagBox');
-        if (d) { renderDiag(); d.style.display = 'block'; }
-      } catch (_) { /* 무시 */ }
-      alert('온라인 화면 오류: ' + String((e && e.message) || e).slice(0, 200));
-    }
-  },
+  onOnline: () => openOnlineHome(),
   onBoardOpen: () => {
     // 순위표 열 때: 미동기화 병합 → 새로고침
     updateBoardSync();
@@ -1752,6 +1754,8 @@ garageCtl = createGarage(
           : '⏱ 기록 없음 — 도전!';
       }
     },
+    // 차고(모드 선택·시작하기)에서 온라인 화면 열기
+    onOnline: () => openOnlineHome(),
   }
 );
 requestAnimationFrame((t) => {

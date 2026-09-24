@@ -229,7 +229,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=fd96bb"></script>
+  <script type="module" src="js/main.js?v=f9d8f1"></script>
   <script>
     // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
     // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.
@@ -239,6 +239,25 @@
       };
       document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
       document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+      document.addEventListener('gestureend', function (e) { e.preventDefault(); });
+      // 더블탭 확대 잔여 경로 차단 (데스크톱·일부 웹뷰)
+      document.addEventListener('dblclick', function (e) {
+        if (isForm(e)) return;
+        e.preventDefault();
+      }, false);
+      // 캔버스 위 터치 제스처 원천 차단 (조향 탭 연타·양손 터치 확대 방지)
+      // 조향은 pointerdown으로 받으므로 조작에 영향 없음
+      function lockCanvas() {
+        var c = document.getElementById('game');
+        if (!c) return;
+        c.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
+        c.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', lockCanvas);
+      } else {
+        lockCanvas();
+      }
       var lastTouchEnd = 0;
       document.addEventListener('touchend', function (e) {
         if (isForm(e)) return;

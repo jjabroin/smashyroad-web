@@ -1638,7 +1638,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260924-03';
+const APP_VERSION = '20260924-04';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

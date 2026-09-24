@@ -10,6 +10,22 @@ const MODE_START = { race: '🏁 시작하기', item: '🎁 시작하기', ta: '
 const MODES = ['race', 'item', 'ta', 'online'];
 
 export function createGarage(onStart, hooks = {}) {
+  // 온라인 진입 추적: 예외 나면 조용히 묻히지 않게 화면에 표시 (원인 확정용 진단)
+  function traceOnline(step, show) {
+    try {
+      const d = document.getElementById('diagBox');
+      if (d) {
+        d.innerHTML += `<br>ONLINE TRACE: ${String(step).replace(/</g, '&lt;')}`;
+        if (show) d.style.display = 'block';
+      }
+    } catch (e) { /* 무시 */ }
+  }
+  function exOnline(where, e) {
+    traceOnline(`EX @${where}: ${(e && e.message) || e}`, true);
+    try {
+      alert(`온라인 선택 오류(${where}): ${String((e && e.message) || e).slice(0, 200)}`);
+    } catch (_) { /* 무시 */ }
+  }
   let idx = 0;
   let trackIdx = 0;
   let mode = 'race';
@@ -155,9 +171,15 @@ export function createGarage(onStart, hooks = {}) {
   document.getElementById('cardTrack').addEventListener('click', () => openPanel('panelTrack'));
   document.getElementById('cardMode').addEventListener('click', () => openPanel('panelMode'));
   document.getElementById('onlineRowBtn').addEventListener('click', () => {
-    setMode('online');
-    closePanels();
-    if (hooks.onOnline) hooks.onOnline();
+    try {
+      traceOnline('row-click');
+      setMode('online');
+      traceOnline('setMode-ok');
+      closePanels();
+      traceOnline('closePanels-ok');
+      if (hooks.onOnline) hooks.onOnline();
+      traceOnline('onOnline-ok');
+    } catch (e) { exOnline('row', e); }
   });
   document.getElementById('boardBtn').addEventListener('click', () => openPanel('panelBoard'));
   document.getElementById('boardRefresh').addEventListener('click', () => {
@@ -286,8 +308,12 @@ export function createGarage(onStart, hooks = {}) {
   // 시작하기 (모드별 분기: 온라인은 바로 방 만들기 화면)
   function pressStart() {
     if (mode === 'online') {
-      closePanels();
-      if (hooks.onOnline) hooks.onOnline();
+      try {
+        traceOnline('start-click mode=online');
+        closePanels();
+        if (hooks.onOnline) hooks.onOnline();
+        traceOnline('onOnline-ok');
+      } catch (e) { exOnline('start', e); }
       return;
     }
     closePanels();

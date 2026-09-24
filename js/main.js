@@ -13,7 +13,7 @@ function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=dd0306';
-import { createGarage } from './garage.js?v=73bdb6';
+import { createGarage } from './garage.js?v=864ca1';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=56e91b';
 import { createOnlinePanel } from './online.js?v=23d08d';
 import { Board } from './board.js?v=eca9bd';
@@ -1585,7 +1585,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260922-01';
+const APP_VERSION = '20260924-03';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

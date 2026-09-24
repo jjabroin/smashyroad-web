@@ -16,7 +16,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=205519';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
-import { Board } from './board.js?v=2cc38a';
+import { Board } from './board.js?v=c9a2f1';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
 import { SkidTrails } from './skids.js?v=591055';
 
@@ -1564,7 +1564,7 @@ function updateBoardSync() {
       if (mine) {
         for (const t of TRACK_DEFS) n += board.listMine(t.id).length;
       } else {
-        for (const t of TRACK_DEFS) n += taBoard(t.id).length;
+        for (const t of TRACK_DEFS) n += board.listAll(t.id).length;
         const src = board.sources(TRACK_DEFS.map((t) => t.id));
         ns = src.shared;
         nl = src.local;
@@ -1783,7 +1783,7 @@ onlinePanel = createOnlinePanel({
         if (garageCtl) garageCtl.refreshBoard();
       });
   },
-  getBoard: (trackId, mineOnly) => (mineOnly ? board.listMine(trackId) : taBoard(trackId)),
+  getBoard: (trackId, mineOnly) => (mineOnly ? board.listMine(trackId) : board.listAll(trackId)),
   isLoggedIn: () => !!loadSession(),
   getGhost: (trackId, entry) => {
     // 공유(전원 기록) + 로컬에서 궤적 탐색 — 남의 기록과도 대결 가능

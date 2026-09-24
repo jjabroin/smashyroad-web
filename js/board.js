@@ -134,6 +134,12 @@ export class Board {
     return mergeTop(this.net.get(trackId), (this.localAll()[trackId] || []));
   }
 
+  // 전체 탭/공유 기준: 공유 전체 + 이 기기 전체 (신원 무관)
+  // 로그인 후에도 로그인 전 기기 기록이 보여야 함 — 필터하면 사라져 보임
+  listAll(trackId) {
+    return mergeTop(this.net.get(trackId), (this.localAllRaw()[trackId] || []));
+  }
+
   // 내 기록 (공유 계정분 + 이 기기 전체)
   // 경주 후 결과 화면(전체 집계)에 나온 내 기록이 여기 빠지면 안 됨:
   // 미이전 기기 기록도 포함 (합치기 전 과도기). 필터 후 병합이라 TOP5 잘림 없음.
@@ -144,15 +150,16 @@ export class Board {
     return mergeTop(shared, keep(this.mem[trackId]), keep(stored[trackId]));
   }
 
-  // 원천별 개수 (진단·표시용)
+  // 원천별 개수 (진단·표시용, 전체 탭 기준: 공유 전체 + 이 기기 전체)
   sources(trackIds) {
     let shared = 0;
     let local = 0;
     try {
+      const raw = this.localAllRaw();
       for (const tid of trackIds) {
         const s = this.net.get(tid);
         if (s) shared += s.length;
-        const l = this.localAll()[tid];
+        const l = raw[tid];
         if (l) local += l.length;
       }
     } catch (e) { /* 무시 */ }
@@ -160,7 +167,7 @@ export class Board {
   }
 
   best(trackId) {
-    const l = this.list(trackId);
+    const l = this.listAll(trackId);
     return l.length > 0 ? l[0] : null;
   }
 

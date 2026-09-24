@@ -351,11 +351,14 @@ export function createBeeper() {
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   // 엔진: 속도 연동 지속음 (saw + 옥타브 아래 서브 사인 저음 + 로우패스, ratio 0~1)
-  // 부스트 중엔 피치·볼륨이 더 격해짐
+  // 부스트 ON/OFF는 계단식이 아니라 글라이드:
+  // 고음은 빨리 내려오고(bHi) 저음은 천천히 남겨서(bLo) 꺼질 때 상대적으로 낮아지는 느낌
   let engOsc = null;
   let engGain = null;
   let engSub = null;
   let engSubGain = null;
+  let bHi = 0;
+  let bLo = 0;
   function engine(ratio, boosting) {
     try {
       if (muted) { engineStop(); return; }
@@ -382,12 +385,19 @@ export function createBeeper() {
         engSub.start();
       }
       const r = Math.max(0, Math.min(1, ratio));
-      const b = boosting ? 1.3 : 1; // 부스트: 피치 1.3배·볼륨 증폭
-      const f = (60 + r * 170) * b;
+      // 부스트 계수 스무딩 (매 프레임 호출 가정): 켜질 땐 둘 다 빠르게, 꺼질 땐 고음 먼저·저음 나중에
+      const t = boosting ? 1 : 0;
+      const kHi = boosting ? 0.4 : 0.12;
+      const kLo = boosting ? 0.4 : 0.05;
+      bHi += (t - bHi) * kHi;
+      bLo += (t - bLo) * kLo;
+      if (Math.abs(bHi) < 0.001) bHi = 0;
+      if (Math.abs(bLo) < 0.001) bLo = 0;
+      const f = (60 + r * 170) * (1 + 0.25 * bHi);
       engOsc.frequency.setTargetAtTime(f, a.currentTime, 0.06);
-      engGain.gain.setTargetAtTime((0.015 + r * 0.05) * (boosting ? 1.6 : 1), a.currentTime, 0.1);
+      engGain.gain.setTargetAtTime((0.015 + r * 0.05) * (1 + 0.5 * bHi), a.currentTime, 0.1);
       engSub.frequency.setTargetAtTime(f * 0.5, a.currentTime, 0.06);
-      engSubGain.gain.setTargetAtTime((0.02 + r * 0.045) * (boosting ? 1.4 : 1), a.currentTime, 0.1);
+      engSubGain.gain.setTargetAtTime((0.02 + r * 0.045) * (1 + 0.7 * bLo), a.currentTime, 0.1);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }
   function engineStop() {
@@ -405,6 +415,8 @@ export function createBeeper() {
     engGain = null;
     engSub = null;
     engSubGain = null;
+    bHi = 0;
+    bLo = 0;
   }
   // 스키드: 타이어 끽 소리 (amount 0~1 슬립량)
   // 가이드(s&box SkidAudio·bleepsandpops 타이어 파트) 처방:
@@ -460,7 +472,7 @@ export function createBeeper() {
       const f = 1100 + amount * 900;
       skidNodes.saw.frequency.setTargetAtTime(f, a.currentTime, 0.05);
       skidNodes.filter.frequency.setTargetAtTime(f, a.currentTime, 0.05);
-      skidNodes.sawGain.gain.setTargetAtTime(amount * 0.07, a.currentTime, 0.05);
+      skidNodes.sawGain.gain.setTargetAtTime(amount * 0.08, a.currentTime, 0.05);
       skidNodes.noiseGain.gain.setTargetAtTime(amount * 0.05, a.currentTime, 0.05);
     } catch (e) { /* 오디오 미지원 무시 */ }
   }

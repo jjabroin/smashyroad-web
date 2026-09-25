@@ -463,4 +463,17 @@ export class RecordsBoard {
     this._lastAck = acked;
     return top.indexOf(entry);
   }
+
+  // 목록 통째로 덮어쓰기 (기록 삭제용 retained 발행)
+  async publishList(trackId, list) {
+    const prev = this.cache[trackId];
+    const top = (list || []).slice().sort((a, b) => a.total - b.total).slice(0, 5);
+    const live = await this.ensureLive();
+    if (!live) return false;
+    const ok = await this.publishAck(this.topic(trackId), JSON.stringify({ trackId, list: top }));
+    if (!ok) return false;
+    this.cache[trackId] = top;
+    try { saveSharedCache(trackId, top); } catch (e) { /* 무시 */ }
+    return true;
+  }
 }

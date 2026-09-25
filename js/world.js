@@ -96,7 +96,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   {
     const posA = grassGeo.attributes.position;
     for (let i = 0; i < posA.count; i++) {
-      posA.setY(i, groundHeightAt(posA.getX(i), posA.getZ(i)));
+      posA.setY(i, groundHeightAt(posA.getX(i), posA.getZ(i)) - 0.4); // 노면 밑으로 tuck (뚫고 나옴 방지)
     }
     grassGeo.computeVertexNormals();
   }
@@ -658,7 +658,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
         }
       }
       if (nearChord) continue;
-      obj.position.set(x, groundHeightAt(x, z), z);
+      obj.position.set(x, groundHeightAt(x, z) - 0.4, z); // 잔디와 같은 높이 (뜸 방지)
       obj.rotation.y = rnd() * Math.PI * 2;
       scene.add(obj);
       placed.push({ x, z });

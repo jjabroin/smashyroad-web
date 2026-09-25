@@ -2,7 +2,7 @@
 // - 메모리(세션) + localStorage + 브로커 retained 3원천 병합
 // - list() 하나로 개수·행 모두 생성 (불일치 원천 차단)
 // - 신원(identity): 로그인 시 계정ID, 로그아웃 시 기기 태그. 기록의 tag가 신원.
-import { RecordsBoard, getRacerTag, slimEntry } from './records.js?v=560122';
+import { RecordsBoard, getRacerTag, slimEntry } from './records.js?v=e20d67';
 import { retagLists } from './accounts.js?v=7e6ad7';
 
 const TA_KEY = 'blockyracer-ta-records-v1';
@@ -260,6 +260,46 @@ export class Board {
     } catch (e) { /* 무시 */ }
     this._changed();
     return { moved: r1.count + r2.count, purged };
+  }
+
+  // 지정 시각 이후 기록 일괄 삭제 (로컬+공유, 부정 기록 정리용)
+  // 날짜 없는 옛 기록은 유지 (판단 불가)
+  async purgeSince(cutoff) {
+    let localRemoved = 0;
+    let sharedPruned = 0;
+    try {
+      const stored = readStorage();
+      for (const tid of Object.keys(stored)) {
+        const before = (stored[tid] || []).length;
+        stored[tid] = (stored[tid] || []).filter((e) => !(e && e.date && e.date >= cutoff));
+        localRemoved += before - stored[tid].length;
+      }
+      writeStorage(stored);
+      for (const tid of Object.keys(this.mem)) {
+        const before = (this.mem[tid] || []).length;
+        this.mem[tid] = (this.mem[tid] || []).filter((e) => !(e && e.date && e.date >= cutoff));
+        localRemoved += before - this.mem[tid].length;
+      }
+    } catch (e) { /* 무시 */ }
+    try {
+      const tids = new Set([
+        ...Object.keys(readStorage()),
+        ...Object.keys(this.mem),
+        ...Object.keys(this.net.cache || {}),
+      ]);
+      for (const tid of tids) {
+        if (tid.startsWith('__')) continue;
+        const cur = this.net.get(tid) || [];
+        if (cur.length === 0) continue;
+        const pruned = cur.filter((e) => !(e && e.date && e.date >= cutoff));
+        if (pruned.length !== cur.length) {
+          const ok = await this.net.publishList(tid, pruned).catch(() => false);
+          if (ok) sharedPruned += cur.length - pruned.length;
+        }
+      }
+    } catch (e) { /* 무시 */ }
+    if (localRemoved > 0 || sharedPruned > 0) this._changed();
+    return { localRemoved, sharedPruned };
   }
 
   // 공유 보드에서 내 계정 기록을 끌어와 세션에 합침 (두 기기 통합)

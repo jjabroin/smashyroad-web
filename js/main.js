@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=887e3a';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=ebd94d';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -23,7 +23,7 @@ import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './h
 import { createGarage } from './garage.js?v=179cfd';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
-import { Board } from './board.js?v=2830fb';
+import { Board } from './board.js?v=11466e';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
 import { SkidTrails } from './skids.js?v=591055';
 
@@ -1953,16 +1953,33 @@ garageCtl = createGarage(
     },
     // 차고(모드 선택·시작하기)에서 온라인 화면 열기
     onOnline: () => openOnlineHome(),
-    onBoardOpen: () => {
-      // 순위표 열 때: 미동기화 병합 → 새로고침
-      updateBoardSync();
-      board.sync()
-        .catch(() => false)
-        .then(() => {
-          updateBoardSync();
-          if (garageCtl) garageCtl.refreshBoard();
-        });
-    },
+  onBoardOpen: () => {
+    // 순위표 열 때: 미동기화 병합 → 새로고침
+    updateBoardSync();
+    board.sync()
+      .catch(() => false)
+      .then(() => {
+        updateBoardSync();
+        if (garageCtl) garageCtl.refreshBoard();
+        // 9/25 부정 기록 일회 정리 (랩 버그 시기 기록 삭제)
+        try {
+          if (!localStorage.getItem('blockyracer-purge-20250925-v1')) {
+            localStorage.setItem('blockyracer-purge-20250925-v1', '1');
+            hud.message('🧹 9/25 기록 정리 중...', '', 1500);
+            board.purgeSince(Date.UTC(2026, 8, 24, 15, 0, 0)).then((r) => {
+              const n = r.localRemoved + r.sharedPruned;
+              if (n > 0) {
+                hud.message(`🧹 9/25 기록 ${n}개 삭제됨`, '', 2000);
+                board.sync().catch(() => {}).then(() => {
+                  updateBoardSync();
+                  if (garageCtl) garageCtl.refreshBoard();
+                });
+              }
+            }).catch(() => {});
+          }
+        } catch (e) { /* 무시 */ }
+      });
+  },
     getBoard: (trackId, mineOnly) => (mineOnly ? board.listMine(trackId) : board.listAll(trackId)),
     isLoggedIn: () => !!loadSession(),
     onBoardCounts: (n, mineTab) => {

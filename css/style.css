@@ -815,3 +815,4 @@ html, body {
 .mcard { display: flex; flex-direction: column; }
 .mthumb { flex: 1; display: flex; align-items: center; justify-content: center; }
 .mbar { margin-top: auto; }
+#cardMode .trap { background: none; box-shadow: none; }

@@ -117,6 +117,7 @@ export function createGarage(onStart, hooks = {}) {
     document.getElementById('carDots').textContent =
       `${idx + 1} / ${CAR_DEFS.length}`;
     refreshCards();
+    renderCardSnap(def);
     if (hooks.onCar) hooks.onCar(CAR_DEFS[idx]);
   }
 
@@ -393,20 +394,40 @@ export function createGarage(onStart, hooks = {}) {
   });
 
   let raf = 0;
-  let snapTick = 0;
+  // 차량 카드 고정각 미리보기 (인게임풍 후방 3/4, 회전 없음)
+  let cardRenderer = null;
+  let cardScene = null;
+  let cardCamera = null;
+  let cardCarMesh = null;
+  function renderCardSnap(def) {
+    try {
+      const cv = document.getElementById('cardCarSnap');
+      if (!cv) return;
+      if (!cardRenderer) {
+        cardRenderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+        cardScene = new THREE.Scene();
+        cardScene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a96, 1.1));
+        const sun = new THREE.DirectionalLight(0xfff6e0, 1.6);
+        sun.position.set(8, 14, 6);
+        cardScene.add(sun);
+        cardCamera = new THREE.PerspectiveCamera(36, 300 / 170, 0.1, 200);
+        cardCamera.position.set(-10, 5.5, 12);
+        cardCamera.lookAt(0, 2, 0);
+      }
+      if (cardCarMesh) {
+        cardScene.remove(cardCarMesh);
+        cardCarMesh = null;
+      }
+      cardCarMesh = CAR_BUILDERS[def.id](def.color, def.accent);
+      cardCarMesh.rotation.y = Math.PI * 0.72;
+      cardScene.add(cardCarMesh);
+      cardRenderer.render(cardScene, cardCamera);
+    } catch (e) { /* 무시 */ }
+  }
   function loop() {
     raf = requestAnimationFrame(loop);
     stand.rotation.y += 0.008;
     renderer.render(scene, camera);
-    // 차량 카드 미리보기: 턴테이블 스냅샷 (0.5초 간격)
-    if (++snapTick % 30 === 0) {
-      try {
-        const img = document.getElementById('cardCarSnap');
-        if (img && document.getElementById('garage').style.display !== 'none') {
-          img.src = renderer.domElement.toDataURL('image/jpeg', 0.7);
-        }
-      } catch (e) { /* 무시 */ }
-    }
   }
 
   resize();

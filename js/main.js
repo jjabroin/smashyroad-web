@@ -1145,7 +1145,10 @@ function onLocalFinish() {
   playerDone = 'finished';
   const me = racers[playerIdx];
   // 내 차는 CPU에게 인계 + 자동 관전 (결과표로 나가기 전까지)
-  me.ai = { pace: 0.95, lane: 0 };
+  // ※ 1랩 포인트-투-포인트는 인계 없이 세움 (결승벽에 정차)
+  if (!circuit.finishU) {
+    me.ai = { pace: 0.95, lane: 0 };
+  }
   spectateIdx = playerIdx;
   const order = raceOrder();
   const pos = order.indexOf(me) + 1;

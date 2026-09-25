@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@latest/neodgm/style.css" />
   <title>BLOCKY RACER — 복셀 트랙 경주</title>
   <meta name="description" content="복셀 3D 트랙 경주 게임. 차고에서 차를 고르고 3랩 서킷에서 결승선을 노리세요." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=7a9a50" />
+  <link rel="stylesheet" href="css/style.css?v=302888" />
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
@@ -32,7 +31,7 @@
     <canvas id="garageCanvas"></canvas>
     <div class="menu-cards">
       <button class="mcard blue" id="cardCar">
-        <span class="mthumb"><span class="trap"><canvas id="cardCarSnap" width="300" height="170"></canvas></span></span>
+        <span class="mthumb sky"><span class="trap"><canvas id="cardCarSnap" width="340" height="200"></canvas></span></span>
         <span class="mbar"><b id="curCar">F1</b><small>차량 선택</small><i>›</i></span>
       </button>
       <button class="mcard green" id="cardTrack">
@@ -243,7 +242,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=11fdaa"></script>
+  <script type="module" src="js/main.js?v=391caa"></script>
   <script>
     // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
     // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.

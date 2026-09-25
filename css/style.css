@@ -775,3 +775,12 @@ html, body {
   display: block; width: 100%; height: 92px; object-fit: cover;
   clip-path: polygon(5% 0, 100% 0, 95% 100%, 0 100%);
 }
+
+/* ===== 사다리꼴 네온 외곽선 + 하늘 배경 + 동근모꼴 ===== */
+html, body {
+  font-family: 'NeoDunggeunmo', -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+.mthumb.sky { background: linear-gradient(180deg, #8fd4f5 0%, #5aa9e6 55%, #3f8fd6 100%); }
+.mcard.blue .trap { background: #37c8f0; box-shadow: 0 0 14px rgba(55,200,240,.9); }
+.mcard.green .trap { background: #3ddc84; box-shadow: 0 0 14px rgba(61,220,132,.9); }
+.mthumb .trap img, .mthumb .trap canvas { height: 120px; }

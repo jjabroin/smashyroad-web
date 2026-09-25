@@ -419,7 +419,7 @@ export function createGarage(onStart, hooks = {}) {
         cardCarMesh = null;
       }
       cardCarMesh = CAR_BUILDERS[def.id](def.color, def.accent);
-      cardCarMesh.rotation.y = Math.PI * 0.72;
+      cardCarMesh.rotation.y = -1.93;
       cardScene.add(cardCarMesh);
       cardRenderer.render(cardScene, cardCamera);
     } catch (e) { /* 무시 */ }

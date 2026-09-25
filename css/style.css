@@ -741,3 +741,17 @@ body.editing .ctlbtn { outline: 3px dashed #ffd75d; cursor: move; }
   border-bottom: 3px solid #ffd75d;
   border-radius: 14px 14px 0 0;
 }
+
+/* ===== 상단바 고정 + 카드 레퍼런스 근접 ===== */
+.menu-top { position: sticky; top: 0; z-index: 20; padding: 10px 4px 8px; margin-top: 0; }
+.menu-top::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(180deg, rgba(10,14,20,.92), rgba(10,14,20,.75));
+  backdrop-filter: blur(2px);
+}
+.menu-cards { perspective: 600px; }
+.mcard { transform: skewX(-4deg); border-radius: 16px; }
+.mcard > * { transform: skewX(4deg); }
+.mthumb { min-height: 76px; }
+.mthumb svg { width: 52px; height: 52px; }
+#cardTrackMini { width: 132px; height: 62px; }

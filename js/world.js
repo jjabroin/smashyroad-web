@@ -176,6 +176,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   }
 
   // 서비스 튜브 (주행 안 하는 구간 은폐용 콘크리트 셸, 슬림)
+  let tube = null;
   if (feat.tube) {
     const step = 8;
     const n = Math.max(1, Math.floor((feat.tube.d1 - feat.tube.d0) / step));
@@ -195,6 +196,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       inst.setMatrixAt(i, dm.matrix);
     }
     scene.add(inst);
+    tube = inst;
   }
 
   // 개방형 끝단 벽 (시작 뒤 + 종점 앞): 시각 + 충돌 3점
@@ -230,6 +232,11 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
 
   const dummy = new THREE.Object3D();
 
+  // 튜브(주행 안 하는 이음매) 구간: 노면 부속품(점선·연석·벽) 미설치
+  const tubeD0 = feat.tube ? feat.tube.d0 : -1;
+  const tubeD1 = feat.tube ? feat.tube.d1 : -1;
+  const inTube = (d) => tubeD1 >= 0 && d >= tubeD0 && d <= tubeD1;
+
   // 중앙 흰 점선
   {
     const count = Math.floor(circuit.length / 14);
@@ -238,13 +245,16 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       new THREE.MeshLambertMaterial({ color: 0xf4f6f8 }),
       count
     );
+    let wi = 0;
     for (let i = 0; i < count; i++) {
+      if (inTube(i * 14)) continue;
       const p = circuit.pointAt(i * 14);
       dummy.position.set(p.x, trackY(circuit, i * 14) + 0.09, p.z);
       dummy.rotation.set(0, -Math.atan2(p.dz, p.dx), 0);
       dummy.updateMatrix();
-      inst.setMatrixAt(i, dummy.matrix);
+      inst.setMatrixAt(wi++, dummy.matrix);
     }
+    inst.count = wi;
     scene.add(inst);
   }
 
@@ -288,6 +298,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     let ri = 0;
     let wi = 0;
     for (let i = 0; i < count; i++) {
+      if (inTube(i * step)) continue;
       const p = circuit.pointAt(i * step);
       const ang = -Math.atan2(p.dz, p.dx);
       for (const side of [1, -1]) {
@@ -442,6 +453,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     let wi = 0;
     for (let i = 0; i < wallCount; i++) {
       const d = i * wallStep;
+      if (inTube(d)) continue;
       if (gapDists.some((g) => circDist(d, g) < 16)) continue;
       const p = circuit.pointAt(d);
       const y = trackY(circuit, d);
@@ -474,6 +486,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       );
       let k = 0;
       for (const d of list) {
+        if (inTube(d)) continue;
         const p = circuit.pointAt(d);
         const y = trackY(circuit, d);
         for (const side of [1, -1]) {
@@ -573,6 +586,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     const fracs = [0.15, 0.4, 0.65, 0.9];
     fracs.forEach((f, bi) => {
       const d = f * circuit.length;
+      if (circuit.finishU && d > circuit.finishU * circuit.length) return; // 결승 뒤 박스 금지
       const p = circuit.pointAt(d);
       const lat = bi % 2 === 0 ? 5 : -5;
       const m = new THREE.Mesh(
@@ -683,7 +697,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
   }
 
-  return { sun, colliders, wallGaps, corridors, pads, jumps, itemBoxes, road };
+  return { sun, colliders, wallGaps, corridors, pads, jumps, itemBoxes, road, tube };
 }
 
 // 지름길 복도 양옆 벽 (입구 t=0.08~0.92만, 낮게)

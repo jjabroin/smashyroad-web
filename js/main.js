@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=ebd94d';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=b4fa64';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -1787,7 +1787,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260924-05';
+const APP_VERSION = '20260925-02';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

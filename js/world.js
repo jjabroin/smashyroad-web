@@ -677,7 +677,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     for (let i = 0; i < 16; i++) tryPlace(makeRock(), 22, 90);
     for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 20, 28);
   } else if (themeId === 'forest') {
-    for (let i = 0; i < 64; i++) tryPlace(makeTree(), 15, 70);
+    for (let i = 0; i < 64; i++) tryPlace(makeTree(), 20, 70);
     for (let i = 0; i < 12; i++) tryPlace(makeRock(), 16, 50);
     for (let i = 0; i < 6; i++) tryPlace(makeTireStack(), 20, 28);
   } else {

@@ -136,6 +136,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   // 고가 지지 기둥 (수직 맵용: 도로가 뜬 곳에 콘크리트 기둥)
   // ※ 아래층 도로를 뚫는 위치는 제외 (기둥이 하부 차선을 막지 않게)
   // ※ 시작 직선 주변은 제외 (출발 시야 확보)
+  let pillarMesh = null;
   if (feat.pillars) {
     const step = 36;
     const count = Math.floor(circuit.length / step);
@@ -152,6 +153,8 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const y = trackY(circuit, d);
       if (y < 6) continue;
       if (d < 160) continue; // 출발 구간 시야 확보
+      // 결승 뒤 미주행 구간은 기둥 없음 (이음매 흔적 제거)
+      if (circuit.finishU && d > circuit.finishU * circuit.length) continue;
       // 출발 샤프트 안은 기둥 생략 (샤프트가 받침 역할)
       if (feat.shaft) {
         const s = feat.shaft;
@@ -173,6 +176,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
     inst.count = placed;
     scene.add(inst);
+    pillarMesh = inst;
   }
 
   // 서비스 튜브 (주행 안 하는 구간 은폐용 콘크리트 셸, 슬림)
@@ -233,8 +237,9 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   const dummy = new THREE.Object3D();
 
   // 튜브(주행 안 하는 이음매) 구간: 노면 부속품(점선·연석·벽) 미설치
-  const tubeD0 = feat.tube ? feat.tube.d0 : -1;
-  const tubeD1 = feat.tube ? feat.tube.d1 : -1;
+  // ※ 결승 뒤 미주행 구간 기준 (튜브 메시 유무와 무관)
+  const tubeD0 = feat.tube ? feat.tube.d0 : (circuit.finishU ? circuit.finishU * circuit.length : -1);
+  const tubeD1 = feat.tube ? feat.tube.d1 : (circuit.finishU ? circuit.length : -1);
   const inTube = (d) => tubeD1 >= 0 && d >= tubeD0 && d <= tubeD1;
 
   // 중앙 흰 점선
@@ -697,7 +702,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
   }
 
-  return { sun, colliders, wallGaps, corridors, pads, jumps, itemBoxes, road, tube };
+  return { sun, colliders, wallGaps, corridors, pads, jumps, itemBoxes, road, tube, pillars: pillarMesh };
 }
 
 // 지름길 복도 양옆 벽 (입구 t=0.08~0.92만, 낮게)

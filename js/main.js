@@ -13,13 +13,13 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=24570d';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=6cb5c6';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=617d1f';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=45c177';
 import { createGarage } from './garage.js?v=179cfd';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
@@ -42,6 +42,7 @@ let worldObjs = []; // 현 트랙 월드 오브젝트 (교체 시 제거)
 let colliders = []; // 장애물 {x,z,r}
 let roadMesh = null; // 카메라 충돌용 노면 메시
 let tubeMesh = null; // 카메라 충돌용 튜브 메시
+let pillarMesh = null; // 카메라 충돌용 기둥 메시
 let wallGaps = []; // 벽 틈새(지름길 출입구)
 let corridors = []; // 지름길 복도 [{ax,az,bx,bz,half}]
 let pads = []; // 부스터 패드 {x,z}
@@ -123,7 +124,6 @@ function buildWorldTrack(def) {
   const w = createWorld(scene, circuit, def.theme, def.shortcuts || (def.id === 'express' ? 'apex' : null), {
     boosts: def.boosts, jumps: def.jumps, blocks: def.blocks, items: ITEMS_ON,
     pillars: !!def.pillars, shaft: def.shaft || null,
-    tube: def.openEnds ? { d0: (def.finishU || 1) * circuit.length, d1: circuit.length } : null,
   });
   colliders = w.colliders;
   wallGaps = w.wallGaps;
@@ -133,6 +133,7 @@ function buildWorldTrack(def) {
   itemBoxes = w.itemBoxes;
   roadMesh = w.road || null;
   tubeMesh = w.tube || null;
+  pillarMesh = w.pillars || null;
   clearMines();
   worldObjs = scene.children.filter((o) => !before.has(o));
 }
@@ -302,22 +303,31 @@ function snapCamera(hard, dt = 0.016) {
   // - 차보다 확실히 위인 데크만, 카메라↔차 중간에 걸린 것만
   // - 데크 바로 앞(차 근처 명중)은 무시: 나선 내부 스침에 카메라가 차 안으로 빨려드는 버그 방지
   // - 여러 층이 걸리면 가장 먼(차에서 먼) 데크 기준으로 통과
+  // - 3-ray(중앙+좌우): 한 가닥이 빗나가도 가림 판정 유지 (사각지대 해소)
   {
     const occluders = [];
     if (roadMesh) occluders.push(roadMesh);
     if (tubeMesh) occluders.push(tubeMesh);
+    if (pillarMesh) occluders.push(pillarMesh);
     if (occluders.length > 0) {
       _camDir.copy(lookDes).sub(desired);
       const dist = _camDir.length();
       if (dist > 1) {
         _camDir.multiplyScalar(1 / dist);
-        _camRay.set(desired, _camDir);
-        _camRay.far = dist;
-        const hits = _camRay.intersectObjects(occluders, false);
+        const sideX = -_camDir.z;
+        const sideZ = _camDir.x;
         let pick = null;
-        for (const h of hits) {
-          if (h.distance > 6 && h.distance < dist - 8 && h.point.y > baseY + 4) {
-            if (!pick || h.distance > pick.distance) pick = h;
+        for (const off of [0, 2.5, -2.5]) {
+          _camRay.set(
+            { x: desired.x + sideX * off, y: desired.y, z: desired.z + sideZ * off },
+            _camDir
+          );
+          _camRay.far = dist;
+          const hits = _camRay.intersectObjects(occluders, false);
+          for (const h of hits) {
+            if (h.distance > 6 && h.distance < dist - 8 && h.point.y > baseY + 2) {
+              if (!pick || h.distance > pick.distance) pick = h;
+            }
           }
         }
         if (pick) {

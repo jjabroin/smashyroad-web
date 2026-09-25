@@ -37,20 +37,8 @@ export function createHUD(circuit, shortcuts = []) {
       else mctx.lineTo(x, y);
     });
     if (circuit.openEnds) {
-      // 개방형: 끝단 미연결 + 시작→종점 이동 점선
+      // 개방형: 끝단 미연결 (시작→종점선 없음)
       mctx.stroke();
-      const s = circuit.pointAt(0);
-      const e = circuit.pointAt(circuit.length - 1);
-      const [sx, sy] = toMap(s.x, s.z);
-      const [ex, ey] = toMap(e.x, e.z);
-      mctx.strokeStyle = '#8fa0b3';
-      mctx.lineWidth = 2;
-      mctx.setLineDash([3, 3]);
-      mctx.beginPath();
-      mctx.moveTo(sx, sy);
-      mctx.lineTo(ex, ey);
-      mctx.stroke();
-      mctx.setLineDash([]);
     } else {
       mctx.closePath();
       mctx.stroke();

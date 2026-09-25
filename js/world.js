@@ -433,7 +433,10 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const sideA = sideOf(sg.dA, ux, uz);
       const sideB = sideOf(sg.dB, -ux, -uz);
       wallGaps.push({ ax: A2.x, az: A2.z, bx: B2.x, bz: B2.z, sideA, sideB });
-      corridors.push({ ax: A2.x, az: A2.z, bx: B2.x, bz: B2.z, half: 3.5 });
+      corridors.push({
+        ax: A2.x, az: A2.z, bx: B2.x, bz: B2.z, half: 3.5,
+        yA: trackY(circuit, sg.dA), yB: trackY(circuit, sg.dB),
+      });
       chordSegs.push({ ax: A2.x, az: A2.z, bx: B2.x, bz: B2.z });
       // 복도 양옆 낮은 벽 (입구 제외 t=0.08~0.92)
       buildCorridorWalls(scene, circuit, A2, B2, sg.dA, sg.dB, 3.5);
@@ -767,37 +770,48 @@ function buildCorridorWalls(scene, circuit, A, B, dA, dB, half) {
   }
 }
 
-// 두 점 사이 직선 흙 리본 (지름길 표시)
+// 두 점 사이 직선 포장 리본 (지름길 도로: 아스팔트+노랑 가장자리, 지형 추종)
 function drawDirtChord(scene, circuit, A, B, dA, dB, halfW) {
   const SEG = 10;
   const yA = trackY(circuit, dA);
   const yB = trackY(circuit, dB);
-  const pos = new Float32Array((SEG + 1) * 2 * 3);
-  const idx = [];
   const dx = B.x - A.x;
   const dz = B.z - A.z;
   const m = Math.hypot(dx, dz) || 1;
   const px = (-dz / m) * halfW;
   const pz = (dx / m) * halfW;
-  for (let i = 0; i <= SEG; i++) {
-    const t = i / SEG;
-    const x = A.x + dx * t;
-    const z = A.z + dz * t;
-    const y = yA + (yB - yA) * t + 0.07;
-    pos.set([x + px, y, z + pz], i * 6);
-    pos.set([x - px, y, z - pz], i * 6 + 3);
-    if (i < SEG) {
-      const a = i * 2, b = i * 2 + 1, c = i * 2 + 2, d = i * 2 + 3;
-      idx.push(a, b, c, b, d, c);
+  const ribbon = (off, wdt, color, lift) => {
+    const pos = new Float32Array((SEG + 1) * 2 * 3);
+    const idx = [];
+    for (let i = 0; i <= SEG; i++) {
+      const t = i / SEG;
+      const x = A.x + dx * t;
+      const z = A.z + dz * t;
+      const y = yA + (yB - yA) * t + lift;
+      const ox = (px / halfW) * off;
+      const oz = (pz / halfW) * off;
+      const wx = (px / halfW) * wdt;
+      const wz = (pz / halfW) * wdt;
+      pos.set([x + ox + wx, y, z + oz + wz], i * 6);
+      pos.set([x + ox - wx, y, z - oz - wz], i * 6 + 3);
+      if (i < SEG) {
+        const a = i * 2, b = i * 2 + 1, c = i * 2 + 2, d = i * 2 + 3;
+        idx.push(a, b, c, b, d, c);
+      }
     }
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setIndex(idx);
-  g.computeVertexNormals();
-  const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xb08a5a }));
-  mesh.receiveShadow = true;
-  scene.add(mesh);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(
+      g, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })
+    );
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  };
+  ribbon(0, halfW, 0x41454e, 0.07); // 아스팔트 본체
+  ribbon(halfW - 0.45, 0.28, 0xf2c230, 0.1); // 노랑 가장자리 ×2
+  ribbon(-(halfW - 0.45), 0.28, 0xf2c230, 0.1);
 }
 
 // 그리드 슬롯 6대 (3열 × 2행, 스타트라인 뒤)

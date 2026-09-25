@@ -13,11 +13,29 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=04f855';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=cfbedc';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
+}
+
+// 지름길 복도 위면 복도 높이, 아니면 null (지형 추종)
+function corridorGroundY(x, z) {
+  for (const co of corridors) {
+    const dx = co.bx - co.ax;
+    const dz = co.bz - co.az;
+    const L2 = dx * dx + dz * dz || 1;
+    let t = ((x - co.ax) * dx + (z - co.az) * dz) / L2;
+    if (t < 0 || t > 1) continue;
+    const px = co.ax + dx * t;
+    const pz = co.az + dz * t;
+    if (Math.hypot(x - px, z - pz) > co.half + 1.5) continue;
+    const yA = co.yA !== undefined ? co.yA : 0;
+    const yB = co.yB !== undefined ? co.yB : 0;
+    return yA + (yB - yA) * t;
+  }
+  return null;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
 import { createGarage } from './garage.js?v=179cfd';
@@ -851,7 +869,8 @@ function loop(ts) {
       r.mesh.rotation.y = cur + dh * k;
       r.mesh.rotation.z = 0;
     } else {
-      const baseY = trackY(circuit, c.dist);
+      const cgY = corridorGroundY(c.x, c.z);
+      const baseY = cgY !== null ? cgY : trackY(circuit, c.dist);
       let airY = 0;
       // 차체 피치: 진행 방향 경사를 따름 (언덕에 묻히지 않게)
       // ※ dist 기준 (입체 교차로에서 타 층으로 튀지 않게 투영 대신 dist 사용)
@@ -1109,7 +1128,8 @@ function updateGhost() {
     return;
   }
   ghost.mesh.visible = true;
-  ghost.mesh.position.set(g.x, trackY(circuit, g.d) + 0.1, g.z);
+  const ggY = corridorGroundY(g.x, g.z);
+  ghost.mesh.position.set(g.x, (ggY !== null ? ggY : trackY(circuit, g.d)) + 0.1, g.z);
   ghost.mesh.rotation.y = -g.h;
   // 고스트 부스터 이펙트 (기록된 사용 지점 통과 시 시안 펑)
   if (ghost.boosts && ghost.boosts.length > 0) {

@@ -808,3 +808,10 @@ html, body {
   background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0));
   border-radius: 0 0 40px 40px; pointer-events: none;
 }
+
+/* 썸네일 배경 제거 + 하단바 바닥 고정 */
+.mthumb.sky { background: none; }
+.mcard.purple .mthumb { background: none; }
+.mcard { display: flex; flex-direction: column; }
+.mthumb { flex: 1; display: flex; align-items: center; justify-content: center; }
+.mbar { margin-top: auto; }

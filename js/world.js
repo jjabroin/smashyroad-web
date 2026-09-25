@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mat } from './voxel.js?v=35aa4d';
 import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=35aa4d';
-import { trackY } from './track.js?v=88d572';
+import { trackY } from './track.js?v=b02c69';
 
 export const ROAD_HALF = 11;
 
@@ -107,7 +107,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   grass.receiveShadow = true;
   scene.add(grass);
 
-  // 잔디 질감 패치
+  // 잔디 질감 패치 (도로 겹침 금지 + 경사 맞춤 축소)
   {
     const g = new THREE.BoxGeometry(1, 0.04, 1);
     const m = new THREE.MeshLambertMaterial({ color: theme.patch });
@@ -115,14 +115,18 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     const M = new THREE.Matrix4();
     let seed = 7;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < 60; i++) {
+    let placed = 0;
+    for (let i = 0; i < 60 && placed < 60; i++) {
       const x = (rnd() - 0.5) * 640;
       const z = (rnd() - 0.5) * 480;
-      const s = 12 + rnd() * 26;
+      const pr = circuit.project(x, z);
+      if (Math.abs(pr.lateral) < RH + 10) continue; // 도로 위/옆 금지
+      const s = 8 + rnd() * 14;
       M.makeScale(s, 1, s * (0.6 + rnd() * 0.8));
-      M.setPosition(x, groundHeightAt(x, z) + 0.03, z);
-      inst.setMatrixAt(i, M);
+      M.setPosition(x, groundHeightAt(x, z) - 0.3, z);
+      inst.setMatrixAt(placed++, M);
     }
+    inst.count = placed;
     inst.receiveShadow = true;
     scene.add(inst);
   }
@@ -206,7 +210,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     tube = inst;
   }
 
-  // 개방형 끝단 벽 (시작 뒤 + 종점 앞): 시각 + 충돌 3점
+  // 개방형 끝단 벽 (시작 뒤 + 종점 앞): 시각 + 충돌 5점 (옆으로 새기 방지)
   // ※ 종점벽은 결승선 너머에 (충돌 반경으로 결승을 막지 않게 +14)
   // ※ 노면 경사에 맞춰 피치 (다이브 위 붕뜸 방지)
   if (circuit.openEnds) {
@@ -224,22 +228,23 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       grp.rotation.y = yaw;
       scene.add(grp);
       const wall = new THREE.Mesh(
-        new THREE.BoxGeometry(2.5, 6, RH * 2 + 6),
+        new THREE.BoxGeometry(2.5, 6, RH * 2 + 24),
         new THREE.MeshLambertMaterial({ color: 0xd63a2f })
       );
       wall.position.y = 3;
       wall.rotation.z = pitch;
       grp.add(wall);
       const stripe = new THREE.Mesh(
-        new THREE.BoxGeometry(2.6, 1.2, RH * 2 + 6),
+        new THREE.BoxGeometry(2.6, 1.2, RH * 2 + 24),
         new THREE.MeshLambertMaterial({ color: 0xf4f6f8 })
       );
       stripe.position.y = 4.6;
       stripe.rotation.z = pitch;
       grp.add(stripe);
-      for (const s of [-7.3, 0, 7.3]) {
+      const cov = RH + 3.5;
+      for (const s of [-1.33 * cov, -0.67 * cov, 0, 0.67 * cov, 1.33 * cov]) {
         colliders.push({
-          x: p.x + -p.dz * s, z: p.z + p.dx * s, r: 7,
+          x: p.x + -p.dz * s, z: p.z + p.dx * s, r: 7.5,
           d: dd, L: circuit.length,
         });
       }

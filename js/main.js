@@ -1,6 +1,6 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=88d572';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=b02c69';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=b4fa64';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=04f855';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -122,7 +122,7 @@ function updateItemHUD() {
 function buildWorldTrack(def) {
   for (const o of worldObjs) scene.remove(o);
   const before = new Set(scene.children);
-  const w = createWorld(scene, circuit, def.theme, def.shortcuts || (def.id === 'express' ? 'apex' : null), {
+  const w = createWorld(scene, circuit, def.theme, def.shortcuts || null, {
     boosts: def.boosts, jumps: def.jumps, blocks: def.blocks, items: ITEMS_ON,
     pillars: !!def.pillars, shaft: def.shaft || null,
   });
@@ -758,7 +758,8 @@ function loop(ts) {
     dt
   );
   for (const r of racers) {
-    if (r.car.out || r.car.finished) continue;
+    if (r.car.out) continue;
+    // 완주 후 쿨다운도 벽·장애물 위치 판정 (대미지는 내부 가드됨)
     // 복도 안에 있으면 복도 벽만 적용 (일반 벽과 배타 — 밀고당기기 방지)
     let inCorr = false;
     for (const co of corridors) {

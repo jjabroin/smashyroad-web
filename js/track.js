@@ -403,7 +403,7 @@ export const TRACK_DEFS = [
   },
   {
     id: 'village', name: '빌리지 손가락', mode: 'village', theme: 'park', laps: 2,
-    hill: { amp: 16, k: 2 }, boosts: [0.3, 0.7], jumps: [0.5], blocks: [0.6],
+    hill: { amp: 0, k: 2 }, boosts: [0.3, 0.7], jumps: [0.5], blocks: [0.6],
     roadHalf: 8, shortcuts: [{ d1: 0.306, d2: 0.393 }],
   },
   {

@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mat } from './voxel.js?v=35aa4d';
 import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=35aa4d';
-import { trackY } from './track.js?v=9cca5f';
+import { trackY } from './track.js?v=e3e862';
 
 export const ROAD_HALF = 11;
 
@@ -154,8 +154,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       if (feat.shaft) {
         const s = feat.shaft;
         if (Math.abs(p.x - s.x) < s.w / 2 + 4 && Math.abs(p.z - s.z) < s.d / 2 + 4) continue;
-      }
-      let pierce = false;
+      }      let pierce = false;
       for (let k = 0; k < circuit.count; k += 6) {
         const q = circuit.pts[k];
         if (Math.hypot(q.x - p.x, q.z - p.z) < 9 && trackY(circuit, circuit.cum[k]) < y - 2) {
@@ -174,16 +173,26 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     scene.add(inst);
   }
 
-  // 출발 타워 (포인트-투-포인트 종점 라이저 은폐용 콘크리트 샤프트)
-  if (feat.shaft) {
-    const s = feat.shaft;
-    const h = Math.max(1, s.y1 - s.y0);
-    const m = new THREE.Mesh(
-      new THREE.BoxGeometry(s.w, h, s.d),
-      new THREE.MeshLambertMaterial({ color: 0x848a93 })
+  // 서비스 튜브 (주행 안 하는 구간 은폐용 콘크리트 셸)
+  if (feat.tube) {
+    const step = 8;
+    const n = Math.max(1, Math.floor((feat.tube.d1 - feat.tube.d0) / step));
+    const inst = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(30, 20, 9),
+      new THREE.MeshLambertMaterial({ color: 0x6f757e }),
+      n
     );
-    m.position.set(s.x, s.y0 + h / 2, s.z);
-    scene.add(m);
+    const dm = new THREE.Object3D();
+    for (let i = 0; i < n; i++) {
+      const d = feat.tube.d0 + (i + 0.5) * step;
+      const p = circuit.pointAt(d);
+      const q = circuit.pointAt(d + 2);
+      dm.position.set(p.x, trackY(circuit, d) + 2, p.z);
+      dm.lookAt(q.x, trackY(circuit, d + 2) + 2, q.z);
+      dm.updateMatrix();
+      inst.setMatrixAt(i, dm.matrix);
+    }
+    scene.add(inst);
   }
 
   // 개방형 끝단 벽 (시작 뒤 + 종점 앞): 시각 + 충돌 3점

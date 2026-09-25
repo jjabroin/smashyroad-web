@@ -1,11 +1,11 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=9cca5f';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=e3e862';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
   distDiff,
-} from './race.js?v=9fca59';
+} from './race.js?v=337352';
 
 // 입체 트랙 층간 오작동 방지: 다른 층 픽업 무시 (dist 윈도우, 구맵 무영향)
 function sameLevel(featD, carD) {
@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=07873e';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=66e330';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -122,6 +122,7 @@ function buildWorldTrack(def) {
   const w = createWorld(scene, circuit, def.theme, def.shortcuts || (def.id === 'express' ? 'apex' : null), {
     boosts: def.boosts, jumps: def.jumps, blocks: def.blocks, items: ITEMS_ON,
     pillars: !!def.pillars, shaft: def.shaft || null,
+    tube: def.openEnds ? { d0: (def.finishU || 1) * circuit.length + 8, d1: circuit.length } : null,
   });
   colliders = w.colliders;
   wallGaps = w.wallGaps;
@@ -295,7 +296,9 @@ function snapCamera(hard, dt = 0.016) {
   const baseY = trackY(circuit, p.dist);
   const desired = new THREE.Vector3(p.x - fx * back, baseY + height, p.z - fz * back);
   const lookDes = new THREE.Vector3(p.x + fx * 20, baseY + 2, p.z + fz * 20);
-  // 카메라 충돌: 고가 노면이 시야를 가리면 앞으로 당김 (차 가림 방지)
+  // 카메라 충돌: 고가 노면이 시야를 가리면 데크를 통과해 앞으로 (차 가림 방지)
+  // - 차보다 확실히 위인 데크만, 카메라↔차 중간에 걸린 것만
+  // - 데크 바로 앞(차 근처 명중)은 무시: 나선 내부 스침에 카메라가 차 안으로 빨려드는 버그 방지
   if (roadMesh) {
     _camDir.copy(lookDes).sub(desired);
     const dist = _camDir.length();
@@ -306,9 +309,8 @@ function snapCamera(hard, dt = 0.016) {
       const hits = _camRay.intersectObject(roadMesh, false);
       if (hits.length > 0) {
         const h = hits[0];
-        // 차보다 확실히 위인 노면만 (지면·자차 노면은 무시)
-        if (h.distance > 2 && h.distance < dist - 3 && h.point.y > baseY + 4) {
-          desired.copy(h.point).addScaledVector(_camDir, -2.5);
+        if (h.distance > 6 && h.distance < dist - 8 && h.point.y > baseY + 4) {
+          desired.copy(h.point).addScaledVector(_camDir, 3);
         }
       }
     }

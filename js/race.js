@@ -1,5 +1,5 @@
 // 경주 로직: 아케이드 관성 물리 + AI + 랩/순위 + 벽/부스터 (three.js 없음 → node 테스트 가능)
-import { trackSlope } from './track.js?v=9cca5f';
+import { trackSlope } from './track.js?v=e3e862';
 //
 // 물리 모델 (관성 체감용 속도벡터 방식):
 // - vel 벡터가 실제 이동, heading은 차 머리 방향
@@ -424,7 +424,7 @@ export function collideWalls(car, circuit, roadHalf, walls, dt) {
     if (inGap) continue;
     const p = circuit.pointAt(snap.dist);
     const sgn = snap.lateral > 0 ? 1 : -1;
-    const pen = Math.abs(snap.lateral) - LIM;
+    const pen = Math.min(Math.abs(snap.lateral) - LIM, 12); // 폭주 방지 상한
     car.x -= -p.dz * sgn * pen;
     car.z -= p.dx * sgn * pen;
     contact = true;

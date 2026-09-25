@@ -1,12 +1,19 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=d88ddf';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=a59bb6';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
-} from './race.js?v=3d5ad3';
+  distDiff,
+} from './race.js?v=ae7f34';
+
+// 입체 트랙 층간 오작동 방지: 다른 층 픽업 무시 (dist 윈도우, 구맵 무영향)
+function sameLevel(featD, carD) {
+  if (featD === undefined || featD === null) return true;
+  return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
+}
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=bf3cee';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=7fd779';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -141,10 +148,10 @@ function addMine(m) {
     new THREE.MeshBasicMaterial({ color: 0xff3b30 })
   );
   mesh.add(dot);
-  mesh.position.set(m.x, trackY(circuit, circuit.project(m.x, m.z).dist) + 0.55, m.z);
+  mesh.position.set(m.x, trackY(circuit, m.d !== undefined && m.d !== null ? m.d : circuit.project(m.x, m.z).dist) + 0.55, m.z);
   mesh.castShadow = true;
   scene.add(mesh);
-  mines.set(m.id, { x: m.x, z: m.z, mesh, armT: 1.0 });
+  mines.set(m.id, { x: m.x, z: m.z, mesh, armT: 1.0, d: m.d });
 }
 
 function removeMine(id) {
@@ -356,7 +363,7 @@ function useItem(r) {
     const id = `m${Date.now().toString(36)}${Math.floor(Math.random() * 999)}`;
     const mx = c.x - Math.cos(c.heading) * 5;
     const mz = c.z - Math.sin(c.heading) * 5;
-    addMine({ id, x: +mx.toFixed(1), z: +mz.toFixed(1) });
+    addMine({ id, x: +mx.toFixed(1), z: +mz.toFixed(1), d: c.dist });
     if (r.isPlayer) beeper.count();
   } else if (it === 'shock') {
     // 본인 외 로컬 차량에 즉시 적용 (권위 측 시뮬, 상태로 전파)
@@ -565,6 +572,7 @@ function loop(ts) {
       if (!held) c.driftCharge = 0;
     }
     for (const pd of pads) {
+      if (!sameLevel(pd.d, c.dist)) continue;
       const dx = c.x - pd.x;
       const dz = c.z - pd.z;
       if (dx * dx + dz * dz < 49 && c.boostT <= 0) {
@@ -573,6 +581,7 @@ function loop(ts) {
       }
     }
     for (const j of jumps) {
+      if (!sameLevel(j.d, c.dist)) continue;
       const dx = c.x - j.x;
       const dz = c.z - j.z;
       if (dx * dx + dz * dz < 49 && c.airT <= 0) {
@@ -597,6 +606,7 @@ function loop(ts) {
       if (!r.local || c.out || c.finished || c.item) continue;
       for (const b of itemBoxes) {
         if (b.takenT > 0) continue;
+        if (!sameLevel(b.d, c.dist)) continue;
         const dx = c.x - b.x;
         const dz = c.z - b.z;
         if (dx * dx + dz * dz < 20) {
@@ -630,6 +640,7 @@ function loop(ts) {
     for (const r of racers) {
       const c = r.car;
       if (!r.local || c.out || c.finished) continue;
+      if (!sameLevel(m.d, c.dist)) continue;
       const dx = c.x - m.x;
       const dz = c.z - m.z;
       if (dx * dx + dz * dz < 16 && m.armT <= 0) {
@@ -771,10 +782,9 @@ function loop(ts) {
       const baseY = trackY(circuit, c.dist);
       let airY = 0;
       // 차체 피치: 진행 방향 경사를 따름 (언덕에 묻히지 않게)
-      const fx = Math.cos(c.heading);
-      const fz = Math.sin(c.heading);
-      const yA = trackY(circuit, circuit.project(c.x + fx * 3.5, c.z + fz * 3.5).dist);
-      const yB = trackY(circuit, circuit.project(c.x - fx * 3.5, c.z - fz * 3.5).dist);
+      // ※ dist 기준 (입체 교차로에서 타 층으로 튀지 않게 투영 대신 dist 사용)
+      const yA = trackY(circuit, c.dist + 3.5);
+      const yB = trackY(circuit, c.dist - 3.5);
       let pitch = Math.atan2(yA - yB, 7);
       if (c.airT > 0) {
         // 점프 포물선: 이륙각 → 착지각
@@ -903,6 +913,7 @@ function loop(ts) {
         for (const r of racers) all.push({ slot: r.slot, ...carSnapshot(r.car) });
         const minesArr = [...mines.entries()].map(([id, m]) => ({
           id, x: +m.x.toFixed(1), z: +m.z.toFixed(1),
+          d: m.d !== undefined && m.d !== null ? +m.d.toFixed(1) : undefined,
         }));
         const boxesArr = itemBoxes.map((b) => (b.takenT > 0 ? 1 : 0));
         const playersArr = onlineCtl.players.map((pl) => pl.id);

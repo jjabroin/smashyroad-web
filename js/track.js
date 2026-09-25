@@ -26,7 +26,7 @@ export function buildCircuit(straight = 260, radius = 75, opts = {}) {
   }
 
   applyWave(pts, waveAmp, waveK);
-  const c = finalizeCircuit(pts);
+  const c = finalizeCircuit(pts, { amp: opts.hillAmp || 0, k: opts.hillK || 2 });
   c.elev = { amp: opts.hillAmp || 0, k: opts.hillK || 2 };
   return c;
 }
@@ -59,7 +59,7 @@ function applyWave(pts, waveAmp, waveK) {
 }
 
 // 중심선 확정: 누적거리·진행방향·투영·곡률 API 생성 (rounded/spline 공통)
-function finalizeCircuit(pts) {
+function finalizeCircuit(pts, elev) {
   const n = pts.length;
   const cum = new Array(n + 1).fill(0);
   for (let i = 0; i < n; i++) {
@@ -106,6 +106,7 @@ function finalizeCircuit(pts) {
 
   // 최근접점 투영 → {dist, lateral}
   // perp = (-dz, dx) 기준 좌측이 +lateral
+  // ※ 평면 전용: 겹침(입체) 트랙은 projectTracked 사용
   function project(x, z) {
     let best = 0;
     let bestD2 = Infinity;
@@ -137,7 +138,66 @@ function finalizeCircuit(pts) {
     return Math.acos(dot) / lookahead; // rad per unit
   }
 
-  return { pts, cum, length, pointAt, project, curvatureAt, count: n };
+  // 입체(겹침) 트랙용 투영: 직전 dist 근처 윈도우 우선 + 전역 3D 폴백
+  // - 윈도우(±30): 연속 주행 중 층간 혼동 없음 (다른 층 같은 위치 점은 dist가 멈)
+  // - LOST(윈도우 내 25 이내 없음: 리스폰·폭파 등) → 전역 3D 탐색 (y 힌트)
+  function yAt(u) {
+    return elevY(elev, Math.max(0, Math.min(1, u / length)));
+  }
+  function refineAt(idx, x, z) {
+    const p = pts[idx];
+    const rx = x - p.x;
+    const rz = z - p.z;
+    const along = rx * p.dx + rz * p.dz;
+    let dist = cum[idx] + along;
+    dist = ((dist % length) + length) % length;
+    const lateral = rx * -p.dz + rz * p.dx;
+    return { dist, lateral };
+  }
+  function projectTracked(x, z, lastDist, yHint) {
+    if (lastDist === null || lastDist === undefined || !isFinite(lastDist)) {
+      return project3D(x, z, yHint);
+    }
+    const WIN = 30;
+    const LOST = 25;
+    let best = -1;
+    let bestD2 = Infinity;
+    for (let i = 0; i < n; i++) {
+      let dd = Math.abs(cum[i] - lastDist);
+      if (dd > length / 2) dd = length - dd;
+      if (dd > WIN) continue;
+      const ddx = x - pts[i].x;
+      const ddz = z - pts[i].z;
+      const d2 = ddx * ddx + ddz * ddz;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = i;
+      }
+    }
+    if (best < 0 || bestD2 > LOST * LOST) {
+      return project3D(x, z, yHint !== undefined ? yHint : yAt(((lastDist % length) + length) % length));
+    }
+    return refineAt(best, x, z);
+  }
+  // 전역 3D 탐색: 평면거리 + 고도차 (층 분리)
+  function project3D(x, z, y) {
+    const yy = isFinite(y) ? y : 0;
+    let best = 0;
+    let bestD2 = Infinity;
+    for (let i = 0; i < n; i++) {
+      const ddx = x - pts[i].x;
+      const ddz = z - pts[i].z;
+      const dy = yAt(cum[i]) - yy;
+      const d2 = ddx * ddx + ddz * ddz + dy * dy;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = i;
+      }
+    }
+    return refineAt(best, x, z);
+  }
+
+  return { pts, cum, length, pointAt, project, projectTracked, project3D, curvatureAt, count: n };
 }
 
 // 빌리지 손가락: 직선+원호 프리미티브 직접 샘플링 (스플라인 대신, 기하 확정)
@@ -182,7 +242,7 @@ export function buildVillage(elev) {
   straight(-195, 30); // 서쪽 직선
   arc(-150, 30, 45, 180, 90); // 동쪽으로 커브
   straight(0, 92); // 탑 직선 → S0 합류
-  const c = finalizeCircuit(pts);
+  const c = finalizeCircuit(pts, elev || { amp: 0, k: 2 });
   c.elev = elev || { amp: 0, k: 2 };
   return c;
 }
@@ -207,26 +267,55 @@ export function buildSplineCircuit(controls, perSeg = 30, elev = null) {
       });
     }
   }
-  const c = finalizeCircuit(pts);
+  const c = finalizeCircuit(pts, elev || { amp: 0, k: 2 });
   c.elev = elev || { amp: 0, k: 2 };
   return c;
+}
+
+// 고도 프로파일: {amp,k} 사인 (레거시) 또는 {points:[[u,y]..]} 자유 곡선 (입체용)
+// smootherstep 보간, 양끝 [0,0]·[1,0] 강제 (랩 이음매 연속)
+function normElevPts(pts) {
+  const p = (pts || []).map(([u, y]) => [Math.max(0, Math.min(1, u)), y]).sort((a, b) => a[0] - b[0]);
+  if (p.length === 0 || p[0][0] > 0) p.unshift([0, 0]);
+  if (p[p.length - 1][0] < 1) p.push([1, 0]);
+  return p;
+}
+function elevY(elev, uf) {
+  if (!elev) return 0;
+  if (elev.points) {
+    const p = normElevPts(elev.points);
+    const u = Math.max(0, Math.min(1, uf));
+    let i = 0;
+    while (i < p.length - 2 && u > p[i + 1][0]) i++;
+    const [u0, y0] = p[i];
+    const [u1, y1] = p[i + 1];
+    const t = u1 > u0 ? Math.max(0, Math.min(1, (u - u0) / (u1 - u0))) : 0;
+    const s = t * t * t * (t * (t * 6 - 15) + 10);
+    return y0 + (y1 - y0) * s;
+  }
+  if (!elev.amp) return 0;
+  return (elev.amp * (1 - Math.cos(2 * Math.PI * elev.k * uf))) / 2;
 }
 
 // 고도: 시작/결승선에서 0 + 평탄 (y(0)=0, 기울기 0 보장)
 export function trackY(circuit, d) {
   const e = circuit.elev;
-  if (!e || !e.amp) return 0;
+  if (!e || (!e.amp && !e.points)) return 0;
   const L = circuit.length;
-  const u = ((d % L) + L) % L;
-  return (e.amp * (1 - Math.cos((2 * Math.PI * e.k * u) / L))) / 2;
+  const u = (((d % L) + L) % L) / L;
+  return elevY(e, u);
 }
 
 export function trackSlope(circuit, d) {
   const e = circuit.elev;
-  if (!e || !e.amp) return 0;
+  if (!e || (!e.amp && !e.points)) return 0;
   const L = circuit.length;
-  const u = ((d % L) + L) % L;
-  return ((e.amp * Math.PI * e.k) / L) * Math.sin((2 * Math.PI * e.k * u) / L);
+  const u = (((d % L) + L) % L) / L;
+  if (!e.points) {
+    return ((e.amp * Math.PI * e.k) / L) * Math.sin((2 * Math.PI * e.k * u) / L);
+  }
+  const h = 0.002;
+  return (elevY(e, u + h) - elevY(e, u - h)) / (2 * h * L);
 }
 
 // 트랙 종류 (차고에서 선택)
@@ -278,12 +367,18 @@ export const TRACK_DEFS = [
   },
   {
     id: 'track9', name: '트랙9', mode: 'spline', theme: 'city', laps: 2,
-    hill: { amp: 22, k: 1 }, boosts: [0.25, 0.6], jumps: [0.45], blocks: [0.5],
+    hill: { points: [[0, 0], [0.12, 4], [0.30, 20], [0.52, 20], [0.62, 16], [0.75, 10], [1, 0]] },
+    overlap3d: true,
+    boosts: [0.3, 0.65], jumps: [0.5], blocks: [0.4],
     pillars: true,
     points: [
-      [0, 0], [0, -150], [-20, -200], [-70, -245], [-140, -265], [-205, -245],
-      [-240, -185], [-225, -120], [-180, -75], [-130, -65], [-70, -45],
-      [-60, 20], [0, 50], [70, 40], [60, -5],
+      [0, 0], [0, -110], [0, -220],
+      [3.1, -243.3], [12.1, -265], [26.4, -283.6], [45, -297.9], [66.7, -306.9],
+      [90, -310], [113.3, -306.9], [135, -297.9], [153.6, -283.6], [167.9, -265],
+      [176.9, -243.3], [180, -220],
+      [180, -110], [180, 0],
+      [140, 70], [80, 20], [30, -60], [0, -80],
+      [-58, -125], [-80, -150], [-110, -80], [-95, 0], [-60, 70], [-10, 55],
     ],
   },
 ];
@@ -297,5 +392,6 @@ export function buildTrack(def) {
     hillAmp: def.hill && def.hill.amp, hillK: def.hill && def.hill.k,
   });
   c.roadHalf = def.roadHalf || 11;
+  c.hasOverlap = !!def.overlap3d; // 입체(겹침) 트랙: 3D 투영 엔진 사용
   return c;
 }

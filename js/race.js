@@ -1,5 +1,5 @@
 // 경주 로직: 아케이드 관성 물리 + AI + 랩/순위 + 벽/부스터 (three.js 없음 → node 테스트 가능)
-import { trackSlope } from './track.js?v=d88ddf';
+import { trackSlope } from './track.js?v=a59bb6';
 //
 // 물리 모델 (관성 체감용 속도벡터 방식):
 // - vel 벡터가 실제 이동, heading은 차 머리 방향
@@ -150,9 +150,25 @@ export function damageWithShield(car, dmg) {
 
 const SECTOR = 4;
 
+// 랩 감싼 거리차 (-L/2, L/2]
+export function distDiff(a, b, L) {
+  let d = a - b;
+  if (d > L / 2) d -= L;
+  if (d < -L / 2) d += L;
+  return d;
+}
+
+// 투영 분기: 입체 트랙은 3D 추적, 평면은 기존 2D (동작 동일)
+function snapIt(circuit, x, z, lastDist) {
+  if (circuit.hasOverlap && circuit.projectTracked) {
+    return circuit.projectTracked(x, z, lastDist);
+  }
+  return circuit.project(x, z);
+}
+
 export function stepCar(car, input, dt, circuit, roadHalf) {
   const d = car.def;
-  const snap = circuit.project(car.x, car.z);
+  const snap = snapIt(circuit, car.x, car.z, car.dist);
   car.offTrack = Math.abs(snap.lateral) > roadHalf;
 
   const fx = Math.cos(car.heading);
@@ -229,8 +245,8 @@ export function stepCar(car, input, dt, circuit, roadHalf) {
   car.z += car.vz * dt;
 
   // 랩/섹터 추적 (unwrap; 역주행·지름길은 섹터 미체크로 무효)
-  const now = circuit.project(car.x, car.z);
-  let delta = now.dist - snap.dist;
+  const now = snapIt(circuit, car.x, car.z, car.dist);
+  let delta = distDiff(now.dist, snap.dist, circuit.length);
   car.lateral = now.lateral;
   if (delta > circuit.length / 2) delta -= circuit.length;
   if (delta < -circuit.length / 2) delta += circuit.length;
@@ -324,6 +340,11 @@ export function collideObstacles(car, colliders, dt) {
   let maxImpact = 0;
   for (let k = 0; k < colliders.length; k++) {
     const o = colliders[k];
+    // 입체 트랙: 다른 층 장애물 무시 (dist 윈도우)
+    if (o.d !== undefined && o.d !== null && car.dist !== undefined) {
+      const L = o.L || 1200;
+      if (Math.abs(distDiff(car.dist, o.d, L)) > 30) continue;
+    }
     const dx = car.x - o.x;
     const dz = car.z - o.z;
     const rr = R + o.r;
@@ -376,7 +397,7 @@ export function collideWalls(car, circuit, roadHalf, walls, dt) {
   for (const s of [BUMPER, -BUMPER]) {
     const fx = car.x + hx * s;
     const fz = car.z + hz * s;
-    const snap = circuit.project(fx, fz);
+    const snap = snapIt(circuit, fx, fz, car.dist);
     if (Math.abs(snap.lateral) <= LIM) continue;
     let inGap = false;
     for (const g of walls.gaps) {
@@ -397,7 +418,7 @@ export function collideWalls(car, circuit, roadHalf, walls, dt) {
   }
   if (!contact) return 0;
   // 속도 응답 (중앙 기준): 법선은 튕기고, 접선은 감속 (긁힘 감속)
-  const snap = circuit.project(car.x, car.z);
+  const snap = snapIt(circuit, car.x, car.z, car.dist);
   const p = circuit.pointAt(snap.dist);
   const sgn = snap.lateral > 0 ? 1 : -1;
   const px = -p.dz;
@@ -471,7 +492,7 @@ export function collideCorridor(car, corr, dt) {
 // AI: 퓨어퍼슈트(전방 목표점 추적) + 커브 감속 + 러버밴딩
 export function aiInput(car, circuit, roadHalf, dt, playerProgress, aiProgress, ai) {
   const lookahead = 22 + Math.hypot(car.vx, car.vz) * 0.55;
-  const snap = circuit.project(car.x, car.z);
+  const snap = snapIt(circuit, car.x, car.z, car.dist);
   const target = circuit.pointAt(snap.dist + lookahead);
   // 목표 lateral: 코너 바깥→안쪽 (단순화: 직선 중앙, 커브 안쪽)
   const curv = circuit.curvatureAt(snap.dist + 10, 25);

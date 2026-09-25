@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mat } from './voxel.js?v=35aa4d';
 import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=35aa4d';
-import { trackY } from './track.js?v=d88ddf';
+import { trackY } from './track.js?v=a59bb6';
 
 export const ROAD_HALF = 11;
 
@@ -70,15 +70,20 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   const colliders = []; // {x, z, r} — 장애물 충돌 + 대미지용 (간트리·장식 공통)
 
   // 지형 높이: 트랙 고도를 따라가되 멀어질수록 0으로 (언덕 추종)
-  const groundHeightAt = (x, z) => {
-    const pr = circuit.project(x, z);
-    return trackY(circuit, pr.dist) * Math.exp(-Math.pow(Math.abs(pr.lateral) / 70, 2));
-  };
-  const registerCollider = (obj) => {
+  // ※ 입체 트랙은 평탄 (고가 하부 지형이 들썩이지 않게)
+  const groundHeightAt = circuit.hasOverlap
+    ? () => 0
+    : (x, z) => {
+      const pr = circuit.project(x, z);
+      return trackY(circuit, pr.dist) * Math.exp(-Math.pow(Math.abs(pr.lateral) / 70, 2));
+    };
+  const registerCollider = (obj, dOverride) => {
     const box = new THREE.Box3().setFromObject(obj);
     const s = new THREE.Vector3();
     box.getSize(s);
-    colliders.push({ x: obj.position.x, z: obj.position.z, r: Math.max(s.x, s.z) / 2 });
+    const c = { x: obj.position.x, z: obj.position.z, r: Math.max(s.x, s.z) / 2, L: circuit.length };
+    c.d = dOverride !== undefined ? dOverride : circuit.project(obj.position.x, obj.position.z).dist;
+    colliders.push(c);
   };
 
   // 잔디 (지형 변위)
@@ -261,7 +266,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     for (const s of [-1, 1]) {
       const v = new THREE.Vector3(0, 0, (s * (RH * 2 + 8)) / 2);
       gantry.localToWorld(v);
-      colliders.push({ x: v.x, z: v.z, r: 1.2 });
+      colliders.push({ x: v.x, z: v.z, r: 1.2, d: 0, L: circuit.length });
     }
   }
 
@@ -438,7 +443,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       ch.rotation.y = -Math.atan2(pp.dz, pp.dx);
       scene.add(ch);
     }
-    pads.push({ x: p.x, z: p.z });
+    pads.push({ x: p.x, z: p.z, d });
   }
   for (const f of feat.jumps || []) {
     const d = (((f % 1) + 1) % 1) * circuit.length;
@@ -462,7 +467,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     stripe.rotation.z = 0.3;
     grp.add(stripe);
     scene.add(grp);
-    jumps.push({ x: p.x, z: p.z });
+    jumps.push({ x: p.x, z: p.z, d });
   }
   {
     let bi = 0;
@@ -478,7 +483,13 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
         p.z + p.dx * lat
       );
       scene.add(stack);
-      registerCollider(stack);
+      const box = new THREE.Box3().setFromObject(stack);
+      const bsz = new THREE.Vector3();
+      box.getSize(bsz);
+      colliders.push({
+        x: stack.position.x, z: stack.position.z,
+        r: Math.max(bsz.x, bsz.z) / 2, d, L: circuit.length,
+      });
     }
   }
 
@@ -496,7 +507,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       );
       m.position.set(p.x + -p.dz * lat, trackY(circuit, d) + 2.2, p.z + p.dx * lat);
       scene.add(m);
-      itemBoxes.push({ x: m.position.x, z: m.position.z, mesh: m, takenT: 0 });
+      itemBoxes.push({ x: m.position.x, z: m.position.z, mesh: m, takenT: 0, d });
     });
   }
 
@@ -516,6 +527,17 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       // 다른 샘플과도 너무 가깝지 않게
       const pr = circuit.project(x, z);
       if (Math.abs(pr.lateral) < RH + 3) continue;
+      // 입체 트랙: 다른 층 도로와도 평면 겹침 금지 (시각 클리핑 방지)
+      if (circuit.hasOverlap) {
+        let clearance = Infinity;
+        for (let k = 0; k < circuit.count; k += 4) {
+          const q = circuit.pts[k];
+          const dd = Math.hypot(q.x - x, q.z - z);
+          if (dd < clearance) clearance = dd;
+          if (clearance < RH + 2) break;
+        }
+        if (clearance < RH + 2) continue;
+      }
       // 지름길 복도 주변엔 장식물 없음 (주행선 확보)
       let nearChord = false;
       for (const g of chordSegs) {

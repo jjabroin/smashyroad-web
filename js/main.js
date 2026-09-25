@@ -1,11 +1,11 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=41a246';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=e3e862';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
   distDiff,
-} from './race.js?v=b4a687';
+} from './race.js?v=3cafdf';
 
 // 입체 트랙 층간 오작동 방지: 다른 층 픽업 무시 (dist 윈도우, 구맵 무영향)
 function sameLevel(featD, carD) {
@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=66e330';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=1d9ccd';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {

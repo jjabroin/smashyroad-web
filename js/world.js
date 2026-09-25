@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mat } from './voxel.js?v=35aa4d';
 import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=35aa4d';
-import { trackY } from './track.js?v=41a246';
+import { trackY } from './track.js?v=e3e862';
 
 export const ROAD_HALF = 11;
 
@@ -135,12 +135,13 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
 
   // 고가 지지 기둥 (수직 맵용: 도로가 뜬 곳에 콘크리트 기둥)
   // ※ 아래층 도로를 뚫는 위치는 제외 (기둥이 하부 차선을 막지 않게)
+  // ※ 시작 직선 주변은 제외 (출발 시야 확보)
   if (feat.pillars) {
-    const step = 24;
+    const step = 36;
     const count = Math.floor(circuit.length / step);
     const inst = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(7, 1, 7),
-      new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }),
+      new THREE.BoxGeometry(5, 1, 5),
+      new THREE.MeshLambertMaterial({ color: 0xb9bfc7 }),
       count
     );
     const dm = new THREE.Object3D();
@@ -149,7 +150,8 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const d = i * step;
       const p = circuit.pointAt(d);
       const y = trackY(circuit, d);
-      if (y < 4) continue;
+      if (y < 6) continue;
+      if (d < 160) continue; // 출발 구간 시야 확보
       // 출발 샤프트 안은 기둥 생략 (샤프트가 받침 역할)
       if (feat.shaft) {
         const s = feat.shaft;
@@ -173,13 +175,13 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     scene.add(inst);
   }
 
-  // 서비스 튜브 (주행 안 하는 구간 은폐용 콘크리트 셸)
+  // 서비스 튜브 (주행 안 하는 구간 은폐용 콘크리트 셸, 슬림)
   if (feat.tube) {
     const step = 8;
     const n = Math.max(1, Math.floor((feat.tube.d1 - feat.tube.d0) / step));
     const inst = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(30, 20, 9),
-      new THREE.MeshLambertMaterial({ color: 0x6f757e }),
+      new THREE.BoxGeometry(24, 14, 9),
+      new THREE.MeshLambertMaterial({ color: 0x8a9099 }),
       n
     );
     const dm = new THREE.Object3D();
@@ -759,8 +761,9 @@ function drawDirtChord(scene, circuit, A, B, dA, dB, halfW) {
 // 그리드 슬롯 6대 (3열 × 2행, 스타트라인 뒤)
 export function gridSlots(circuit) {
   const slots = [];
-  // 타워형(시작/끝 고도차 큼): 그리드가 튜브에 박히지 않게 출발선 앞쪽에 배치
-  const tower = Math.abs(trackY(circuit, circuit.length - 10) - trackY(circuit, 0)) > 20;
+  // 타워형(시작 고도 높음): 그리드가 튜브에 박히지 않게 출발선 앞쪽에 배치
+  // ※ 끝점 고도가 아닌 시작 고도 기준으로 판정 (프로파일 모양과 무관하게 확정)
+  const tower = Math.abs(trackY(circuit, 0)) > 20;
   const rows = tower
     ? [
         { back: -8, lat: -4 },

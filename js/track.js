@@ -197,9 +197,9 @@ function finalizeCircuit(pts, elev, openEnds) {
       return project3D(x, z, yHint !== undefined ? yHint : yAt(((lastDist % length) + length) % length));
     }
     const r = refineAt(best, x, z);
-    // 순간이동급 dist 점프는 기각 (정상 주행은 2/프레임 이하)
+    // 순간이동급 dist 점프는 기각 (물리적으로 1프레임 25 이상 불가)
     // → 현재 층 높이 힌트로 3D 재탐색 (옆층 오인 영구 고착 방지)
-    if (Math.abs(wrapDiff(r.dist, lastDist)) > 8) {
+    if (Math.abs(wrapDiff(r.dist, lastDist)) > 25) {
       return project3D(x, z, yAt(((lastDist % length) + length) % length));
     }
     return r;

@@ -1,7 +1,7 @@
 // 차고 메인메뉴 (사진 스타일): 3D 턴테이블 + 차량/맵/모드 카드 + 서브패널
 import * as THREE from 'three';
 import { CAR_DEFS } from './race.js?v=3d5ad3';
-import { TRACK_DEFS, buildTrack } from './track.js?v=41a246';
+import { TRACK_DEFS, buildTrack } from './track.js?v=e3e862';
 import { CAR_BUILDERS, makeDriver } from './voxel.js?v=35aa4d';
 
 const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };

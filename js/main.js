@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=876503';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=fd8c09';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -43,6 +43,7 @@ let colliders = []; // 장애물 {x,z,r}
 let roadMesh = null; // 카메라 충돌용 노면 메시
 let tubeMesh = null; // 카메라 충돌용 튜브 메시
 let pillarMesh = null; // 카메라 충돌용 기둥 메시
+let wallMesh = null; // 카메라 충돌용 벽 메시
 let wallGaps = []; // 벽 틈새(지름길 출입구)
 let corridors = []; // 지름길 복도 [{ax,az,bx,bz,half}]
 let pads = []; // 부스터 패드 {x,z}
@@ -134,6 +135,7 @@ function buildWorldTrack(def) {
   roadMesh = w.road || null;
   tubeMesh = w.tube || null;
   pillarMesh = w.pillars || null;
+  wallMesh = w.walls || null;
   clearMines();
   worldObjs = scene.children.filter((o) => !before.has(o));
 }
@@ -287,6 +289,7 @@ function buildRace(playerDef, tdef, opts = {}) {
 // 카메라: 위치·주시점·FOV 모두 지수 댐핑(관성) — 뚝뚝 끊김 방지
 const lookSm = new THREE.Vector3();
 const _camDir = new THREE.Vector3();
+const _camTmp = new THREE.Vector3();
 const _camRay = new THREE.Raycaster();
 let shakeT = 0;
 function snapCamera(hard, dt = 0.016) {
@@ -304,37 +307,51 @@ function snapCamera(hard, dt = 0.016) {
   // - 데크 바로 앞(차 근처 명중)은 무시: 나선 내부 스침에 카메라가 차 안으로 빨려드는 버그 방지
   // - 여러 층이 걸리면 가장 먼(차에서 먼) 데크 기준으로 통과
   // - 3-ray(중앙+좌우): 한 가닥이 빗나가도 가림 판정 유지 (사각지대 해소)
+  // - 그래도 가리면 근접-저각 모드: 데크 사이 틈으로 보게 가까이·낮게 + 확보될 때까지 상승
   {
     const occluders = [];
     if (roadMesh) occluders.push(roadMesh);
     if (tubeMesh) occluders.push(tubeMesh);
     if (pillarMesh) occluders.push(pillarMesh);
-    if (occluders.length > 0) {
-      _camDir.copy(lookDes).sub(desired);
+    if (wallMesh) occluders.push(wallMesh);
+    const blocked = (from, to, by) => {
+      _camDir.copy(to).sub(from);
       const dist = _camDir.length();
-      if (dist > 1) {
-        _camDir.multiplyScalar(1 / dist);
-        const sideX = -_camDir.z;
-        const sideZ = _camDir.x;
-        let pick = null;
-        for (const off of [0, 2.5, -2.5]) {
-          _camRay.set(
-            { x: desired.x + sideX * off, y: desired.y, z: desired.z + sideZ * off },
-            _camDir
-          );
-          _camRay.far = dist;
-          const hits = _camRay.intersectObjects(occluders, false);
-          for (const h of hits) {
-            if (h.distance > 6 && h.distance < dist - 8 && h.point.y > baseY + 2) {
-              if (!pick || h.distance > pick.distance) pick = h;
-            }
-          }
+      if (dist < 1) return null;
+      _camDir.multiplyScalar(1 / dist);
+      _camRay.set(from, _camDir);
+      _camRay.far = dist;
+      const hits = _camRay.intersectObjects(occluders, false);
+      let pick = null;
+      for (const h of hits) {
+        if (h.distance > 6 && h.distance < dist - 8 && h.point.y > by + 2) {
+          if (!pick || h.distance > pick.distance) pick = h;
         }
-        if (pick) {
-          // 데크 통과 + 리프트: 가까울수록 위로 (꽁무늬만 보이는 것 방지)
-          desired.copy(pick.point).addScaledVector(_camDir, 3);
-          const remain = dist - pick.distance - 3;
-          desired.y += remain < 9 ? (9 - remain) * 1.5 + 2 : 2;
+      }
+      return pick ? { pick, dist } : null;
+    };
+    if (occluders.length > 0) {
+      const sideX = -fz;
+      const sideZ = fx;
+      let pick = null;
+      let blockedRays = 0;
+      for (const off of [0, 2.5, -2.5]) {
+        _camTmp.set(desired.x + sideX * off, desired.y, desired.z + sideZ * off);
+        const r = blocked(_camTmp, lookDes, baseY);
+        if (r) {
+          blockedRays++;
+          if (!pick || r.pick.distance > pick.pick.distance) pick = r;
+        }
+      }
+      // 2개 이상 가닥이 막혀야 발동 (스침 1개는 무시)
+      if (pick && blockedRays >= 2) {
+        // 근접-저각: 차 뒤 14, 높이 7으로 붙고 위로 올리며 확보 확인 (최대 3회)
+        desired.set(p.x - fx * 14, baseY + 7, p.z - fz * 14);
+        for (let k = 0; k < 3; k++) {
+          const r = blocked(desired, lookDes, baseY);
+          if (!r) break;
+          desired.y += 3;
+          if (desired.y > baseY + 20) break;
         }
       }
     }

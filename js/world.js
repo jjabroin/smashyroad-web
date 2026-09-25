@@ -139,6 +139,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   // ※ 아래층 도로를 뚫는 위치는 제외 (기둥이 하부 차선을 막지 않게)
   // ※ 시작 직선 주변은 제외 (출발 시야 확보)
   let pillarMesh = null;
+  let wallMesh = null;
   if (feat.pillars) {
     const step = 36;
     const count = Math.floor(circuit.length / step);
@@ -488,6 +489,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     white.castShadow = true;
     white.receiveShadow = true;
     scene.add(white);
+    wallMesh = white;
     // 기둥 (12유닛 간격, 빨강/흰 교대)
     const step = 12;
     const count = Math.floor(circuit.length / step);
@@ -717,7 +719,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
   }
 
-  return { sun, colliders, wallGaps, corridors, pads, jumps, itemBoxes, road, tube, pillars: pillarMesh };
+  return { sun, colliders, wallGaps, corridors, pads, jumps, itemBoxes, road, tube, pillars: pillarMesh, walls: wallMesh };
 }
 
 // 지름길 복도 양옆 벽 (입구 t=0.08~0.92만, 낮게)

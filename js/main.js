@@ -1,6 +1,6 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=5f7e20';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=88d572';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,

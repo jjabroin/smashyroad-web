@@ -363,14 +363,14 @@ function track9Points() {
 // hill: 오르막/내리막 {amp, k} · boosts/jumps/blocks: 랩 분율 위치
 export const TRACK_DEFS = [
   { id: 'oval', name: '초원 오벌', mode: 'rounded', straight: 260, radius: 75, waveAmp: 0, waveK: 2, theme: 'park', laps: 3,
-    hill: { amp: 5, k: 2 }, boosts: [0.25, 0.6], jumps: [0.45], blocks: [0.55] },
+    hill: { amp: 11, k: 2 }, boosts: [0.25, 0.6], jumps: [0.45], blocks: [0.55] },
   { id: 'wave', name: '사막 웨이브', mode: 'rounded', straight: 230, radius: 70, waveAmp: 20, waveK: 2, theme: 'desert', laps: 3,
-    hill: { amp: 6, k: 3 }, boosts: [0.3, 0.7], jumps: [], blocks: [0.45] },
+    hill: { amp: 9, k: 3 }, boosts: [0.3, 0.7], jumps: [], blocks: [0.45] },
   { id: 'hairpin', name: '도심 헤어핀', mode: 'rounded', straight: 220, radius: 45, waveAmp: 0, waveK: 2, theme: 'city', laps: 3,
-    hill: { amp: 4, k: 2 }, boosts: [0.5], jumps: [], blocks: [0.3] },
+    hill: { amp: 8, k: 2 }, boosts: [0.5], jumps: [], blocks: [0.3] },
   {
     id: 'horseshoe', name: '말굽 서킷', mode: 'spline', theme: 'park', laps: 3,
-    hill: { amp: 5, k: 2 }, boosts: [0.25, 0.65], jumps: [0.55], blocks: [0.7],
+    hill: { amp: 9, k: 2 }, boosts: [0.25, 0.65], jumps: [0.55], blocks: [0.7],
     points: [
       [-140, 44], [0, 50], [140, 44], [174, 22], [174, -22], [140, -44],
       [60, -50], [20, -30], [-20, -30], [-60, -50], [-140, -44], [-174, -22], [-174, 22],
@@ -378,7 +378,7 @@ export const TRACK_DEFS = [
   },
   {
     id: 'express', name: '대륙 익스프레스', mode: 'spline', theme: 'desert', laps: 2,
-    hill: { amp: 7, k: 3 }, boosts: [0.2, 0.5, 0.8], jumps: [0.65], blocks: [0.5],
+    hill: { amp: 14, k: 3 }, boosts: [0.2, 0.5, 0.8], jumps: [0.65], blocks: [0.5],
     points: [
       [-260, 120], [-80, 132], [120, 132], [260, 120], [330, 60], [330, -60],
       [260, -120], [80, -132], [-120, -132], [-260, -120], [-330, -60], [-330, 60],
@@ -386,7 +386,7 @@ export const TRACK_DEFS = [
   },
   {
     id: 'technical', name: '테크니컬', mode: 'spline', theme: 'city', laps: 3,
-    hill: { amp: 6, k: 3 }, boosts: [0.3, 0.7], jumps: [0.4], blocks: [0.2, 0.6],
+    hill: { amp: 8, k: 3 }, boosts: [0.3, 0.7], jumps: [0.4], blocks: [0.2, 0.6],
     points: [
       [-160, 30], [-80, 62], [0, 22], [80, 62], [160, 30], [192, -12],
       [160, -52], [80, -22], [0, -62], [-80, -22], [-160, -52], [-192, -12],
@@ -394,7 +394,7 @@ export const TRACK_DEFS = [
   },
   {
     id: 'forest', name: '포레스트', mode: 'spline', theme: 'forest', laps: 2,
-    hill: { amp: 8, k: 4 }, boosts: [0.35, 0.75], jumps: [0.5, 0.85], blocks: [0.3, 0.65],
+    hill: { amp: 10, k: 4 }, boosts: [0.35, 0.75], jumps: [0.5, 0.85], blocks: [0.3, 0.65],
     points: [
       [-180, 20], [-120, 70], [-50, 30], [20, 80], [90, 30], [160, 70],
       [210, 20], [190, -40], [120, -10], [50, -60], [-20, -10], [-90, -60],
@@ -403,7 +403,7 @@ export const TRACK_DEFS = [
   },
   {
     id: 'village', name: '빌리지 손가락', mode: 'village', theme: 'park', laps: 2,
-    hill: { amp: 0, k: 2 }, boosts: [0.3, 0.7], jumps: [0.5], blocks: [0.6],
+    hill: { amp: 16, k: 2 }, boosts: [0.3, 0.7], jumps: [0.5], blocks: [0.6],
     roadHalf: 8, shortcuts: [{ d1: 0.306, d2: 0.393 }],
   },
   {

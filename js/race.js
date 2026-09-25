@@ -1,5 +1,5 @@
 // 경주 로직: 아케이드 관성 물리 + AI + 랩/순위 + 벽/부스터 (three.js 없음 → node 테스트 가능)
-import { trackSlope } from './track.js?v=5f7e20';
+import { trackSlope } from './track.js?v=88d572';
 //
 // 물리 모델 (관성 체감용 속도벡터 방식):
 // - vel 벡터가 실제 이동, heading은 차 머리 방향

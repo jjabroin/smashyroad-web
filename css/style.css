@@ -755,3 +755,4 @@ body.editing .ctlbtn { outline: 3px dashed #ffd75d; cursor: move; }
 .mthumb { min-height: 76px; }
 .mthumb svg { width: 52px; height: 52px; }
 #cardTrackMini { width: 132px; height: 62px; }
+.mthumb img { width: 100%; height: 76px; object-fit: cover; border-radius: 8px; display: block; }

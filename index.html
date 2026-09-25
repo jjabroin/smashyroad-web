@@ -7,7 +7,7 @@
   <meta name="description" content="복셀 3D 트랙 경주 게임. 차고에서 차를 고르고 3랩 서킷에서 결승선을 노리세요." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=8ba0e8" />
+  <link rel="stylesheet" href="css/style.css?v=2db3f2" />
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
@@ -29,11 +29,11 @@
     <canvas id="garageCanvas"></canvas>
     <div class="menu-cards">
       <button class="mcard blue" id="cardCar">
-        <span class="mthumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 13l1.5-4.5A2 2 0 0 1 7.4 7h9.2a2 2 0 0 1 1.9 1.5L20 13"/><rect x="3" y="13" width="18" height="6" rx="1"/><circle cx="7.5" cy="19" r="1.6" fill="currentColor"/><circle cx="16.5" cy="19" r="1.6" fill="currentColor"/></svg></span>
+        <span class="mthumb"><img id="cardCarSnap" alt="차량" /></span>
         <span class="mbar"><b id="curCar">F1</b><small>차량 선택</small><i>›</i></span>
       </button>
       <button class="mcard green" id="cardTrack">
-        <span class="mthumb"><canvas id="cardTrackMini" width="120" height="54"></canvas></span>
+        <span class="mthumb"><img src="assets/map-card.jpg?v=b37389" alt="맵" /></span>
         <span class="mbar"><b id="curTrack">초원 오벌</b><small>맵 선택</small><i>›</i></span>
       </button>
       <button class="mcard purple" id="cardMode">
@@ -240,7 +240,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=b33e06"></script>
+  <script type="module" src="js/main.js?v=a3393d"></script>
   <script>
     // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
     // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.

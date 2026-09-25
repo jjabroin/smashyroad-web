@@ -87,8 +87,6 @@ export function createGarage(onStart, hooks = {}) {
     document.getElementById('curTrack').textContent = TRACK_DEFS[trackIdx].name;
     document.getElementById('curMode').textContent = MODE_LABEL[mode];
     document.getElementById('raceLabel').textContent = MODE_START[mode];
-    const cm = document.getElementById('cardTrackMini');
-    if (cm) drawMini(cm, TRACK_DEFS[trackIdx]);
   }
 
   function render(idxNew) {
@@ -395,10 +393,20 @@ export function createGarage(onStart, hooks = {}) {
   });
 
   let raf = 0;
+  let snapTick = 0;
   function loop() {
     raf = requestAnimationFrame(loop);
     stand.rotation.y += 0.008;
     renderer.render(scene, camera);
+    // 차량 카드 미리보기: 턴테이블 스냅샷 (0.5초 간격)
+    if (++snapTick % 30 === 0) {
+      try {
+        const img = document.getElementById('cardCarSnap');
+        if (img && document.getElementById('garage').style.display !== 'none') {
+          img.src = renderer.domElement.toDataURL('image/jpeg', 0.7);
+        }
+      } catch (e) { /* 무시 */ }
+    }
   }
 
   resize();

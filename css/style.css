@@ -790,7 +790,8 @@ html, body {
   font-family: 'NeoDunggeunmo', -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
 }
 .mthumb.sky { background: none; }
-.mthumb .trap img, .mthumb .trap canvas { height: 140px; }
+.mcard.blue .mthumb { background: none; }
+.mthumb .trap img, .mthumb .trap canvas { height: 160px; }
 .modeflag { font-size: 64px; line-height: 1; padding: 12px 0; }
 #raceBtn { display: block; margin-left: auto; margin-right: auto; }
 #raceBtn {
@@ -811,6 +812,7 @@ html, body {
 
 /* 썸네일 배경 제거 + 하단바 바닥 고정 */
 .mthumb.sky { background: none; }
+.mcard.blue .mthumb { background: none; }
 .mcard.purple .mthumb { background: none; }
 .mcard { display: flex; flex-direction: column; }
 .mthumb { flex: 1; display: flex; align-items: center; justify-content: center; }

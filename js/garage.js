@@ -410,8 +410,8 @@ export function createGarage(onStart, hooks = {}) {
         const sun = new THREE.DirectionalLight(0xfff6e0, 1.6);
         sun.position.set(8, 14, 6);
         cardScene.add(sun);
-        cardCamera = new THREE.PerspectiveCamera(36, 300 / 170, 0.1, 200);
-        cardCamera.position.set(-10, 5.5, 12);
+        cardCamera = new THREE.PerspectiveCamera(36, 440 / 260, 0.1, 200);
+        cardCamera.position.set(-8, 4.5, 9.5);
         cardCamera.lookAt(0, 2, 0);
       }
       if (cardCarMesh) {

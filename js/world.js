@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mat } from './voxel.js?v=35aa4d';
 import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=35aa4d';
-import { trackY } from './track.js?v=355c21';
+import { trackY } from './track.js?v=9cca5f';
 
 export const ROAD_HALF = 11;
 
@@ -24,6 +24,7 @@ export const THEMES = {
 
 function ribbonGeometry(circuit, halfW, yFn) {
   const n = circuit.count;
+  const OPEN = !!circuit.openEnds;
   const pos = new Float32Array(n * 2 * 3);
   const idx = [];
   for (let i = 0; i < n; i++) {
@@ -33,6 +34,7 @@ function ribbonGeometry(circuit, halfW, yFn) {
     const y = yFn(circuit.cum[i]);
     pos.set([p.x + px * halfW, y, p.z + pz * halfW], i * 6);
     pos.set([p.x - px * halfW, y, p.z - pz * halfW], i * 6 + 3);
+    if (OPEN && i === n - 1) break; // 개방형: 끝단 미연결
     const a = i * 2;
     const b = i * 2 + 1;
     const c = ((i + 1) % n) * 2;
@@ -148,6 +150,11 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const p = circuit.pointAt(d);
       const y = trackY(circuit, d);
       if (y < 4) continue;
+      // 출발 샤프트 안은 기둥 생략 (샤프트가 받침 역할)
+      if (feat.shaft) {
+        const s = feat.shaft;
+        if (Math.abs(p.x - s.x) < s.w / 2 + 4 && Math.abs(p.z - s.z) < s.d / 2 + 4) continue;
+      }
       let pierce = false;
       for (let k = 0; k < circuit.count; k += 6) {
         const q = circuit.pts[k];
@@ -179,6 +186,37 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     scene.add(m);
   }
 
+  // 개방형 끝단 벽 (시작 뒤 + 종점 앞): 시각 + 충돌 3점
+  if (circuit.openEnds) {
+    const endD = (circuit.finishU ? circuit.finishU * circuit.length : circuit.length - 2) + 6;
+    for (const bd of [3, endD]) {
+      const dd = Math.max(0, Math.min(circuit.length - 1, bd));
+      const p = circuit.pointAt(dd);
+      const y = trackY(circuit, dd);
+      const yaw = -Math.atan2(p.dz, p.dx);
+      const wall = new THREE.Mesh(
+        new THREE.BoxGeometry(2.5, 6, RH * 2 + 6),
+        new THREE.MeshLambertMaterial({ color: 0xd63a2f })
+      );
+      wall.position.set(p.x, y + 3, p.z);
+      wall.rotation.y = yaw;
+      scene.add(wall);
+      const stripe = new THREE.Mesh(
+        new THREE.BoxGeometry(2.6, 1.2, RH * 2 + 6),
+        new THREE.MeshLambertMaterial({ color: 0xf4f6f8 })
+      );
+      stripe.position.set(p.x, y + 4.6, p.z);
+      stripe.rotation.y = yaw;
+      scene.add(stripe);
+      for (const s of [-7.3, 0, 7.3]) {
+        colliders.push({
+          x: p.x + -p.dz * s, z: p.z + p.dx * s, r: 7,
+          d: dd, L: circuit.length,
+        });
+      }
+    }
+  }
+
   const dummy = new THREE.Object3D();
 
   // 중앙 흰 점선
@@ -202,6 +240,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   // 노란 가장자리선
   for (const side of [1, -1]) {
     const n = circuit.count;
+    const OPENE = !!circuit.openEnds;
     const pos = new Float32Array(n * 2 * 3);
     const idx = [];
     const off = RH - 0.9;
@@ -214,6 +253,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const yy = trackY(circuit, circuit.cum[i]) + 0.09;
       pos.set([cx + px * 0.28, yy, cz + pz * 0.28], i * 6);
       pos.set([cx - px * 0.28, yy, cz - pz * 0.28], i * 6 + 3);
+      if (OPENE && i === n - 1) break; // 개방형: 끝단 미연결
       const a = i * 2;
       const b = i * 2 + 1;
       const c = ((i + 1) % n) * 2;
@@ -632,7 +672,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
   }
 
-  return { sun, colliders, wallGaps, corridors, pads, jumps, itemBoxes };
+  return { sun, colliders, wallGaps, corridors, pads, jumps, itemBoxes, road };
 }
 
 // 지름길 복도 양옆 벽 (입구 t=0.08~0.92만, 낮게)
@@ -730,11 +770,13 @@ export function gridSlots(circuit) {
         { back: 28, lat: 4 },
       ];
   for (const r of rows) {
-    const p = circuit.pointAt(tower ? -r.back : circuit.length - r.back);
+    const d = tower ? -r.back : circuit.length - r.back;
+    const p = circuit.pointAt(d);
     slots.push({
       x: p.x + -p.dz * r.lat,
       z: p.z + p.dx * r.lat,
       heading: Math.atan2(p.dz, p.dx),
+      d,
     });
   }
   return slots;

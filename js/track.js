@@ -59,8 +59,9 @@ function applyWave(pts, waveAmp, waveK) {
 }
 
 // 중심선 확정: 누적거리·진행방향·투영·곡률 API 생성 (rounded/spline 공통)
-function finalizeCircuit(pts, elev) {
+function finalizeCircuit(pts, elev, openEnds) {
   const n = pts.length;
+  const OPEN = !!openEnds;
   const cum = new Array(n + 1).fill(0);
   for (let i = 0; i < n; i++) {
     const a = pts[i];
@@ -77,6 +78,17 @@ function finalizeCircuit(pts, elev) {
     const m = Math.hypot(dx, dz) || 1;
     pts[i].dx = dx / m;
     pts[i].dz = dz / m;
+  }
+  if (OPEN) {
+    // 개방형: 양끝은 한쪽 차분 (반대편 이음매 평균 금지 — 시작 방향 틀어짐 방지)
+    const f = pts[1];
+    let m = Math.hypot(f.x - pts[0].x, f.z - pts[0].z) || 1;
+    pts[0].dx = (f.x - pts[0].x) / m;
+    pts[0].dz = (f.z - pts[0].z) / m;
+    const l = pts[n - 2];
+    m = Math.hypot(pts[n - 1].x - l.x, pts[n - 1].z - l.z) || 1;
+    pts[n - 1].dx = (pts[n - 1].x - l.x) / m;
+    pts[n - 1].dz = (pts[n - 1].z - l.z) / m;
   }
 
   function pointAt(d) {
@@ -143,6 +155,7 @@ function finalizeCircuit(pts, elev) {
   // - LOST(윈도우 내 25 이내 없음: 리스폰·폭파 등) → 전역 3D 탐색 (y 힌트)
   function wrapDiff(a, b) {
     let d = a - b;
+    if (OPEN) return d; // 개방형은 wrap 없음
     if (d > length / 2) d -= length;
     if (d < -length / 2) d += length;
     return d;
@@ -156,7 +169,7 @@ function finalizeCircuit(pts, elev) {
     const rz = z - p.z;
     const along = rx * p.dx + rz * p.dz;
     let dist = cum[idx] + along;
-    dist = ((dist % length) + length) % length;
+    dist = OPEN ? Math.max(0, Math.min(length, dist)) : ((dist % length) + length) % length;
     const lateral = rx * -p.dz + rz * p.dx;
     return { dist, lateral };
   }
@@ -170,7 +183,7 @@ function finalizeCircuit(pts, elev) {
     let bestD2 = Infinity;
     for (let i = 0; i < n; i++) {
       let dd = Math.abs(cum[i] - lastDist);
-      if (dd > length / 2) dd = length - dd;
+      if (!OPEN && dd > length / 2) dd = length - dd; // 개방형은 wrap 금지
       if (dd > WIN) continue;
       const ddx = x - pts[i].x;
       const ddz = z - pts[i].z;
@@ -260,7 +273,7 @@ export function buildVillage(elev) {
 }
 
 // 제어점을 지나는 닫힌 Catmull-Rom 스플라인 서킷
-export function buildSplineCircuit(controls, perSeg = 30, elev = null) {
+export function buildSplineCircuit(controls, perSeg = 30, elev = null, openEnds = false) {
   const m = controls.length;
   const P = (i) => controls[(i + m) % m];
   const pts = [];
@@ -279,7 +292,7 @@ export function buildSplineCircuit(controls, perSeg = 30, elev = null) {
       });
     }
   }
-  const c = finalizeCircuit(pts, elev || { amp: 0, k: 2 });
+  const c = finalizeCircuit(pts, elev || { amp: 0, k: 2 }, openEnds);
   c.elev = elev || { amp: 0, k: 2 };
   return c;
 }
@@ -392,6 +405,7 @@ export const TRACK_DEFS = [
   },
   {
     id: 'track9', name: '트랙9', mode: 'spline', theme: 'city', laps: 1,
+    openEnds: true,
     hill: { points: [
       [0, 72], [0.0431, 72],
       [0.1367, 64], [0.2303, 56], [0.3238, 48], [0.4174, 40], [0.5110, 32],
@@ -411,13 +425,14 @@ export const TRACK_DEFS = [
 export function buildTrack(def) {
   let c;
   if (def.mode === 'village') c = buildVillage(def.hill);
-  else if (def.mode === 'spline') c = buildSplineCircuit(def.points, def.perSeg || 30, def.hill);
+  else if (def.mode === 'spline') c = buildSplineCircuit(def.points, def.perSeg || 30, def.hill, !!def.openEnds);
   else c = buildCircuit(def.straight, def.radius, {
     waveAmp: def.waveAmp, waveK: def.waveK,
     hillAmp: def.hill && def.hill.amp, hillK: def.hill && def.hill.k,
   });
   c.roadHalf = def.roadHalf || 11;
   c.hasOverlap = !!def.overlap3d; // 입체(겹침) 트랙: 3D 투영 엔진 사용
+  c.openEnds = !!def.openEnds; // 포인트-투-포인트: 양끝 미연결
   if (def.finishU) c.finishU = def.finishU; // 포인트-투-포인트 종점 (기본 0=시작선)
   return c;
 }

@@ -1,11 +1,11 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=355c21';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=9cca5f';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
   distDiff,
-} from './race.js?v=4f0ffa';
+} from './race.js?v=9fca59';
 
 // 입체 트랙 층간 오작동 방지: 다른 층 픽업 무시 (dist 윈도우, 구맵 무영향)
 function sameLevel(featD, carD) {
@@ -13,13 +13,13 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=793e2d';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=07873e';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=8c894b';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=617d1f';
 import { createGarage } from './garage.js?v=179cfd';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
@@ -40,6 +40,7 @@ let trackDef = TRACK_DEFS[0];
 let LAPS = trackDef.laps;
 let worldObjs = []; // 현 트랙 월드 오브젝트 (교체 시 제거)
 let colliders = []; // 장애물 {x,z,r}
+let roadMesh = null; // 카메라 충돌용 노면 메시
 let wallGaps = []; // 벽 틈새(지름길 출입구)
 let corridors = []; // 지름길 복도 [{ax,az,bx,bz,half}]
 let pads = []; // 부스터 패드 {x,z}
@@ -128,6 +129,7 @@ function buildWorldTrack(def) {
   pads = w.pads;
   jumps = w.jumps;
   itemBoxes = w.itemBoxes;
+  roadMesh = w.road || null;
   clearMines();
   worldObjs = scene.children.filter((o) => !before.has(o));
 }
@@ -252,6 +254,7 @@ function buildRace(playerDef, tdef, opts = {}) {
   defs.forEach((def, i) => {
     const s = slots[i % slots.length];
     const car = makeCarState(def, s.x, s.z, s.heading);
+    car.dist = s.d !== undefined ? s.d : 0;
     car.lapStart = 0;
     const mesh = CAR_BUILDERS[def.id](def.color, def.accent);
     mesh.position.set(s.x, 0, s.z);
@@ -279,6 +282,8 @@ function buildRace(playerDef, tdef, opts = {}) {
 
 // 카메라: 위치·주시점·FOV 모두 지수 댐핑(관성) — 뚝뚝 끊김 방지
 const lookSm = new THREE.Vector3();
+const _camDir = new THREE.Vector3();
+const _camRay = new THREE.Raycaster();
 let shakeT = 0;
 function snapCamera(hard, dt = 0.016) {
   const p = racers[focusIdx()].car;
@@ -290,6 +295,24 @@ function snapCamera(hard, dt = 0.016) {
   const baseY = trackY(circuit, p.dist);
   const desired = new THREE.Vector3(p.x - fx * back, baseY + height, p.z - fz * back);
   const lookDes = new THREE.Vector3(p.x + fx * 20, baseY + 2, p.z + fz * 20);
+  // 카메라 충돌: 고가 노면이 시야를 가리면 앞으로 당김 (차 가림 방지)
+  if (roadMesh) {
+    _camDir.copy(lookDes).sub(desired);
+    const dist = _camDir.length();
+    if (dist > 1) {
+      _camDir.multiplyScalar(1 / dist);
+      _camRay.set(desired, _camDir);
+      _camRay.far = dist;
+      const hits = _camRay.intersectObject(roadMesh, false);
+      if (hits.length > 0) {
+        const h = hits[0];
+        // 차보다 확실히 위인 노면만 (지면·자차 노면은 무시)
+        if (h.distance > 2 && h.distance < dist - 3 && h.point.y > baseY + 4) {
+          desired.copy(h.point).addScaledVector(_camDir, -2.5);
+        }
+      }
+    }
+  }
   if (hard) {
     camPos.copy(desired);
     lookSm.copy(lookDes);

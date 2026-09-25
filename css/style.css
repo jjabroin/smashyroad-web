@@ -707,3 +707,37 @@ body.editing .ctlbtn { outline: 3px dashed #ffd75d; cursor: move; }
 #raceBtn { background: linear-gradient(180deg, #e23b2e, #a3241b); position: relative; }
 .phead { border-bottom: 3px solid #ffd75d; padding-bottom: 8px; }
 .moderow.sel, .trackrow.sel { border-color: #ffd75d; }
+
+/* ===== 메뉴카드 레퍼런스풍 + 팝업 헤더 고정 ===== */
+.mcard { padding: 0; gap: 0; border-width: 3px; }
+.mcard.blue { border-color: #37c8f0; box-shadow: 0 0 14px rgba(55,200,240,.55); }
+.mcard.green { border-color: #3ddc84; box-shadow: 0 0 14px rgba(61,220,132,.55); }
+.mcard.purple { border-color: #b06cf0; box-shadow: 0 0 14px rgba(176,108,240,.55); }
+.mcard::before { display: none; }
+.mthumb {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 64px; padding: 8px;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(255,255,255,.28), transparent 60%),
+    linear-gradient(165deg, rgba(255,255,255,.16), transparent 45%);
+  color: #fff;
+}
+.mcard.blue .mthumb { background-color: #1c6dd0; }
+.mcard.green .mthumb { background-color: #1d9e57; }
+.mcard.purple .mthumb { background-color: #6d34c2; }
+.mthumb svg { width: 44px; height: 44px; filter: drop-shadow(0 3px 3px rgba(0,0,0,.45)); }
+#cardTrackMini { width: 110px; height: 54px; }
+.mbar {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: rgba(8,12,18,.88); padding: 8px 10px;
+}
+.mbar b { font-size: 15px; }
+.mbar small { color: #c6d2de; font-size: 12px; flex: 1; }
+.mbar i { font-style: normal; color: #ffd75d; font-size: 18px; font-weight: 900; }
+.subpanel { padding-top: 0; }
+.phead {
+  position: sticky; top: 0; z-index: 5;
+  background: #0d1319; margin: 0 -16px; padding: 14px 16px 10px;
+  border-bottom: 3px solid #ffd75d;
+  border-radius: 14px 14px 0 0;
+}

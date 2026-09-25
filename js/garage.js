@@ -6,7 +6,7 @@ import { CAR_BUILDERS, makeDriver } from './voxel.js?v=35aa4d';
 
 const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };
 const MODE_LABEL = { race: '레이싱', item: '아이템전', ta: '타임어택', online: '온라인' };
-const MODE_START = { race: '🏁 시작하기', item: '🎁 시작하기', ta: '⏱ 시작하기', online: '🌐 시작하기' };
+const MODE_START = { race: '시작하기', item: '시작하기', ta: '시작하기', online: '시작하기' };
 const MODES = ['race', 'item', 'ta', 'online'];
 
 export function createGarage(onStart, hooks = {}) {
@@ -86,7 +86,9 @@ export function createGarage(onStart, hooks = {}) {
     document.getElementById('curCar').textContent = CAR_DEFS[idx].name;
     document.getElementById('curTrack').textContent = TRACK_DEFS[trackIdx].name;
     document.getElementById('curMode').textContent = MODE_LABEL[mode];
-    document.getElementById('raceBtn').textContent = MODE_START[mode];
+    document.getElementById('raceLabel').textContent = MODE_START[mode];
+    const cm = document.getElementById('cardTrackMini');
+    if (cm) drawMini(cm, TRACK_DEFS[trackIdx]);
   }
 
   function render(idxNew) {

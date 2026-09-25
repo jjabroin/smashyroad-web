@@ -7,7 +7,7 @@
   <meta name="description" content="복셀 3D 트랙 경주 게임. 차고에서 차를 고르고 3랩 서킷에서 결승선을 노리세요." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=e6349d" />
+  <link rel="stylesheet" href="css/style.css?v=762547" />
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
@@ -33,7 +33,7 @@
         <span class="mbar"><b id="curCar">F1</b><small>차량 선택</small><i>›</i></span>
       </button>
       <button class="mcard green" id="cardTrack">
-        <span class="mthumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg></span>
+        <span class="mthumb"><canvas id="cardTrackMini" width="120" height="54"></canvas></span>
         <span class="mbar"><b id="curTrack">초원 오벌</b><small>맵 선택</small><i>›</i></span>
       </button>
       <button class="mcard purple" id="cardMode">
@@ -41,7 +41,7 @@
         <span class="mbar"><b id="curMode">레이스</b><small>모드 선택</small><i>›</i></span>
       </button>
     </div>
-    <button id="raceBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg> 시작하기</button>
+    <button id="raceBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg> <span id="raceLabel">시작하기</span></button>
     <div id="appVer"></div>
 
     <div id="panelCar" class="subpanel" style="display:none">
@@ -240,7 +240,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=44e9d2"></script>
+  <script type="module" src="js/main.js?v=b33e06"></script>
   <script>
     // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
     // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.

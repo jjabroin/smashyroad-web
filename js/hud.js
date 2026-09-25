@@ -7,9 +7,12 @@ export function fmtTime(sec) {
 export function createHUD(circuit, shortcuts = []) {
   const el = (id) => document.getElementById(id);
 
-  // 미니맵 경로 정규화
+  // 미니맵 경로 정규화 (주행 구간만: 이음매 제외)
+  const CUTB = circuit.cutD !== undefined ? circuit.cutD : circuit.length;
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-  for (const p of circuit.pts) {
+  for (let i = 0; i < circuit.count; i++) {
+    if (circuit.cum[i] > CUTB) break;
+    const p = circuit.pts[i];
     minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
     minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
   }
@@ -31,11 +34,14 @@ export function createHUD(circuit, shortcuts = []) {
     mctx.strokeStyle = '#e8ecf1';
     mctx.lineJoin = 'round';
     mctx.beginPath();
-    circuit.pts.forEach((p, i) => {
+    const CUTM = circuit.cutD !== undefined ? circuit.cutD : circuit.length;
+    for (let i = 0; i < circuit.count; i++) {
+      if (circuit.cum[i] > CUTM) break; // 이음매 미표시
+      const p = circuit.pts[i];
       const [x, y] = toMap(p.x, p.z);
       if (i === 0) mctx.moveTo(x, y);
       else mctx.lineTo(x, y);
-    });
+    }
     if (circuit.openEnds) {
       // 개방형: 끝단 미연결 (시작→종점선 없음)
       mctx.stroke();

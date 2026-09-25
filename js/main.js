@@ -1,6 +1,6 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=e3e862';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=5f7e20';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
@@ -13,13 +13,13 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=6cb5c6';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=e04a9f';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
   return (typeof circuit !== 'undefined' && circuit && circuit.roadHalf) || ROAD_HALF;
 }
-import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=45c177';
+import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
 import { createGarage } from './garage.js?v=179cfd';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
@@ -331,7 +331,10 @@ function snapCamera(hard, dt = 0.016) {
           }
         }
         if (pick) {
+          // 데크 통과 + 리프트: 가까울수록 위로 (꽁무늬만 보이는 것 방지)
           desired.copy(pick.point).addScaledVector(_camDir, 3);
+          const remain = dist - pick.distance - 3;
+          desired.y += remain < 9 ? (9 - remain) * 1.5 + 2 : 2;
         }
       }
     }

@@ -436,5 +436,7 @@ export function buildTrack(def) {
   c.hasOverlap = !!def.overlap3d; // 입체(겹침) 트랙: 3D 투영 엔진 사용
   c.openEnds = !!def.openEnds; // 포인트-투-포인트: 양끝 미연결
   if (def.finishU) c.finishU = def.finishU; // 포인트-투-포인트 종점 (기본 0=시작선)
+  // 노면 렌더 절단점: 결승+15 (이음매 리본 원천 제거)
+  c.cutD = def.finishU ? def.finishU * c.length + 15 : c.length;
   return c;
 }

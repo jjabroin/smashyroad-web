@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mat } from './voxel.js?v=35aa4d';
 import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=35aa4d';
-import { trackY } from './track.js?v=e3e862';
+import { trackY } from './track.js?v=5f7e20';
 
 export const ROAD_HALF = 11;
 
@@ -25,6 +25,7 @@ export const THEMES = {
 function ribbonGeometry(circuit, halfW, yFn) {
   const n = circuit.count;
   const OPEN = !!circuit.openEnds;
+  const CUT = circuit.cutD !== undefined ? circuit.cutD : circuit.length;
   const pos = new Float32Array(n * 2 * 3);
   const idx = [];
   for (let i = 0; i < n; i++) {
@@ -35,6 +36,7 @@ function ribbonGeometry(circuit, halfW, yFn) {
     pos.set([p.x + px * halfW, y, p.z + pz * halfW], i * 6);
     pos.set([p.x - px * halfW, y, p.z - pz * halfW], i * 6 + 3);
     if (OPEN && i === n - 1) break; // 개방형: 끝단 미연결
+    if (circuit.cum[i] > CUT) break; // 이음매 리본 원천 제거
     const a = i * 2;
     const b = i * 2 + 1;
     const c = ((i + 1) % n) * 2;
@@ -267,6 +269,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   for (const side of [1, -1]) {
     const n = circuit.count;
     const OPENE = !!circuit.openEnds;
+    const CUTE = circuit.cutD !== undefined ? circuit.cutD : circuit.length;
     const pos = new Float32Array(n * 2 * 3);
     const idx = [];
     const off = RH - 0.9;
@@ -280,6 +283,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       pos.set([cx + px * 0.28, yy, cz + pz * 0.28], i * 6);
       pos.set([cx - px * 0.28, yy, cz - pz * 0.28], i * 6 + 3);
       if (OPENE && i === n - 1) break; // 개방형: 끝단 미연결
+      if (circuit.cum[i] > CUTE) break; // 이음매 원천 제거
       const a = i * 2;
       const b = i * 2 + 1;
       const c = ((i + 1) % n) * 2;

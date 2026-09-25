@@ -145,7 +145,7 @@ export function createGarage(onStart, hooks = {}) {
   }
 
   // --- 서브패널 ---
-  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelBoard', 'panelHelp', 'panelAccount'];
+  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelBoard', 'panelHelp', 'panelAccount', 'panelNotice'];
   function openPanel(id) {
     closePanels();
     const e = document.getElementById(id);
@@ -182,6 +182,10 @@ export function createGarage(onStart, hooks = {}) {
     } catch (e) { exOnline('row', e); }
   });
   document.getElementById('boardBtn').addEventListener('click', () => openPanel('panelBoard'));
+  document.getElementById('noticeBtn').addEventListener('click', () => {
+    openPanel('panelNotice');
+    if (hooks.onNoticeOpen) hooks.onNoticeOpen();
+  });
   document.getElementById('accBtn').addEventListener('click', () => {
     openPanel('panelAccount');
     if (hooks.onAccountOpen) hooks.onAccountOpen();

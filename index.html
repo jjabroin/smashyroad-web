@@ -7,7 +7,7 @@
   <meta name="description" content="복셀 3D 트랙 경주 게임. 차고에서 차를 고르고 3랩 서킷에서 결승선을 노리세요." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=dbfe65" />
+  <link rel="stylesheet" href="css/style.css?v=c19a01" />
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
@@ -22,6 +22,7 @@
       <div class="menu-topbtns">
         <button id="boardBtn">🏆 순위표</button>
         <button id="accBtn">👤 계정</button>
+        <button id="noticeBtn">📢 공지<span id="noticeDot" style="display:none;color:#ff3b30"> ●</span></button>
         <button id="helpBtn">❓ 도움말</button>
       </div>
     </div>
@@ -101,6 +102,12 @@
       <button id="accPull" class="mbtn" style="display:none">📥 다른 기기 기록 가져오기</button>
       <div id="accMsg" class="o-hint"></div>
       <div class="o-hint">서버 없이 기기끼리 직접 공유하는 방식이라 PIN은 간이 잠금입니다. ID·PIN을 아는 기기는 기록을 볼 수 있어요.</div>
+    </div>
+
+    <div id="panelNotice" class="subpanel" style="display:none">
+      <div class="phead"><b>📢 공지</b><button class="pclose" data-p="panelNotice">✕</button></div>
+      <div id="noticeNew"></div>
+      <div id="noticeList"></div>
     </div>
 
     <div id="panelHelp" class="subpanel" style="display:none">
@@ -233,7 +240,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=75f077"></script>
+  <script type="module" src="js/main.js?v=44e9d2"></script>
   <script>
     // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
     // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.

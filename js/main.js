@@ -38,7 +38,7 @@ function corridorGroundY(x, z) {
   return null;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
-import { createGarage } from './garage.js?v=179cfd';
+import { createGarage } from './garage.js?v=009066';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=11466e';
@@ -1808,7 +1808,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-02';
+const APP_VERSION = '20260925-03';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {
@@ -1901,6 +1901,84 @@ try {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') checkUpdate();
   });
+} catch (e) { /* 무시 */ }
+
+// 공지 (changelog.json 분류별: 차량/맵/메커니즘/온라인/계정·기록/수정)
+const NOTICE_CATS = [
+  ['map', '🗺 맵'], ['mech', '⚙️ 메커니즘'], ['car', '🚗 차량'],
+  ['online', '🌐 온라인'], ['account', '👤 계정·기록'], ['system', '🔧 수정'],
+];
+const SEEN_KEY = 'blockyracer-seen-notice';
+let noticeData = null;
+function escHtml(s) {
+  return String(s === undefined || s === null ? '' : s).replace(/[<>&"]/g, (c) => (
+    { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]
+  ));
+}
+function unseenNotices() {
+  try {
+    if (!noticeData || !Array.isArray(noticeData.notices)) return [];
+    let seen = null;
+    try { seen = localStorage.getItem(SEEN_KEY); } catch (e) { /* 무시 */ }
+    return noticeData.notices.filter((n) => !seen || n.id > seen);
+  } catch (e) {
+    return [];
+  }
+}
+function paintNoticeDot() {
+  try {
+    const d = document.getElementById('noticeDot');
+    if (d) d.style.display = unseenNotices().length > 0 ? 'inline' : 'none';
+  } catch (e) { /* 무시 */ }
+}
+function renderNotices() {
+  try {
+    if (!noticeData || !Array.isArray(noticeData.notices)) return;
+    const fresh = unseenNotices();
+    const boxNew = document.getElementById('noticeNew');
+    if (boxNew) {
+      boxNew.innerHTML = fresh.length > 0
+        ? `<div class="nnew">🆕 새 공지 ${fresh.length}개 (안 본 동안 업데이트)</div>`
+        : '';
+    }
+    const box = document.getElementById('noticeList');
+    if (!box) return;
+    const freshIds = new Set(fresh.map((n) => n.id));
+    let html = '';
+    for (const [cat, label] of NOTICE_CATS) {
+      const items = noticeData.notices.filter((n) => n.cat === cat);
+      if (items.length === 0) continue;
+      html += `<div class="ncat">${label}</div>`;
+      for (const n of items) {
+        html += `<div class="nitem"><b>${freshIds.has(n.id) ? '🆕 ' : ''}${escHtml(n.title)}<span class="ndate">${escHtml(n.date)} · ${escHtml(n.ver)}</span></b>${escHtml(n.body)}</div>`;
+      }
+    }
+    box.innerHTML = html;
+    // 확인 처리
+    try {
+      const ids = noticeData.notices.map((n) => n.id);
+      if (ids.length > 0) {
+        localStorage.setItem(SEEN_KEY, ids.slice().sort().pop());
+      }
+    } catch (e) { /* 무시 */ }
+    paintNoticeDot();
+  } catch (e) { /* 무시 */ }
+}
+try {
+  fetch('changelog.json', { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((v) => {
+      if (!v || !Array.isArray(v.notices)) return;
+      noticeData = v;
+      paintNoticeDot();
+      const n = unseenNotices().length;
+      if (n > 0) {
+        setTimeout(() => {
+          try { hud.message(`📢 새 공지 ${n}개 — 차고 📢 탭`, '', 2500); } catch (e) { /* 무시 */ }
+        }, 3000);
+      }
+    })
+    .catch(() => {});
 } catch (e) { /* 무시 */ }
 document.getElementById('updateReload').addEventListener('click', () => {
   // 강력 새로고침: 캐시된 index.html 우회 (쿼리 변경 → 별도 캐시 항목)
@@ -2028,9 +2106,12 @@ garageCtl = createGarage(
     onBoardRendered: (n) => {
       dbgLog(`board rendered rows=${n}`);
     },
-    onAccountOpen: () => {
-      if (accPanel) accPanel.render();
-    },
+  onAccountOpen: () => {
+    if (accPanel) accPanel.render();
+  },
+  onNoticeOpen: () => {
+    renderNotices();
+  },
   }
 );
 requestAnimationFrame((t) => {

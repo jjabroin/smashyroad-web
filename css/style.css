@@ -170,6 +170,11 @@ img {
 .brow { display: flex; justify-content: space-between; background: #1f2833; border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; font-size: 13px; }
 .btab { background: #1f2833; border: 2px solid transparent; color: #fff; border-radius: 8px; padding: 5px 12px; font-size: 13px; font-weight: 800; cursor: pointer; }
 .btab.sel { border-color: #ffd34d; }
+.ncat { font-weight: 800; font-size: 14px; margin: 10px 0 4px; color: #ffd34d; }
+.nitem { background: #1f2833; border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; font-size: 13px; }
+.nitem b { display: block; margin-bottom: 2px; }
+.nitem .ndate { color: #8b95a5; font-size: 12px; margin-left: 6px; font-weight: 400; }
+.nnew { background: #2a2118; border: 2px solid #ffd34d; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
 .bempty { color: #8fa0b3; font-size: 13px; }
 .help-list { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.9; color: #dbe6ef; }
 /* 사진 스타일 메인메뉴 */

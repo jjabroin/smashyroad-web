@@ -1,11 +1,11 @@
 // 메인 오케스트레이션: 차고 → 카운트다운 → 경주 → 결과
 import * as THREE from 'three';
-import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=a59bb6';
+import { TRACK_DEFS, buildTrack, trackY } from './track.js?v=355c21';
 import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
   distDiff,
-} from './race.js?v=ae7f34';
+} from './race.js?v=4f0ffa';
 
 // 입체 트랙 층간 오작동 방지: 다른 층 픽업 무시 (dist 윈도우, 구맵 무영향)
 function sameLevel(featD, carD) {
@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=7fd779';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=793e2d';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -120,7 +120,7 @@ function buildWorldTrack(def) {
   const before = new Set(scene.children);
   const w = createWorld(scene, circuit, def.theme, def.shortcuts || (def.id === 'express' ? 'apex' : null), {
     boosts: def.boosts, jumps: def.jumps, blocks: def.blocks, items: ITEMS_ON,
-    pillars: !!def.pillars,
+    pillars: !!def.pillars, shaft: def.shaft || null,
   });
   colliders = w.colliders;
   wallGaps = w.wallGaps;

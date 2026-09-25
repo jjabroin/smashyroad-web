@@ -141,6 +141,12 @@ function finalizeCircuit(pts, elev) {
   // 입체(겹침) 트랙용 투영: 직전 dist 근처 윈도우 우선 + 전역 3D 폴백
   // - 윈도우(±30): 연속 주행 중 층간 혼동 없음 (다른 층 같은 위치 점은 dist가 멈)
   // - LOST(윈도우 내 25 이내 없음: 리스폰·폭파 등) → 전역 3D 탐색 (y 힌트)
+  function wrapDiff(a, b) {
+    let d = a - b;
+    if (d > length / 2) d -= length;
+    if (d < -length / 2) d += length;
+    return d;
+  }
   function yAt(u) {
     return elevY(elev, Math.max(0, Math.min(1, u / length)));
   }
@@ -177,7 +183,13 @@ function finalizeCircuit(pts, elev) {
     if (best < 0 || bestD2 > LOST * LOST) {
       return project3D(x, z, yHint !== undefined ? yHint : yAt(((lastDist % length) + length) % length));
     }
-    return refineAt(best, x, z);
+    const r = refineAt(best, x, z);
+    // 순간이동급 dist 점프는 기각 (물리적으로 1프레임 25 이상 불가)
+    // → 현재 층 높이 힌트로 3D 재탐색 (옆층 오인 영구 고착 방지)
+    if (Math.abs(wrapDiff(r.dist, lastDist)) > 25) {
+      return project3D(x, z, yAt(((lastDist % length) + length) % length));
+    }
+    return r;
   }
   // 전역 3D 탐색: 평면거리 + 고도차 (층 분리)
   function project3D(x, z, y) {
@@ -318,6 +330,19 @@ export function trackSlope(circuit, d) {
   return (elevY(e, u + h) - elevY(e, u - h)) / (2 * h * L);
 }
 
+// 트랙9: 나선 타워 (위→아래 1랩 포인트-투-포인트)
+// 진입 직선 → 반경 38 helix 9바퀴(15° 간격, 층간 8) → 하단 탈출 → 결승
+// 폐곡선 이음매(종점→시점)는 지하+출발 샤프트로 은폐 (주행 안 함)
+function track9Points() {
+  const pts = [[38, 140], [38, 85], [38, 30]];
+  for (let k = 1; k <= 216; k++) {
+    const a = (-15 * k * Math.PI) / 180;
+    pts.push([+(38 * Math.cos(a)).toFixed(1), +(30 + 38 * Math.sin(a)).toFixed(1)]);
+  }
+  pts.push([38, -10], [38, -60], [38, 60]);
+  return pts;
+}
+
 // 트랙 종류 (차고에서 선택)
 // hill: 오르막/내리막 {amp, k} · boosts/jumps/blocks: 랩 분율 위치
 export const TRACK_DEFS = [
@@ -366,20 +391,20 @@ export const TRACK_DEFS = [
     roadHalf: 8, shortcuts: [{ d1: 0.306, d2: 0.393 }],
   },
   {
-    id: 'track9', name: '트랙9', mode: 'spline', theme: 'city', laps: 2,
-    hill: { points: [[0, 0], [0.12, 4], [0.30, 20], [0.52, 20], [0.62, 16], [0.75, 10], [1, 0]] },
+    id: 'track9', name: '트랙9', mode: 'spline', theme: 'city', laps: 1,
+    hill: { points: [
+      [0, 72], [0.0431, 72],
+      [0.1367, 64], [0.2303, 56], [0.3238, 48], [0.4174, 40], [0.5110, 32],
+      [0.6046, 24], [0.6982, 16], [0.7917, 8], [0.8853, 0],
+      [0.9206, 0], [0.94, -25], [0.985, -25], [1, 72],
+    ] },
     overlap3d: true,
-    boosts: [0.3, 0.65], jumps: [0.5], blocks: [0.4],
+    finishU: 0.9206,
+    boosts: [0.3, 0.6], jumps: [0.5], blocks: [0.4],
     pillars: true,
-    points: [
-      [0, 0], [0, -110], [0, -220],
-      [3.1, -243.3], [12.1, -265], [26.4, -283.6], [45, -297.9], [66.7, -306.9],
-      [90, -310], [113.3, -306.9], [135, -297.9], [153.6, -283.6], [167.9, -265],
-      [176.9, -243.3], [180, -220],
-      [180, -110], [180, 0],
-      [140, 70], [80, 20], [30, -60], [0, -80],
-      [-58, -125], [-80, -150], [-110, -80], [-95, 0], [-60, 70], [-10, 55],
-    ],
+    shaft: { x: 38, z: 125, y0: -5, y1: 70, w: 22, d: 50 },
+    perSeg: 6,
+    points: track9Points(),
   },
 ];
 
@@ -393,5 +418,6 @@ export function buildTrack(def) {
   });
   c.roadHalf = def.roadHalf || 11;
   c.hasOverlap = !!def.overlap3d; // 입체(겹침) 트랙: 3D 투영 엔진 사용
+  if (def.finishU) c.finishU = def.finishU; // 포인트-투-포인트 종점 (기본 0=시작선)
   return c;
 }

@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mat } from './voxel.js?v=35aa4d';
 import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=35aa4d';
-import { trackY } from './track.js?v=a59bb6';
+import { trackY } from './track.js?v=355c21';
 
 export const ROAD_HALF = 11;
 
@@ -123,15 +123,16 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     scene.add(inst);
   }
 
-  // 아스팔트 (고도 추종)
+  // 아스팔트 (고도 추종, 양면: 고갯길 아래에서 봐도 뚫려 보이지 않게)
   const road = new THREE.Mesh(
     ribbonGeometry(circuit, RH, (d) => trackY(circuit, d) + 0.05),
-    new THREE.MeshLambertMaterial({ color: 0x41454e })
+    new THREE.MeshLambertMaterial({ color: 0x41454e, side: THREE.DoubleSide })
   );
   road.receiveShadow = true;
   scene.add(road);
 
   // 고가 지지 기둥 (수직 맵용: 도로가 뜬 곳에 콘크리트 기둥)
+  // ※ 아래층 도로를 뚫는 위치는 제외 (기둥이 하부 차선을 막지 않게)
   if (feat.pillars) {
     const step = 24;
     const count = Math.floor(circuit.length / step);
@@ -147,6 +148,15 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const p = circuit.pointAt(d);
       const y = trackY(circuit, d);
       if (y < 4) continue;
+      let pierce = false;
+      for (let k = 0; k < circuit.count; k += 6) {
+        const q = circuit.pts[k];
+        if (Math.hypot(q.x - p.x, q.z - p.z) < 9 && trackY(circuit, circuit.cum[k]) < y - 2) {
+          pierce = true;
+          break;
+        }
+      }
+      if (pierce) continue;
       dm.position.set(p.x, (y - 0.5) / 2, p.z);
       dm.scale.set(1, Math.max(1, y - 0.5), 1);
       dm.rotation.set(0, 0, 0);
@@ -155,6 +165,18 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
     inst.count = placed;
     scene.add(inst);
+  }
+
+  // 출발 타워 (포인트-투-포인트 종점 라이저 은폐용 콘크리트 샤프트)
+  if (feat.shaft) {
+    const s = feat.shaft;
+    const h = Math.max(1, s.y1 - s.y0);
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(s.w, h, s.d),
+      new THREE.MeshLambertMaterial({ color: 0x848a93 })
+    );
+    m.position.set(s.x, s.y0 + h / 2, s.z);
+    scene.add(m);
   }
 
   const dummy = new THREE.Object3D();
@@ -202,7 +224,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setIndex(idx);
     g.computeVertexNormals();
-    scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xf2c230 })));
+    scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xf2c230, side: THREE.DoubleSide })));
   }
 
   // 빨강/흰 연석
@@ -236,9 +258,10 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     scene.add(red, white);
   }
 
-  // 스타트 라인(체커) + 간트리
+  // 스타트 라인(체커) + 간트리 (시작 고도 기준 — 타워형도 대응)
   {
     const p0 = circuit.pointAt(0);
+    const y0 = trackY(circuit, 0);
     const ang = -Math.atan2(p0.dz, p0.dx);
     const across = 8;
     for (let i = 0; i < across * 2; i++) {
@@ -251,7 +274,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
         const along = r * 1.4 - 0.7;
         m.position.set(
           p0.x + p0.dx * along + -p0.dz * lat,
-          0.1,
+          y0 + 0.1,
           p0.z + p0.dz * along + p0.dx * lat
         );
         m.rotation.y = ang;
@@ -259,7 +282,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       }
     }
     const gantry = makeGantry(RH * 2 + 8);
-    gantry.position.set(p0.x, 0, p0.z);
+    gantry.position.set(p0.x, y0, p0.z);
     gantry.rotation.y = ang; // 도로를 가로지르게 (로컬 Z = 측면 방향)
     scene.add(gantry);
     // 간트리 기둥도 장애물 (도로 양옆, 주행선에서 충분히 벗어남)
@@ -570,7 +593,12 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     for (let i = 0; i < 12; i++) tryPlace(makeRock(), 16, 50);
     for (let i = 0; i < 6; i++) tryPlace(makeTireStack(), 20, 28);
   } else {
-    for (let i = 0; i < 20; i++) tryPlace(makeBuilding(), 34, 130);
+    // 입체 트랙: 고층 빌딩은 고가도로와 겹칠 수 있어 낮은 소품만
+    if (!circuit.hasOverlap) {
+      for (let i = 0; i < 20; i++) tryPlace(makeBuilding(), 34, 130);
+    } else {
+      for (let i = 0; i < 10; i++) tryPlace(makeLamp(), 19, 40);
+    }
     for (let i = 0; i < 14; i++) tryPlace(makeLamp(), 19, 27);
     for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 20, 28);
   }
@@ -682,16 +710,27 @@ function drawDirtChord(scene, circuit, A, B, dA, dB, halfW) {
 // 그리드 슬롯 6대 (3열 × 2행, 스타트라인 뒤)
 export function gridSlots(circuit) {
   const slots = [];
-  const rows = [
-    { back: 10, lat: -4 },
-    { back: 10, lat: 4 },
-    { back: 19, lat: -4 },
-    { back: 19, lat: 4 },
-    { back: 28, lat: -4 },
-    { back: 28, lat: 4 },
-  ];
+  // 타워형(시작/끝 고도차 큼): 그리드가 튜브에 박히지 않게 출발선 앞쪽에 배치
+  const tower = Math.abs(trackY(circuit, circuit.length - 10) - trackY(circuit, 0)) > 20;
+  const rows = tower
+    ? [
+        { back: -8, lat: -4 },
+        { back: -8, lat: 4 },
+        { back: -17, lat: -4 },
+        { back: -17, lat: 4 },
+        { back: -26, lat: -4 },
+        { back: -26, lat: 4 },
+      ]
+    : [
+        { back: 10, lat: -4 },
+        { back: 10, lat: 4 },
+        { back: 19, lat: -4 },
+        { back: 19, lat: 4 },
+        { back: 28, lat: -4 },
+        { back: 28, lat: 4 },
+      ];
   for (const r of rows) {
-    const p = circuit.pointAt(circuit.length - r.back);
+    const p = circuit.pointAt(tower ? -r.back : circuit.length - r.back);
     slots.push({
       x: p.x + -p.dz * r.lat,
       z: p.z + p.dx * r.lat,

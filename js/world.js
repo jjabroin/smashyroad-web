@@ -206,6 +206,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   }
 
   // 개방형 끝단 벽 (시작 뒤 + 종점 앞): 시각 + 충돌 3점
+  // ※ 노면 경사에 맞춰 피치 (다이브 위 붕뜸 방지)
   if (circuit.openEnds) {
     const endD = (circuit.finishU ? circuit.finishU * circuit.length : circuit.length - 2) + 6;
     for (const bd of [3, endD]) {
@@ -213,20 +214,27 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const p = circuit.pointAt(dd);
       const y = trackY(circuit, dd);
       const yaw = -Math.atan2(p.dz, p.dx);
+      const pitch = Math.atan2(
+        trackY(circuit, Math.min(circuit.length, dd + 3)) - trackY(circuit, Math.max(0, dd - 3)), 6
+      );
+      const grp = new THREE.Group();
+      grp.position.set(p.x, y, p.z);
+      grp.rotation.y = yaw;
+      scene.add(grp);
       const wall = new THREE.Mesh(
         new THREE.BoxGeometry(2.5, 6, RH * 2 + 6),
         new THREE.MeshLambertMaterial({ color: 0xd63a2f })
       );
-      wall.position.set(p.x, y + 3, p.z);
-      wall.rotation.y = yaw;
-      scene.add(wall);
+      wall.position.y = 3;
+      wall.rotation.z = pitch;
+      grp.add(wall);
       const stripe = new THREE.Mesh(
         new THREE.BoxGeometry(2.6, 1.2, RH * 2 + 6),
         new THREE.MeshLambertMaterial({ color: 0xf4f6f8 })
       );
-      stripe.position.set(p.x, y + 4.6, p.z);
-      stripe.rotation.y = yaw;
-      scene.add(stripe);
+      stripe.position.y = 4.6;
+      stripe.rotation.z = pitch;
+      grp.add(stripe);
       for (const s of [-7.3, 0, 7.3]) {
         colliders.push({
           x: p.x + -p.dz * s, z: p.z + p.dx * s, r: 7,
@@ -330,9 +338,10 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   }
 
   // 스타트 라인(체커) + 간트리 (시작 고도 기준 — 타워형도 대응)
-  {
-    const p0 = circuit.pointAt(0);
-    const y0 = trackY(circuit, 0);
+  // 결승 게이트도 동일 언어 (개방형 종점)
+  const buildGate = (gd) => {
+    const p0 = circuit.pointAt(gd);
+    const y0 = trackY(circuit, gd);
     const ang = -Math.atan2(p0.dz, p0.dx);
     const across = 8;
     for (let i = 0; i < across * 2; i++) {
@@ -360,9 +369,11 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     for (const s of [-1, 1]) {
       const v = new THREE.Vector3(0, 0, (s * (RH * 2 + 8)) / 2);
       gantry.localToWorld(v);
-      colliders.push({ x: v.x, z: v.z, r: 1.2, d: 0, L: circuit.length });
+      colliders.push({ x: v.x, z: v.z, r: 1.2, d: gd, L: circuit.length });
     }
-  }
+  };
+  buildGate(0);
+  if (circuit.openEnds && circuit.finishU) buildGate(circuit.finishU * circuit.length);
 
   // 지름길: 명시 구간([{d1,d2} 분율] 또는 'apex' 1개) — 좁은 복도형
   // wallGaps: 끝점+측면(side) 지정 개구부. crossings: 통과 지점 양측 개방

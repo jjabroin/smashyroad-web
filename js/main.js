@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=e04a9f';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=876503';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {

@@ -106,12 +106,12 @@ export function createAccountPanel(api) {
     const st = el('accStatus');
     if (st) {
       st.textContent = s
-        ? `✅ ${s.name} (${s.id}) 로그인 중`
-        : '📴 로그인 안 됨 — 기록은 이 기기에만 저장됩니다';
+        ? `${s.name} (${s.id}) 로그인 중`
+        : '로그인 안 됨 — 기록은 이 기기에만 저장됩니다';
     }
     // 메뉴 버튼에 로그인 표시 (패널 안 열어도 보임)
-    const ab = document.getElementById('accBtn');
-    if (ab) ab.textContent = s ? `👤 ${s.name}` : '👤 계정';
+    const ab = document.getElementById('accBtnName');
+    if (ab) ab.textContent = s ? s.name : '계정';
     for (const [id, show] of [['accLogout', !!s], ['accMerge', !!s], ['accPull', !!s]]) {
       const b = el(id);
       if (b) b.style.display = show ? 'block' : 'none';

@@ -7,7 +7,7 @@
   <meta name="description" content="복셀 3D 트랙 경주 게임. 차고에서 차를 고르고 3랩 서킷에서 결승선을 노리세요." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=d37ff9" />
+  <link rel="stylesheet" href="css/style.css?v=e6349d" />
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
@@ -18,43 +18,43 @@
   <!-- ============ 차고 (차량 선택, 사진 2) ============ -->
   <div id="garage">
     <div class="menu-top">
-      <div class="menu-title">🏁 BLOCKY RACER</div>
+      <div class="menu-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg> BLOCKY RACER</div>
       <div class="menu-topbtns">
-        <button id="boardBtn">🏆 순위표</button>
-        <button id="accBtn">👤 계정</button>
-        <button id="noticeBtn">📢 공지<span id="noticeDot" style="display:none;color:#ff3b30"> ●</span></button>
-        <button id="helpBtn">❓ 도움말</button>
+        <button id="boardBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 2.5 2 4 4 4M17 5h3a1 1 0 0 1 1 1c0 2.5-2 4-4 4M12 14v4M8 21h8"/></svg> 순위표</button>
+        <button id="accBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg> <span id="accBtnName">계정</span></button>
+        <button id="noticeBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 0 0 4 0"/></svg> 공지<span id="noticeDot" style="display:none;color:#ff3b30"> ●</span></button>
+        <button id="helpBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.8 2.1c-.8.6-1.3 1-1.3 1.9"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg> 도움말</button>
       </div>
     </div>
     <canvas id="garageCanvas"></canvas>
     <div class="menu-cards">
       <button class="mcard blue" id="cardCar">
-        <span class="mthumb">🚗</span>
+        <span class="mthumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 13l1.5-4.5A2 2 0 0 1 7.4 7h9.2a2 2 0 0 1 1.9 1.5L20 13"/><rect x="3" y="13" width="18" height="6" rx="1"/><circle cx="7.5" cy="19" r="1.6" fill="currentColor"/><circle cx="16.5" cy="19" r="1.6" fill="currentColor"/></svg></span>
         <span class="mbar"><b id="curCar">F1</b><small>차량 선택</small><i>›</i></span>
       </button>
       <button class="mcard green" id="cardTrack">
-        <span class="mthumb">📍</span>
+        <span class="mthumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg></span>
         <span class="mbar"><b id="curTrack">초원 오벌</b><small>맵 선택</small><i>›</i></span>
       </button>
       <button class="mcard purple" id="cardMode">
-        <span class="mthumb">🏁</span>
+        <span class="mthumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg></span>
         <span class="mbar"><b id="curMode">레이스</b><small>모드 선택</small><i>›</i></span>
       </button>
     </div>
-    <button id="raceBtn">🏁 시작하기</button>
+    <button id="raceBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg> 시작하기</button>
     <div id="appVer"></div>
 
     <div id="panelCar" class="subpanel" style="display:none">
-      <div class="phead"><b>🚗 차량 선택</b><button class="pclose" data-p="panelCar">✕</button></div>
+      <div class="phead"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 13l1.5-4.5A2 2 0 0 1 7.4 7h9.2a2 2 0 0 1 1.9 1.5L20 13"/><rect x="3" y="13" width="18" height="6" rx="1"/></svg> 차량 선택</b><button class="pclose" data-p="panelCar">✕</button></div>
       <div class="g-head">
         <div>
           <div id="carName">F1</div>
           <div id="carGrade">전설</div>
         </div>
         <div class="g-stats">
-          <div class="srow"><span>🚀 속도</span><div class="stat" id="statSpeed"></div></div>
-          <div class="srow"><span>🎛️ 핸들링</span><div class="stat" id="statHandling"></div></div>
-          <div class="srow"><span>🛡️ 내구도</span><div class="stat" id="statTough"></div></div>
+          <div class="srow"><span>속도</span><div class="stat" id="statSpeed"></div></div>
+          <div class="srow"><span>핸들링</span><div class="stat" id="statHandling"></div></div>
+          <div class="srow"><span>내구도</span><div class="stat" id="statTough"></div></div>
         </div>
       </div>
       <div class="crow">
@@ -65,53 +65,53 @@
     </div>
 
     <div id="panelTrack" class="subpanel" style="display:none">
-      <div class="phead"><b>📍 맵 선택</b><button class="pclose" data-p="panelTrack">✕</button></div>
+      <div class="phead"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg> 맵 선택</b><button class="pclose" data-p="panelTrack">✕</button></div>
       <div id="trackList"></div>
     </div>
 
     <div id="panelMode" class="subpanel" style="display:none">
-      <div class="phead"><b>🏁 모드 선택</b><button class="pclose" data-p="panelMode">✕</button></div>
+      <div class="phead"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg> 모드 선택</b><button class="pclose" data-p="panelMode">✕</button></div>
       <div id="modeList">
-        <button class="moderow" data-mode="race"><span>🏁 레이싱</span><small>CPU 3대와 3랩 대결</small></button>
-        <button class="moderow" data-mode="item"><span>🎁 아이템전</span><small>CPU 3대와 아이템 배틀</small></button>
-        <button class="moderow" data-mode="ta"><span>⏱ 타임어택</span><small>혼자 3랩, 기록 경쟁</small></button>
+        <button class="moderow" data-mode="race"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg> 레이싱</span><small>CPU 3대와 3랩 대결</small></button>
+        <button class="moderow" data-mode="item"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="9" width="16" height="12" rx="1"/><path d="M3 5h18v4H3zM12 5v16M12 5s-4 0-5.5-1.5S8 1 9.5 2 12 5 12 5zm0 0s4 0 5.5-1.5S16 1 14.5 2 12 5 12 5z"/></svg> 아이템전</span><small>CPU 3대와 아이템 배틀</small></button>
+        <button class="moderow" data-mode="ta"><span>타임어택</span><small>혼자 3랩, 기록 경쟁</small></button>
       </div>
-      <button id="onlineRowBtn" class="moderow online"><span>🌐 온라인 대전</span><small>최대 6명 실시간 대전</small></button>
+      <button id="onlineRowBtn" class="moderow online"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg> 온라인 대전</span><small>최대 6명 실시간 대전</small></button>
     </div>
 
     <div id="panelBoard" class="subpanel" style="display:none">
-      <div class="phead"><b>🏆 타임어택 순위표</b><span><button id="boardRefresh" title="새로고침">↻</button><button class="pclose" data-p="panelBoard">✕</button></span></div>
+      <div class="phead"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 2.5 2 4 4 4M17 5h3a1 1 0 0 1 1 1c0 2.5-2 4-4 4M12 14v4M8 21h8"/></svg> 타임어택 순위표</b><span><button id="boardRefresh" title="새로고침">↻</button><button class="pclose" data-p="panelBoard">✕</button></span></div>
       <div style="display:flex;gap:6px;margin-bottom:8px">
-        <button id="boardTabAll" class="btab sel">🌐 전체 기록</button>
-        <button id="boardTabMine" class="btab">👤 내 기록</button>
+        <button id="boardTabAll" class="btab sel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg> 전체 기록</button>
+        <button id="boardTabMine" class="btab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg> 내 기록</button>
       </div>
       <div id="boardSync" class="o-hint"></div>
       <div id="boardTracks"></div>
     </div>
 
     <div id="panelAccount" class="subpanel" style="display:none">
-      <div class="phead"><b>👤 계정</b><button class="pclose" data-p="panelAccount">✕</button></div>
-      <div id="accStatus" class="o-hint">📴 로그인 안 됨</div>
+      <div class="phead"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg> 계정</b><button class="pclose" data-p="panelAccount">✕</button></div>
+      <div id="accStatus" class="o-hint">로그인 안 됨</div>
       <input id="accId" class="ocode" maxlength="16" placeholder="ID (영문·숫자 3~16자)" autocomplete="off" />
       <input id="accName" class="ocode" maxlength="12" placeholder="표시 이름 (가입 시)" autocomplete="off" />
       <input id="accPin" class="ocode" type="password" maxlength="4" inputmode="numeric" placeholder="PIN 4자리" autocomplete="off" />
-      <button id="accSignup" class="mbtn">📝 회원가입</button>
-      <button id="accLogin" class="mbtn">🔑 로그인</button>
-      <button id="accLogout" class="mbtn" style="display:none">🚪 로그아웃</button>
-      <button id="accMerge" class="mbtn" style="display:none">📥 이 기기 기록 계정으로 합치기</button>
-      <button id="accPull" class="mbtn" style="display:none">📥 다른 기기 기록 가져오기</button>
+      <button id="accSignup" class="mbtn">회원가입</button>
+      <button id="accLogin" class="mbtn">로그인</button>
+      <button id="accLogout" class="mbtn" style="display:none">로그아웃</button>
+      <button id="accMerge" class="mbtn" style="display:none">이 기기 기록 계정으로 합치기</button>
+      <button id="accPull" class="mbtn" style="display:none">다른 기기 기록 가져오기</button>
       <div id="accMsg" class="o-hint"></div>
       <div class="o-hint">서버 없이 기기끼리 직접 공유하는 방식이라 PIN은 간이 잠금입니다. ID·PIN을 아는 기기는 기록을 볼 수 있어요.</div>
     </div>
 
     <div id="panelNotice" class="subpanel" style="display:none">
-      <div class="phead"><b>📢 공지</b><button class="pclose" data-p="panelNotice">✕</button></div>
+      <div class="phead"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 0 0 4 0"/></svg> 공지</b><button class="pclose" data-p="panelNotice">✕</button></div>
       <div id="noticeNew"></div>
       <div id="noticeList"></div>
     </div>
 
     <div id="panelHelp" class="subpanel" style="display:none">
-      <div class="phead"><b>❓ 도움말</b><button class="pclose" data-p="panelHelp">✕</button></div>
+      <div class="phead"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.8 2.1c-.8.6-1.3 1-1.3 1.9"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg> 도움말</b><button class="pclose" data-p="panelHelp">✕</button></div>
       <ul class="help-list">
         <li>◀ ▶ 키 또는 화면 좌우 터치로 조향, 양쪽 동시 터치는 후진</li>
         <li>자동 가속 / DRIFT 버튼(Shift): 드리프트, 떼면 미니 터보</li>

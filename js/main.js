@@ -1189,6 +1189,14 @@ function onLocalFinish() {
     showFinishBanner(`🏁 ${pos}${ordSuffix(pos)} FINISH`, `기록 ${raceTime.toFixed(1)}s`);
   }
   updateSpectateUI();
+  // TEMP DIAG: 즉시 종료 원인 특정용 (확인 후 제거)
+  try {
+    const d = document.getElementById('finishSub');
+    const me2 = racers[playerIdx];
+    if (d) {
+      d.textContent += ` [${trackDef.id} dist=${Math.round(me2.car.dist)}/${circuit.length} lap=${me2.car.lap} sec=${me2.car.sectors.map(Number).join('')} t=${raceTime.toFixed(0)} mode=${timeAttack ? 'ta' : (onlineCtl ? 'net' : 'solo')}]`;
+    }
+  } catch (e) { /* 무시 */ }
 }
 
 function enterFinishedWrecked() {
@@ -1198,6 +1206,14 @@ function enterFinishedWrecked() {
   spectateIdx = lead ? racers.indexOf(lead) : null;
   showFinishBanner('💥 WRECKED!', '관전 모드로 전환');
   updateSpectateUI();
+  // TEMP DIAG: 즉시 종료 원인 특정용 (확인 후 제거)
+  try {
+    const d = document.getElementById('finishSub');
+    const me2 = racers[playerIdx];
+    if (d) {
+      d.textContent += ` [${trackDef.id} dist=${Math.round(me2.car.dist)}/${circuit.length} lap=${me2.car.lap} sec=${me2.car.sectors.map(Number).join('')} t=${raceTime.toFixed(0)} mode=${timeAttack ? 'ta' : (onlineCtl ? 'net' : 'solo')}]`;
+    }
+  } catch (e) { /* 무시 */ }
 }
 
 function taResultRows() {

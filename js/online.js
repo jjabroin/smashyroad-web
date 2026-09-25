@@ -1,6 +1,6 @@
 // 온라인 로비 패널: 방 생성/코드 참가·플레이어 목록·출발 (P2P 직접 연결, 호스트 권위)
 import { NetRoom, RTC_CONFIG, resolveRTCConfig, getTurnSettings, saveTurnSettings } from './net.js?v=56e91b';
-import { TRACK_DEFS } from './track.js?v=e3e862';
+import { TRACK_DEFS } from './track.js?v=41a246';
 import { CAR_DEFS } from './race.js?v=3d5ad3';
 
 const carNameOf = (id) => {

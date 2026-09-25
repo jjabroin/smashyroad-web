@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=fd8c09';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=8dafac';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -291,6 +291,7 @@ const lookSm = new THREE.Vector3();
 const _camDir = new THREE.Vector3();
 const _camTmp = new THREE.Vector3();
 const _camRay = new THREE.Raycaster();
+let camZoomHold = 0; // 줌인 유지 타이머 (히스테리시스: 깜빡임 방지)
 let shakeT = 0;
 function snapCamera(hard, dt = 0.016) {
   const p = racers[focusIdx()].car;
@@ -344,7 +345,11 @@ function snapCamera(hard, dt = 0.016) {
         }
       }
       // 2개 이상 가닥이 막혀야 발동 (스침 1개는 무시)
-      if (pick && blockedRays >= 2) {
+      // 히스테리시스: 발동하면 1.2초 유지 (해제→재발동 깜빡임 방지), 해제는 lerp로 부드럽게
+      const occluded = pick && blockedRays >= 2;
+      if (occluded) camZoomHold = 1.2;
+      else camZoomHold = Math.max(0, camZoomHold - (dt || 0.016));
+      if (camZoomHold > 0) {
         // 근접-저각: 차 뒤 14, 높이 7으로 붙고 위로 올리며 확보 확인 (최대 3회)
         desired.set(p.x - fx * 14, baseY + 7, p.z - fz * 14);
         for (let k = 0; k < 3; k++) {

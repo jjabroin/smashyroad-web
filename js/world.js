@@ -207,9 +207,10 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   }
 
   // 개방형 끝단 벽 (시작 뒤 + 종점 앞): 시각 + 충돌 3점
+  // ※ 종점벽은 결승선 너머에 (충돌 반경으로 결승을 막지 않게 +14)
   // ※ 노면 경사에 맞춰 피치 (다이브 위 붕뜸 방지)
   if (circuit.openEnds) {
-    const endD = (circuit.finishU ? circuit.finishU * circuit.length : circuit.length - 2) + 6;
+    const endD = (circuit.finishU ? circuit.finishU * circuit.length : circuit.length - 2) + 14;
     for (const bd of [3, endD]) {
       const dd = Math.max(0, Math.min(circuit.length - 1, bd));
       const p = circuit.pointAt(dd);

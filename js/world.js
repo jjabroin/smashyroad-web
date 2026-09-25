@@ -825,7 +825,8 @@ export function gridSlots(circuit) {
       x: p.x + -p.dz * r.lat,
       z: p.z + p.dx * r.lat,
       heading: Math.atan2(p.dz, p.dx),
-      d,
+      // 경주 dist: 출발선 뒤면 음수 (랩 카운트 기준 — 양수면 가짜 랩 발생)
+      d: -r.back,
     });
   }
   return slots;

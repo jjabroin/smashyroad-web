@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=8dafac';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=887e3a';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -1432,6 +1432,7 @@ function buildRaceOnline(info) {
   entries.forEach((e, i) => {
     const s = slots[i % slots.length];
     const car = makeCarState(e.def, s.x, s.z, s.heading);
+    car.dist = s.d !== undefined ? s.d : 0;
     car.lapStart = 0;
     const mesh = CAR_BUILDERS[e.def.id](e.def.color, e.def.accent);
     mesh.position.set(s.x, 0, s.z);

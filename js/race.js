@@ -151,8 +151,9 @@ export function damageWithShield(car, dmg) {
 const SECTOR = 4;
 
 // 랩 감싼 거리차 (-L/2, L/2]
+// ※ car.dist는 언랩 누적값이라 차가 L을 넘을 수 있음 — 먼저 모듈로
 export function distDiff(a, b, L) {
-  let d = a - b;
+  let d = (a - b) % L;
   if (d > L / 2) d -= L;
   if (d < -L / 2) d += L;
   return d;

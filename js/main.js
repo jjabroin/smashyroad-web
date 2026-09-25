@@ -5,7 +5,7 @@ import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
   distDiff,
-} from './race.js?v=3cafdf';
+} from './race.js?v=aba3e2';
 
 // 입체 트랙 층간 오작동 방지: 다른 층 픽업 무시 (dist 윈도우, 구맵 무영향)
 function sameLevel(featD, carD) {

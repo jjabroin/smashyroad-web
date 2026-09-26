@@ -405,6 +405,7 @@ export function createGarage(onStart, hooks = {}) {
       if (!cv) return;
       if (!cardRenderer) {
         cardRenderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+        cardRenderer.setClearColor(0x000000, 0);
         cardScene = new THREE.Scene();
         cardScene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a96, 1.1));
         const sun = new THREE.DirectionalLight(0xfff6e0, 1.6);
@@ -421,6 +422,13 @@ export function createGarage(onStart, hooks = {}) {
       cardCarMesh = CAR_BUILDERS[def.id](def.color, def.accent);
       cardCarMesh.rotation.y = -1.93;
       cardScene.add(cardCarMesh);
+      try {
+        const bb = new THREE.Box3().setFromObject(cardCarMesh);
+        const ctr = bb.getCenter(new THREE.Vector3());
+        cardCamera.lookAt(ctr);
+        cardCamera.position.set(ctr.x - 8, ctr.y + 2.5, ctr.z + 9.5);
+        cardCamera.lookAt(ctr);
+      } catch (e) { /* 무시 */ }
       cardRenderer.render(cardScene, cardCamera);
     } catch (e) { /* 무시 */ }
   }

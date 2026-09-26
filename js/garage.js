@@ -425,8 +425,9 @@ export function createGarage(onStart, hooks = {}) {
       try {
         const bb = new THREE.Box3().setFromObject(cardCarMesh);
         const ctr = bb.getCenter(new THREE.Vector3());
+        ctr.x += 1.5;
         cardCamera.lookAt(ctr);
-        cardCamera.position.set(ctr.x - 8, ctr.y + 2.5, ctr.z + 9.5);
+        cardCamera.position.set(ctr.x - 7, ctr.y + 2, ctr.z + 8);
         cardCamera.lookAt(ctr);
       } catch (e) { /* 무시 */ }
       cardRenderer.render(cardScene, cardCamera);

@@ -126,9 +126,9 @@ img {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
   border: 3px solid #fff; border-radius: 12px; padding: 12px 6px; cursor: pointer; color: #fff;
 }
-.mcard.blue { background: linear-gradient(160deg, #2f7fe0, #1a3f8f); }
-.mcard.green { background: linear-gradient(160deg, #37b56c, #1a6e3f); }
-.mcard.purple { background: linear-gradient(160deg, #8a4fd0, #4a2390); }
+.mcard.blue { background: linear-gradient(165deg, #232a33, #12161c); }
+.mcard.green { background: linear-gradient(165deg, #232a33, #12161c); }
+.mcard.purple { background: linear-gradient(165deg, #232a33, #12161c); }
 .mcard:active { transform: scale(.96); }
 .mthumb { font-size: 32px; }
 .mlabel { font-size: 15px; }
@@ -192,9 +192,9 @@ img {
   border: 3px solid #fff; border-radius: 12px; padding: 12px 6px; cursor: pointer;
   color: #fff;
 }
-.mcard.blue { background: linear-gradient(160deg, #2f7fe0, #1a3f8f); }
-.mcard.green { background: linear-gradient(160deg, #37b56c, #1a6e3f); }
-.mcard.purple { background: linear-gradient(160deg, #8a4fd0, #4a2390); }
+.mcard.blue { background: linear-gradient(165deg, #232a33, #12161c); }
+.mcard.green { background: linear-gradient(165deg, #232a33, #12161c); }
+.mcard.purple { background: linear-gradient(165deg, #232a33, #12161c); }
 .mcard:active { transform: scale(.96); }
 .mthumb { font-size: 34px; }
 .mlabel { font-size: 15px; }
@@ -260,9 +260,9 @@ img {
   border: 3px solid #fff; border-radius: 12px; padding: 12px 6px; cursor: pointer;
   color: #fff;
 }
-.mcard.blue { background: linear-gradient(160deg, #2f7fe0, #1a3f8f); }
-.mcard.green { background: linear-gradient(160deg, #37b56c, #1a6e3f); }
-.mcard.purple { background: linear-gradient(160deg, #8a4fd0, #4a2390); }
+.mcard.blue { background: linear-gradient(165deg, #232a33, #12161c); }
+.mcard.green { background: linear-gradient(165deg, #232a33, #12161c); }
+.mcard.purple { background: linear-gradient(165deg, #232a33, #12161c); }
 .mcard:active { transform: scale(.96); }
 .mthumb { font-size: 34px; }
 .mlabel { font-size: 15px; }
@@ -818,3 +818,4 @@ html, body {
 .mthumb { flex: 1; display: flex; align-items: center; justify-content: center; }
 .mbar { margin-top: auto; }
 #cardMode .trap { background: none; box-shadow: none; }
+#raceBtn { border-width: 5px; }

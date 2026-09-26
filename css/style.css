@@ -818,4 +818,7 @@ html, body {
 .mthumb { flex: 1; display: flex; align-items: center; justify-content: center; }
 .mbar { margin-top: auto; }
 #cardMode .trap { background: none; box-shadow: none; }
-#raceBtn { border-width: 5px; }
+#raceBtn { border-width: 3px; }
+#raceBtn, #raceBtn span {
+  text-shadow: -2px -2px 0 #111, 2px -2px 0 #111, -2px 2px 0 #111, 2px 2px 0 #111, 0 3px 0 #111;
+}

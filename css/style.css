@@ -781,7 +781,7 @@ html, body {
   font-family: 'NeoDunggeunmo', -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
 }
 .mthumb.sky { background: linear-gradient(180deg, #8fd4f5 0%, #5aa9e6 55%, #3f8fd6 100%); }
-.mcard.blue .trap { background: #37c8f0; box-shadow: 0 0 14px rgba(55,200,240,.9); }
+.mcard.blue .trap { background: transparent; box-shadow: 0 0 12px rgba(55,200,240,.9); }
 .mcard.green .trap { background: #3ddc84; box-shadow: 0 0 14px rgba(61,220,132,.9); }
 .mthumb .trap img, .mthumb .trap canvas { height: 120px; }
 

@@ -33,7 +33,7 @@ export function boxById(id) {
 }
 
 function blankState(owner) {
-  return { owner, coins: 0, pity: {}, unlocked: [] };
+  return { owner, coins: 0, pity: {}, unlocked: [], history: [] };
 }
 
 function keyFor(owner) {
@@ -63,6 +63,7 @@ export function loadState(owner) {
     return {
       owner, coins: Math.max(0, Math.floor(Number(s.coins) || 0)),
       pity: s.pity || {}, unlocked: Array.isArray(s.unlocked) ? s.unlocked : [],
+      history: Array.isArray(s.history) ? s.history.slice(-20) : [],
     };
   }
   return blankState(owner);
@@ -150,6 +151,14 @@ export function pull(st, boxId, count, rand) {
     }
     results.push(res);
   }
+  // 히스토리 (최근 20회, 확률 검증용)
+  try {
+    if (!Array.isArray(st.history)) st.history = [];
+    for (const r of results) {
+      st.history.push({ box: boxId, stars: r.stars, kind: r.kind, carId: r.carId || null, amount: r.amount || 0, pity: !!r.pity, t: Date.now() });
+    }
+    st.history = st.history.slice(-20);
+  } catch (e) { /* 무시 */ }
   saveState(st);
   return { ok: true, results, coins: st.coins };
 }

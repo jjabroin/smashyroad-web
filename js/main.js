@@ -38,12 +38,12 @@ function corridorGroundY(x, z) {
   return null;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
-import { createGarage } from './garage.js?v=068a00';
+import { createGarage } from './garage.js?v=ad23ff';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=11466e';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
-import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull, migrateToAccount as migrateGacha } from './gacha.js?v=162cf9';
+import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull, migrateToAccount as migrateGacha } from './gacha.js?v=3576ae';
 import { FriendNet, loadFriends, saveFriends, validFriendId } from './friends.js?v=900410';
 import { SkidTrails } from './skids.js?v=591055';
 
@@ -370,6 +370,11 @@ function buildRace(playerDef, tdef, opts = {}) {
     const pool = CAR_DEFS.filter((d) => d.id !== playerDef.id);
     while (defs.length < 4) defs.push(pool[(defs.length - 1) % pool.length]);
   }
+  // 공정 출발: 그리드 셔플 (플레이어도 랜덤 슬롯)
+  for (let i = defs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [defs[i], defs[j]] = [defs[j], defs[i]];
+  }
 
   const paces = [1, 0.94, 0.965, 0.92];
   const lanes = [0, 1, -1, 0.5];
@@ -382,19 +387,20 @@ function buildRace(playerDef, tdef, opts = {}) {
     mesh.position.set(s.x, 0, s.z);
     mesh.rotation.y = -s.heading;
     scene.add(mesh);
+    const mine = def === playerDef;
     racers.push({
       car, mesh,
-      isPlayer: i === 0,
+      isPlayer: mine,
       local: true,
-      name: i === 0 ? `YOU (${def.name})` : `CPU ${i} (${def.name})`,
-      ai: i === 0 ? null : { pace: paces[i % paces.length], lane: lanes[i % lanes.length] },
+      name: mine ? `YOU (${def.name})` : `CPU ${i} (${def.name})`,
+      ai: mine ? null : { pace: paces[i % paces.length], lane: lanes[i % lanes.length] },
       slot: i,
       peerId: null,
       smokeAcc: 0,
       shieldMesh: newShieldMesh(),
     });
   });
-  playerIdx = 0;
+  playerIdx = defs.indexOf(playerDef);
   raceTime = 0;
   spectateIdx = null;
   // 타임어택에선 순위 박스 숨김
@@ -1551,6 +1557,23 @@ function buildRaceOnline(info) {
       name: e.isAI ? `CPU (${def.name})` : (e.isMine ? 'YOU' : `P${e.slot + 1}`) + ` (${def.name})`,
     };
   });
+  // 공정 출발: 그리드 셔플 (방 코드+트랙 시드로 양쪽 동일 순서)
+  try {
+    const seedStr = `${info.track && info.track.id}:${(info.players || []).map((p) => p.id).sort().join(',')}`;
+    let h = 2166136261;
+    for (let k = 0; k < seedStr.length; k++) {
+      h ^= seedStr.charCodeAt(k);
+      h = Math.imul(h, 16777619);
+    }
+    const rnd = () => {
+      h = (Math.imul(h, 1664525) + 1013904223) | 0;
+      return (h >>> 0) / 4294967296;
+    };
+    for (let i = entries.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [entries[i], entries[j]] = [entries[j], entries[i]];
+    }
+  } catch (e) { /* 무시 */ }
   entries.forEach((e, i) => {
     const s = slots[i % slots.length];
     const car = makeCarState(e.def, s.x, s.z, s.heading);
@@ -1561,11 +1584,12 @@ function buildRaceOnline(info) {
     mesh.rotation.y = -s.heading;
     scene.add(mesh);
     racers.push({
-      car, mesh, isPlayer: e.slot === mySlot,
+      car, mesh, isPlayer: !!e.isMine,
       local: e.local, ai: e.ai, name: e.name,
       slot: e.slot, peerId: e.peerId, smokeAcc: 0, shieldMesh: newShieldMesh(),
     });
   });
+  playerIdx = Math.max(0, entries.findIndex((e) => e.isMine));
   raceTime = 0;
   spectateIdx = null;
   snapCamera(true);
@@ -1925,7 +1949,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-07';
+const APP_VERSION = '20260925-08';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

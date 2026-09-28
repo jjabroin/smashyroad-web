@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { CAR_DEFS } from './race.js?v=939de1';
 import { TRACK_DEFS, buildTrack } from './track.js?v=b02c69';
 import { CAR_BUILDERS, makeDriver } from './voxel.js?v=4a85b8';
-import { BOXES, STARS } from './gacha.js?v=162cf9';
+import { BOXES, STARS } from './gacha.js?v=3576ae';
 
 const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };
 const MODE_LABEL = { race: '레이싱', item: '아이템전', ta: '타임어택', online: '온라인' };
@@ -445,6 +445,11 @@ export function createGarage(onStart, hooks = {}) {
       if (b) b.textContent = st ? st.coins : 0;
     } catch (e) { /* 무시 */ }
   }
+  function carColorOf(id) {
+    const d = CAR_DEFS.find((c) => c.id === id);
+    if (!d) return '#fff';
+    return '#' + d.color.toString(16).padStart(6, '0');
+  }
   function renderBox() {
     refreshCoins();
     const box = document.getElementById('boxList');
@@ -452,6 +457,7 @@ export function createGarage(onStart, hooks = {}) {
     box.innerHTML = '';
     const st = hooks.gachaState ? hooks.gachaState() : { coins: 0, pity: {} };
     document.getElementById('boxResults').innerHTML = '';
+    renderHistory(st);
     for (const b of BOXES) {
       const pityLeft = b.pity5 - ((st.pity && st.pity[b.id]) | 0);
       const row = document.createElement('div');
@@ -484,6 +490,26 @@ export function createGarage(onStart, hooks = {}) {
           `5★ ${b.weights[5] || 0}%: ${cars5} (중복 시 코인, ${b.pity5}회 천장)`;
       }).join('<br><br>');
     }
+  }
+  // 최근 뽑기 히스토리 (확률 검증용)
+  function renderHistory(st) {
+    try {
+      const box = document.getElementById('boxHistory');
+      if (!box) return;
+      const h = ((st && st.history) || []).slice().reverse();
+      if (h.length === 0) {
+        box.innerHTML = '';
+        return;
+      }
+      const cars5 = h.filter((x) => x.stars === 5).length;
+      box.innerHTML =
+        `<div class="o-hint">최근 ${h.length}회: 5★ ${cars5}회</div>` +
+        h.slice(0, 10).map((x) => {
+          const label = x.kind === 'car' ? carNameOf(x.carId) : `${x.amount}코인`;
+          const col = STAR_COLOR[x.stars] || '#fff';
+          return `<div class="histrow"><i style="background:${col}"></i><span>${x.stars}★ ${label}</span><small>${x.box}${x.pity ? ' 천장' : ''}</small></div>`;
+        }).join('');
+    } catch (e) { /* 무시 */ }
   }
   let pulling = false;
   // 3D 상자 (미니 렌더러 + 뚜껑 회전 오픈)
@@ -619,17 +645,18 @@ export function createGarage(onStart, hooks = {}) {
       const it = r.results[i];
       const div = document.createElement('div');
       const col = STAR_COLOR[it.stars] || '#fff';
-      div.className = 'pullres';
+      div.className = 'pullres big';
       div.style.borderColor = col;
-      div.style.boxShadow = `0 0 12px ${col}`;
+      div.style.boxShadow = `0 0 16px ${col}`;
       if (it.kind === 'car') {
         div.innerHTML =
+          `<i class="carchip" style="background:${carColorOf(it.carId)}"></i>` +
           `<b style="color:${col}">${it.stars}★ ${carNameOf(it.carId)}</b>` +
           `<small>${it.dup ? '중복 → 코인 전환' : '신규 획득!'}${it.pity ? ' (천장)' : ''}</small>`;
       } else {
         div.innerHTML =
           `<b style="color:${col}">${it.stars}★ ${it.amount} 코인</b>` +
-          `<small>${it.dup ? '중복 전환' : ''}${it.pity ? ' (천장)' : ''}</small>`;
+          `<small>${it.dup ? '중복 전환' : '획득'}${it.pity ? ' (천장)' : ''}</small>`;
       }
       resBox.appendChild(div);
       if (hooks.sfx) {

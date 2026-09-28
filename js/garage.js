@@ -475,12 +475,82 @@ export function createGarage(onStart, hooks = {}) {
     }
     const rt = document.getElementById('boxRates');
     if (rt) {
-      rt.innerHTML = BOXES.map((b) =>
-        `${b.name}: 3★ ${b.weights[3] || 0}% / 4★ ${b.weights[4] || 0}% / 5★ ${b.weights[5] || 0}% (5★ ${b.pity5}회 천장)`
-      ).join('<br>');
+      rt.innerHTML = BOXES.map((b) => {
+        const cars4 = (b.pool4 || []).map(carNameOf).join(', ');
+        const cars5 = (b.pool5 || []).map(carNameOf).join(', ');
+        return `<b>${b.name}</b> (${b.price}코인)<br>` +
+          `3★ ${b.weights[3] || 0}%: 코인 ${b.coins3[0]}~${b.coins3[1]}<br>` +
+          `4★ ${b.weights[4] || 0}%: ${cars4} 또는 코인 ${b.coins4[0]}~${b.coins4[1]}<br>` +
+          `5★ ${b.weights[5] || 0}%: ${cars5} (중복 시 코인, ${b.pity5}회 천장)`;
+      }).join('<br><br>');
     }
   }
   let pulling = false;
+  // 3D 상자 (미니 렌더러 + 뚜껑 회전 오픈)
+  let chestRenderer = null;
+  let chestScene = null;
+  let chestCamera = null;
+  let chestLid = null;
+  let chestBase = null;
+  let chestRaf = 0;
+  function chestInit() {
+    if (chestRenderer) return true;
+    try {
+      const cv = document.getElementById('boxChest3D');
+      if (!cv) return false;
+      chestRenderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+      chestScene = new THREE.Scene();
+      chestScene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a96, 1.2));
+      const sun = new THREE.DirectionalLight(0xfff6e0, 1.6);
+      sun.position.set(6, 10, 8);
+      chestScene.add(sun);
+      const wood = new THREE.MeshLambertMaterial({ color: 0x8a4fd0 });
+      const gold = new THREE.MeshLambertMaterial({ color: 0xffd75d });
+      chestBase = new THREE.Group();
+      const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.4, 3), wood);
+      bodyMesh.position.y = 1.2;
+      chestBase.add(bodyMesh);
+      for (const sx of [-1.4, 1.4]) {
+        const band = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.5, 3.1), gold);
+        band.position.set(sx, 1.2, 0);
+        chestBase.add(band);
+      }
+      const lock = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.4), gold);
+      lock.position.set(0, 1.6, 1.6);
+      chestBase.add(lock);
+      chestScene.add(chestBase);
+      chestLid = new THREE.Group();
+      chestLid.position.set(0, 2.4, -1.5);
+      const lidMesh = new THREE.Mesh(new THREE.BoxGeometry(4.4, 1.1, 3), wood);
+      lidMesh.position.set(0, 0.55, 1.5);
+      chestLid.add(lidMesh);
+      for (const sx of [-1.4, 1.4]) {
+        const band = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.2, 3.1), gold);
+        band.position.set(sx, 0.55, 1.5);
+        chestLid.add(band);
+      }
+      chestScene.add(chestLid);
+      chestCamera = new THREE.PerspectiveCamera(38, 360 / 240, 0.1, 100);
+      chestCamera.position.set(0, 4.2, 9.5);
+      chestCamera.lookAt(0, 1.6, 0);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  function chestStop() {
+    try {
+      if (chestRaf) cancelAnimationFrame(chestRaf);
+    } catch (e) { /* 무시 */ }
+    chestRaf = 0;
+  }
+  function chestRender() {
+    try {
+      if (chestRenderer && chestScene && chestCamera) {
+        chestRenderer.render(chestScene, chestCamera);
+      }
+    } catch (e) { /* 무시 */ }
+  }
   function doPull(boxId, count) {
     if (pulling) return;
     const r = hooks.gachaPull ? hooks.gachaPull(boxId, count) : { ok: false, reason: 'no-hooks' };
@@ -493,16 +563,50 @@ export function createGarage(onStart, hooks = {}) {
     }
     pulling = true;
     const anim = document.getElementById('boxAnim');
-    const chest = document.getElementById('boxChest');
     const resBox = document.getElementById('boxResults');
     resBox.innerHTML = '';
     anim.style.display = 'block';
-    chest.classList.remove('open');
-    void chest.offsetWidth;
-    chest.classList.add('shake');
+    const has3D = chestInit();
+    let shakeT = 0;
+    if (chestLid) chestLid.rotation.x = 0;
+    chestRender();
+    const shakeLoop = () => {
+      if (skipped || shakeT >= 900) {
+        chestStop();
+        if (chestLid) chestLid.rotation.x = 0;
+        chestRender();
+        if (hooks.sfx) {
+          try { hooks.sfx(0); } catch (e) { /* 무시 */ }
+        }
+        // 뚜껑 열림 (0.4초)
+        const t0 = Date.now();
+        const openLoop = () => {
+          const k = Math.min(1, (Date.now() - t0) / 400);
+          if (chestLid) chestLid.rotation.x = -1.9 * k;
+          chestRender();
+          if (k < 1 && !skipped) {
+            chestRaf = requestAnimationFrame(openLoop);
+          } else {
+            chestStop();
+            setTimeout(() => showAt(0), skipped ? 60 : 250);
+          }
+        };
+        openLoop();
+        return;
+      }
+      shakeT += 100;
+      if (chestBase) {
+        chestBase.rotation.y = Math.sin(shakeT / 90) * 0.35;
+        chestBase.position.x = Math.sin(shakeT / 60) * 0.25;
+      }
+      chestRender();
+      chestRaf = setTimeout(shakeLoop, 100);
+    };
     let skipped = false;
     const skip = () => { skipped = true; };
     anim.onclick = skip;
+    if (has3D) shakeLoop();
+    else setTimeout(() => showAt(0), 120);
     const showAt = (i) => {
       if (i >= r.results.length) {
         anim.style.display = 'none';

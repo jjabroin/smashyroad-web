@@ -207,11 +207,13 @@ export class FriendNet {
     if (!this.client || !this.myId) return false;
     const msg = { from: this.myId, code, ts: Date.now() };
     return new Promise((resolve) => {
+      let done = false;
+      const finish = (v) => { if (!done) { done = true; resolve(v); } };
       try {
-        this.client.publish(inviteTopic(friendId), JSON.stringify(msg), { qos: 1, retain: true }, () => resolve(true));
-        setTimeout(() => resolve(true), 3000);
+        this.client.publish(inviteTopic(friendId), JSON.stringify(msg), { qos: 1, retain: true }, () => finish(true));
+        setTimeout(() => finish(false), 6000);
       } catch (e) {
-        resolve(false);
+        finish(false);
       }
     });
   }

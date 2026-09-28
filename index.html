@@ -120,7 +120,7 @@
       <div class="o-hint">경주로 코인을 모아 상자를 열어보세요. 같은 차 중복은 코인으로 전환.</div>
       <div id="boxList"></div>
       <div id="boxAnim" style="display:none">
-        <div id="boxChest" class="chest"></div>
+        <canvas id="boxChest3D" width="360" height="240" style="width:100%;max-width:360px;display:block;margin:0 auto"></canvas>
         <div class="o-hint">열리는 중... (탭하면 스킵)</div>
       </div>
       <div id="boxResults"></div>
@@ -269,7 +269,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=89bad5"></script>
+  <script type="module" src="js/main.js?v=3ac898"></script>
   <script>
     // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
     // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.

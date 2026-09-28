@@ -38,13 +38,13 @@ function corridorGroundY(x, z) {
   return null;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
-import { createGarage } from './garage.js?v=ad3d5c';
+import { createGarage } from './garage.js?v=0002d9';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=11466e';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
 import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull, migrateToAccount as migrateGacha } from './gacha.js?v=162cf9';
-import { FriendNet, loadFriends, saveFriends, validFriendId } from './friends.js?v=68ee24';
+import { FriendNet, loadFriends, saveFriends, validFriendId } from './friends.js?v=900410';
 import { SkidTrails } from './skids.js?v=591055';
 
 const canvas = document.getElementById('game');
@@ -193,6 +193,7 @@ accPanel = createAccountPanel({
   refresh: () => refreshAccountUI(),
 });
 accPanel.render(); // 부트 시 로그인 표시 반영
+refreshAccountUI(); // 부트 시 세션 복원 (친구 온라인·초대 수신 시작 포함)
 function loadTARecords() {
   return board.localAll();
 }
@@ -2262,27 +2263,41 @@ garageCtl = createGarage(
     try {
       const owner = friendOwner();
       const msg = document.getElementById('friendMsg');
+      const say = (t) => { if (msg) msg.textContent = t; };
       if (!owner) {
-        if (msg) msg.textContent = '로그인 후 추가할 수 있습니다.';
+        say('로그인 후 추가할 수 있습니다.');
         return;
       }
       const clean = (id || '').trim();
       if (!validFriendId(clean)) {
-        if (msg) msg.textContent = 'ID는 영문·숫자 3~16자입니다.';
+        say('ID는 영문·숫자 3~16자입니다.');
         return;
       }
       if (clean === owner) {
-        if (msg) msg.textContent = '자기 자신은 추가할 수 없습니다.';
+        say('자기 자신은 추가할 수 없습니다.');
         return;
       }
-      const list = loadFriends(owner);
-      if (!list.includes(clean)) {
-        list.push(clean);
-        saveFriends(owner, list);
-      }
-      friendNet.watch([clean]);
-      if (msg) msg.textContent = `${clean} 추가됨`;
-      if (garageCtl && garageCtl.refreshFriends) garageCtl.refreshFriends();
+      say('계정 확인 중...');
+      board.net.fetchAccount(clean, 8000).then((found) => {
+        if (found.ok) {
+          const list = loadFriends(owner);
+          if (!list.includes(clean)) {
+            list.push(clean);
+            saveFriends(owner, list);
+          }
+          friendNet.watch([clean]);
+          say(`${clean} 추가됨`);
+        } else if (found.reason === 'offline') {
+          say('온라인 연결이 필요합니다. 잠시 후 다시 시도하세요.');
+          return;
+        } else {
+          say('없는 ID입니다. 정확한 계정 ID를 입력하세요.');
+          return;
+        }
+        if (garageCtl && garageCtl.refreshFriends) garageCtl.refreshFriends();
+      }).catch(() => {
+        say('확인 실패. 다시 시도하세요.');
+      });
     } catch (e) { /* 무시 */ }
   },
   friendRemove: (id) => {

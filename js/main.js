@@ -43,7 +43,7 @@ import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=11466e';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
-import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull } from './gacha.js?v=24abbe';
+import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull, migrateToAccount as migrateGacha } from './gacha.js?v=162cf9';
 import { SkidTrails } from './skids.js?v=591055';
 
 const canvas = document.getElementById('game');
@@ -104,6 +104,16 @@ function refreshAccountUI() {
     }
   } catch (e) { /* 무시 */ }
   try { updateBoardSync(); } catch (e) { /* 무시 */ }
+  // 로그인 시 기기 뽑기 저장분을 계정으로 합치기 (1회성, 멱등)
+  try {
+    const s = loadSession();
+    if (s) {
+      gachaSt = null;
+      migrateGacha('dev:' + deviceTag(), 'acc:' + s.id);
+    } else {
+      gachaSt = null;
+    }
+  } catch (e) { /* 무시 */ }
 }
 accPanel = createAccountPanel({
   board,

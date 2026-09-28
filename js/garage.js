@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { CAR_DEFS } from './race.js?v=fadfbc';
 import { TRACK_DEFS, buildTrack } from './track.js?v=b02c69';
 import { CAR_BUILDERS, makeDriver } from './voxel.js?v=4a85b8';
-import { BOXES, STARS } from './gacha.js?v=24abbe';
+import { BOXES, STARS } from './gacha.js?v=162cf9';
 
 const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };
 const MODE_LABEL = { race: '레이싱', item: '아이템전', ta: '타임어택', online: '온라인' };

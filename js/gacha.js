@@ -36,23 +36,41 @@ function blankState(owner) {
   return { owner, coins: 0, pity: {}, unlocked: [] };
 }
 
-export function loadState(owner) {
+function keyFor(owner) {
+  return GACHA_KEY + ':' + owner;
+}
+
+function readKey(key) {
   try {
-    if (typeof localStorage === 'undefined') return blankState(owner);
-    const s = JSON.parse(localStorage.getItem(GACHA_KEY));
-    if (s && s.owner === owner) {
-      return {
-        owner, coins: Math.max(0, Math.floor(Number(s.coins) || 0)),
-        pity: s.pity || {}, unlocked: Array.isArray(s.unlocked) ? s.unlocked : [],
-      };
-    }
+    if (typeof localStorage === 'undefined') return null;
+    const s = JSON.parse(localStorage.getItem(key));
+    if (s && typeof s === 'object') return s;
   } catch (e) { /* 무시 */ }
+  return null;
+}
+
+export function loadState(owner) {
+  // 구format(단일 키) 이전
+  const old = readKey(GACHA_KEY);
+  if (old && old.owner) {
+    try {
+      localStorage.setItem(keyFor(old.owner), JSON.stringify(old));
+      localStorage.removeItem(GACHA_KEY);
+    } catch (e) { /* 무시 */ }
+  }
+  const s = readKey(keyFor(owner));
+  if (s && s.owner === owner) {
+    return {
+      owner, coins: Math.max(0, Math.floor(Number(s.coins) || 0)),
+      pity: s.pity || {}, unlocked: Array.isArray(s.unlocked) ? s.unlocked : [],
+    };
+  }
   return blankState(owner);
 }
 
 export function saveState(st) {
   try {
-    localStorage.setItem(GACHA_KEY, JSON.stringify(st));
+    localStorage.setItem(keyFor(st.owner), JSON.stringify(st));
     return true;
   } catch (e) {
     return false;
@@ -139,4 +157,35 @@ export function pull(st, boxId, count, rand) {
 export function isUnlocked(st, carId, carDef) {
   if (!carDef || !carDef.locked) return true;
   return st.unlocked.includes(carId);
+}
+
+// 기기 저장분을 계정으로 합치기 (로그인 시 1회, 중복 방지 위해 기기는 비움)
+export function migrateToAccount(devOwner, accOwner) {
+  if (!devOwner || !accOwner || devOwner === accOwner) return { coins: 0, cars: 0 };
+  try {
+    if (typeof localStorage === 'undefined') return { coins: 0, cars: 0 };
+    const s = readKey(keyFor(devOwner));
+    if (!s || s.owner !== devOwner) return { coins: 0, cars: 0 };
+    const a = readKey(keyFor(accOwner));
+    const acc = a && a.owner === accOwner ? a : blankState(accOwner);
+    const coins = Math.max(0, Math.floor(Number(s.coins) || 0));
+    acc.coins = Math.max(0, Math.floor(Number(acc.coins) || 0)) + coins;
+    if (!Array.isArray(acc.unlocked)) acc.unlocked = [];
+    let cars = 0;
+    for (const id of s.unlocked || []) {
+      if (!acc.unlocked.includes(id)) {
+        acc.unlocked.push(id);
+        cars++;
+      }
+    }
+    if (!acc.pity) acc.pity = {};
+    for (const [k, v] of Object.entries(s.pity || {})) {
+      acc.pity[k] = Math.max(acc.pity[k] | 0, v | 0);
+    }
+    localStorage.setItem(keyFor(accOwner), JSON.stringify(acc));
+    localStorage.setItem(keyFor(devOwner), JSON.stringify(blankState(devOwner)));
+    return { coins, cars };
+  } catch (e) {
+    return { coins: 0, cars: 0 };
+  }
 }

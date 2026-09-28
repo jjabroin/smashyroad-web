@@ -38,12 +38,13 @@ function corridorGroundY(x, z) {
   return null;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
-import { createGarage } from './garage.js?v=9d5449';
+import { createGarage } from './garage.js?v=ad3d5c';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=11466e';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
 import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull, migrateToAccount as migrateGacha } from './gacha.js?v=162cf9';
+import { FriendNet, loadFriends, saveFriends, validFriendId } from './friends.js?v=68ee24';
 import { SkidTrails } from './skids.js?v=591055';
 
 const canvas = document.getElementById('game');
@@ -72,8 +73,63 @@ const mines = new Map(); // id -> {x,z,mesh,armT}
 let ITEMS_ON = true;
 let timeAttack = false; // 1인 타임어택 모드
 let soloTA = false; // 솔로 시작 모드 기억 (다시 달리기용)
-// 순위표 단일 진실 원천 (board.js) — 메모리+저장소+공유 병합
-const board = new Board((url, opts) => window.mqtt.connect(url, opts));
+// 친구 (presence·초대)
+const friendNet = new FriendNet((url, opts) => window.mqtt.connect(url, opts));
+function friendOwner() {
+  try {
+    const s = loadSession();
+    if (s) return s.id;
+  } catch (e) { /* 무시 */ }
+  return null;
+}
+function friendProfile() {
+  try {
+    const s = loadSession();
+    const g = gachaState();
+    return { name: (s && s.name) || null, cars: (g.unlocked || []).slice() };
+  } catch (e) {
+    return { name: null, cars: [] };
+  }
+}
+friendNet.onEvent((ev) => {
+  try {
+    if (ev.type === 'presence' || ev.type === 'invite') {
+      if (garageCtl && garageCtl.refreshFriends) garageCtl.refreshFriends();
+    }
+    if (ev.type === 'invite') {
+      const box = document.getElementById('inviteBox');
+      const dot = document.getElementById('friendDot');
+      if (dot) dot.style.display = 'inline';
+      if (box) {
+        box.innerHTML = '';
+        const d = document.createElement('div');
+        d.className = 'nnew';
+        d.innerHTML = `<b>${escHtml(ev.msg.from)}님이 초대!</b> 코드 ${escHtml(ev.msg.code)} ` +
+          `<button class="mbtn" id="inviteJoin">참가</button> <button class="mbtn" id="inviteNo">거절</button>`;
+        box.appendChild(d);
+        document.getElementById('inviteJoin').addEventListener('click', () => {
+          try {
+            document.getElementById('joinCode').value = ev.msg.code;
+            friendNet.clearInvite();
+            box.innerHTML = '';
+            if (dot) dot.style.display = 'none';
+            try { if (garageCtl) garageCtl.closePanels(); } catch (e) { /* 무시 */ }
+            openOnlineHome();
+            setTimeout(() => document.getElementById('joinBtn').click(), 400);
+          } catch (e) { /* 무시 */ }
+        });
+        document.getElementById('inviteNo').addEventListener('click', () => {
+          try {
+            friendNet.clearInvite();
+            box.innerHTML = '';
+            if (dot) dot.style.display = 'none';
+          } catch (e) { /* 무시 */ }
+        });
+      }
+      try { hud.message(`${ev.msg.from}님의 대전 초대!`, '', 2500); } catch (e) { /* 무시 */ }
+    }
+  } catch (e) { /* 무시 */ }
+});
 // 뽑기 재화 (소유자=계정ID·기기태그별)
 function gachaOwner() {
   try {
@@ -112,6 +168,20 @@ function refreshAccountUI() {
       migrateGacha('dev:' + deviceTag(), 'acc:' + s.id);
     } else {
       gachaSt = null;
+    }
+  } catch (e) { /* 무시 */ }
+  // 친구 온라인 (로그인 시 presence 시작·구독, 로그아웃 시 종료)
+  try {
+    const s = loadSession();
+    if (s) {
+      friendNet.login(s.id, friendProfile()).then((ok) => {
+        if (ok) {
+          try { friendNet.watch(loadFriends(s.id)); } catch (e) { /* 무시 */ }
+          if (garageCtl && garageCtl.refreshFriends) garageCtl.refreshFriends();
+        }
+      }).catch(() => {});
+    } else {
+      friendNet.logout().catch(() => {});
     }
   } catch (e) { /* 무시 */ }
 }
@@ -1852,7 +1922,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-04';
+const APP_VERSION = '20260925-05';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {
@@ -2156,12 +2226,96 @@ garageCtl = createGarage(
   onNoticeOpen: () => {
     renderNotices();
   },
+  friendsData: () => {
+    try {
+      const owner = friendOwner();
+      if (!owner) return { loggedIn: false, friends: [] };
+      const ids = loadFriends(owner);
+      const now = Date.now();
+      return {
+        loggedIn: true,
+        friends: ids.map((id) => {
+          const p = friendNet.presence.get(id) || null;
+          let tracks = 0;
+          try {
+            for (const t of TRACK_DEFS) {
+              const list = board.list(t.id) || [];
+              if (list.some((e) => e && e.tag === id)) tracks++;
+            }
+          } catch (e) { /* 무시 */ }
+          return {
+            id,
+            online: !!(p && p.online === true && typeof p.ts === 'number' && now - p.ts < 100000),
+            name: (p && p.name) || null,
+            cars: (p && Array.isArray(p.cars) ? p.cars : []).filter((c) => typeof c === 'string').slice(0, 15),
+            tracks,
+          };
+        }),
+      };
+    } catch (e) {
+      return { loggedIn: false, friends: [] };
+    }
+  },
+  friendAdd: (id) => {
+    try {
+      const owner = friendOwner();
+      const msg = document.getElementById('friendMsg');
+      if (!owner) {
+        if (msg) msg.textContent = '로그인 후 추가할 수 있습니다.';
+        return;
+      }
+      const clean = (id || '').trim();
+      if (!validFriendId(clean)) {
+        if (msg) msg.textContent = 'ID는 영문·숫자 3~16자입니다.';
+        return;
+      }
+      if (clean === owner) {
+        if (msg) msg.textContent = '자기 자신은 추가할 수 없습니다.';
+        return;
+      }
+      const list = loadFriends(owner);
+      if (!list.includes(clean)) {
+        list.push(clean);
+        saveFriends(owner, list);
+      }
+      friendNet.watch([clean]);
+      if (msg) msg.textContent = `${clean} 추가됨`;
+      if (garageCtl && garageCtl.refreshFriends) garageCtl.refreshFriends();
+    } catch (e) { /* 무시 */ }
+  },
+  friendRemove: (id) => {
+    try {
+      const owner = friendOwner();
+      if (!owner) return;
+      saveFriends(owner, loadFriends(owner).filter((x) => x !== id));
+      if (garageCtl && garageCtl.refreshFriends) garageCtl.refreshFriends();
+    } catch (e) { /* 무시 */ }
+  },
+  friendInvite: (id) => {
+    try {
+      const room = (onlineCtl && onlineCtl.room) || lobbyRoom;
+      const msg = document.getElementById('friendMsg');
+      if (!room || !room.code) {
+        if (msg) msg.textContent = '온라인에서 방을 먼저 만드세요.';
+        else if (typeof hud !== 'undefined') hud.message('방을 먼저 만드세요', '', 1500);
+        return;
+      }
+      friendNet.invite(id, room.code).then((ok) => {
+        if (msg) msg.textContent = ok ? `${id}님에게 초대 전송!` : '초대 실패 (연결 확인)';
+      });
+    } catch (e) { /* 무시 */ }
+  },
   gachaState: () => gachaState(),
   gachaPull: (boxId, count) => {
     const r = gachaPull(gachaState(), boxId, count, Math.random);
     try {
       const b = document.getElementById('coinBal');
       if (b) b.textContent = gachaState().coins;
+    } catch (e) { /* 무시 */ }
+    try {
+      if (r.ok && r.results.some((x) => x.kind === 'car' && !x.dup)) {
+        friendNet.refreshProfile(friendProfile());
+      }
     } catch (e) { /* 무시 */ }
     return r;
   },

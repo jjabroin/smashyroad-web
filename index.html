@@ -9,7 +9,7 @@
   <meta name="description" content="복셀 3D 트랙 경주 게임. 차고에서 차를 고르고 3랩 서킷에서 결승선을 노리세요." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=75936c" />
+  <link rel="stylesheet" href="css/style.css?v=5c0375" />
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
@@ -26,6 +26,7 @@
         <button id="accBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg> <span id="accBtnName">계정</span></button>
         <button id="noticeBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 0 0 4 0"/></svg> 공지<span id="noticeDot" style="display:none;color:#ff3b30"> ●</span></button>
         <button id="helpBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.8 2.1c-.8.6-1.3 1-1.3 1.9"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg> 도움말</button>
+        <button id="friendBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5a3 3 0 0 1 0 6M18 14.5A6 6 0 0 1 21 20"/></svg> 친구<span id="friendDot" style="display:none;color:#ff3b30"> ●</span></button>
         <button id="boxBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="9" width="16" height="12" rx="1"/><path d="M3 5h18v4H3zM12 5v16"/></svg> 상자</button>
       </div>
       <div class="menu-coins"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg> <b id="coinBal">0</b></div>
@@ -124,6 +125,18 @@
       </div>
       <div id="boxResults"></div>
       <div id="boxRates" class="o-hint"></div>
+    </div>
+
+    <div id="panelFriends" class="subpanel" style="display:none">
+      <div class="phead"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5a3 3 0 0 1 0 6M18 14.5A6 6 0 0 1 21 20"/></svg> 친구</b><button class="pclose" data-p="panelFriends">✕</button></div>
+      <div class="o-hint">계정 ID로 친구를 추가하세요. 로그인 상태에서만 온라인 표시·초대가 됩니다.</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="friendId" class="ocode" maxlength="16" placeholder="친구 ID" autocomplete="off" style="flex:1" />
+        <button id="friendAdd" class="mbtn">추가</button>
+      </div>
+      <div id="inviteBox"></div>
+      <div id="friendList"></div>
+      <div id="friendMsg" class="o-hint"></div>
     </div>
 
     <div id="panelHelp" class="subpanel" style="display:none">
@@ -256,7 +269,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=14ee8a"></script>
+  <script type="module" src="js/main.js?v=7743e9"></script>
   <script>
     // 확대/롱프레스 차단 (모바일 Safari·크롬 핀치줌·더블탭줌·콜아웃 방지)
     // 게임 조작은 pointer 이벤트 기반이라 영향 없음. 입력창은 제외.

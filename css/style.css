@@ -877,3 +877,5 @@ html, body {
   0% { transform: scale(.7); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
+.fdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #8fa0b3; margin-right: 4px; }
+.fdot.on { background: #3ddc84; box-shadow: 0 0 6px #3ddc84; }

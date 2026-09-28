@@ -149,7 +149,7 @@ export function createGarage(onStart, hooks = {}) {
   }
 
   // --- 서브패널 ---
-  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelBoard', 'panelHelp', 'panelAccount', 'panelNotice', 'panelBox'];
+  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelBoard', 'panelHelp', 'panelAccount', 'panelNotice', 'panelBox', 'panelFriends'];
   function openPanel(id) {
     closePanels();
     const e = document.getElementById(id);
@@ -190,6 +190,67 @@ export function createGarage(onStart, hooks = {}) {
     openPanel('panelBox');
     renderBox();
   });
+  document.getElementById('friendBtn').addEventListener('click', () => {
+    openPanel('panelFriends');
+    renderFriends();
+  });
+  document.getElementById('friendAdd').addEventListener('click', () => {
+    const inp = document.getElementById('friendId');
+    const id = (inp.value || '').trim();
+    if (hooks.friendAdd) hooks.friendAdd(id);
+    inp.value = '';
+  });
+
+  // 친구 목록 (온라인 상태·보유차·기록)
+  function esc(s) {
+    return String(s === undefined || s === null ? '' : s).replace(/[<>&"]/g, (c) => (
+      { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]
+    ));
+  }
+  function renderFriends() {
+    const box = document.getElementById('friendList');
+    if (!box) return;
+    box.innerHTML = '';
+    const msg = document.getElementById('friendMsg');
+    const data = hooks.friendsData ? hooks.friendsData() : { loggedIn: false, friends: [] };
+    if (!data.loggedIn) {
+      if (msg) msg.textContent = '로그인하면 친구 추가·초대가 됩니다.';
+    } else if (msg) {
+      msg.textContent = '';
+    }
+    for (const f of data.friends) {
+      const row = document.createElement('div');
+      row.className = 'brow';
+      const cars = (f.cars || []).map((id) => {
+        const d = CAR_DEFS.find((c) => c.id === id);
+        return d ? d.name : id;
+      });
+      row.innerHTML =
+        `<span><i class="fdot ${f.online ? 'on' : ''}"></i> <b>${esc(f.name || f.id)}</b> <small>(${esc(f.id)})</small><br>` +
+        `<small>보유차 ${cars.length > 0 ? cars.map(esc).join(', ') : '없음'} · 기록 ${f.tracks}개 트랙</small></span>` +
+        `<span></span>`;
+      const btns = row.querySelectorAll('span')[1];
+      const iv = document.createElement('button');
+      iv.className = 'mbtn';
+      iv.textContent = '초대';
+      iv.disabled = !f.online;
+      iv.addEventListener('click', () => {
+        if (hooks.friendInvite) hooks.friendInvite(f.id);
+      });
+      const rm = document.createElement('button');
+      rm.className = 'mbtn';
+      rm.textContent = '삭제';
+      rm.addEventListener('click', () => {
+        if (hooks.friendRemove) hooks.friendRemove(f.id);
+      });
+      btns.appendChild(iv);
+      btns.appendChild(rm);
+      box.appendChild(row);
+    }
+    if (data.friends.length === 0 && data.loggedIn && msg) {
+      msg.textContent = '친구를 추가해보세요.';
+    }
+  }
   document.getElementById('noticeBtn').addEventListener('click', () => {
     openPanel('panelNotice');
     if (hooks.onNoticeOpen) hooks.onNoticeOpen();
@@ -593,6 +654,12 @@ export function createGarage(onStart, hooks = {}) {
           ? `⏱ BEST ${best.total.toFixed(1)}s (${(best.car || '').toUpperCase()}${best.tag ? ' · ' + best.tag : ''})`
           : '⏱ 기록 없음 — 도전!';
       }
+    },
+    closePanels() {
+      closePanels();
+    },
+    refreshFriends() {
+      if (document.getElementById('panelFriends').style.display !== 'none') renderFriends();
     },
   };
 }

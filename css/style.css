@@ -70,7 +70,8 @@ img {
 }
 .g-stats { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .srow { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: #fff; }
-.srow span { width: 92px; }
+.srow span { width: 92px; flex-shrink: 0; }
+.statnum { width: 34px; flex-shrink: 0; text-align: right; color: #ffd75d; font-size: 13px; }
 .stat { flex: 1; height: 14px; background: rgba(0,0,0,.35); border-radius: 3px; overflow: hidden; }
 .stat i { display: block; height: 100%; background: #fff; border-radius: 3px; }
 #garageCanvas {
@@ -417,7 +418,7 @@ img {
   #carGrade { font-size: 13px; }
   .g-head { gap: 10px; }
   .srow { font-size: 12px; }
-  .srow span { width: 72px; }
+  .srow span { width: 72px; flex-shrink: 0; }
   .menu-topbtns { gap: 5px; }
   .menu-topbtns button { font-size: 12px; padding: 6px 8px; }
 }

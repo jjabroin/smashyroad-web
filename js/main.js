@@ -73,6 +73,8 @@ const mines = new Map(); // id -> {x,z,mesh,armT}
 let ITEMS_ON = true;
 let timeAttack = false; // 1인 타임어택 모드
 let soloTA = false; // 솔로 시작 모드 기억 (다시 달리기용)
+// 순위표 단일 진실 원천 (board.js) — 메모리+저장소+공유 병합
+const board = new Board((url, opts) => window.mqtt.connect(url, opts));
 // 친구 (presence·초대)
 const friendNet = new FriendNet((url, opts) => window.mqtt.connect(url, opts));
 function friendOwner() {
@@ -1922,7 +1924,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-05';
+const APP_VERSION = '20260925-06';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

@@ -147,7 +147,10 @@ export function createAccountPanel(api) {
   }
 
   el('accSignup').addEventListener('click', async () => {
-    const { id, name, pin } = inputs();
+    const inp = inputs();
+    const id = (inp.id || '').toUpperCase();
+    const name = inp.name;
+    const pin = inp.pin;
     if (!validAccountId(id)) { msg('ID는 영문·숫자 3~16자입니다.'); return; }
     if (!name) { msg('표시 이름을 입력하세요.'); return; }
     if (!validPin(pin)) { msg('PIN 4자리를 입력하세요.'); return; }

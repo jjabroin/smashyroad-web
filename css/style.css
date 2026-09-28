@@ -69,7 +69,7 @@ img {
   text-shadow: 1px 1px 0 rgba(0,0,0,.4);
 }
 .g-stats { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.srow { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: #fff; }
+.srow { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: #fff; }
 .srow span { width: 92px; flex-shrink: 0; }
 .statnum { width: 34px; flex-shrink: 0; text-align: right; color: #ffd75d; font-size: 13px; }
 .stat { flex: 1; height: 14px; background: rgba(0,0,0,.35); border-radius: 3px; overflow: hidden; }
@@ -417,7 +417,7 @@ img {
   #carName { font-size: 16px; }
   #carGrade { font-size: 13px; }
   .g-head { gap: 10px; }
-  .srow { font-size: 12px; }
+  .srow { font-size: 12px; grid-template-columns: 72px 1fr 40px; }
   .srow span { width: 72px; flex-shrink: 0; }
   .menu-topbtns { gap: 5px; }
   .menu-topbtns button { font-size: 12px; padding: 6px 8px; }

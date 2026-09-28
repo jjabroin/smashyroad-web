@@ -74,7 +74,15 @@ export class FriendNet {
   }
 
   async _ensureLive() {
-    if (this.client) return true;
+    try {
+      if (this.client && this.client.connected) return true;
+    } catch (e) { /* 무시 */ }
+    try {
+      if (this.client) {
+        try { this.client.end(true); } catch (e) { /* 무시 */ }
+      }
+    } catch (e) { /* 무시 */ }
+    this.client = null;
     try {
       const c = this.mqttFactory(RELAY.url, {
         clientId: 'fr' + Math.random().toString(36).slice(2, 10),

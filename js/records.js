@@ -97,10 +97,12 @@ export class RecordsBoard {
   }
 
   // 계정 조회: retained 수신 대기 (없으면 notfound, 연결 불가면 offline)
-  async fetchAccount(id, timeoutMs = 8000) {
+  // ※ 와일드카드로 받아 대소문자 무시 매칭 (선점 조회 1회로)
+  async fetchAccount(id, timeoutMs = 10000) {
     const live = await this.ensureLive();
     if (!live) return { ok: false, reason: 'offline' };
-    const topic = this.accountTopic(id);
+    const topic = `${ROOM_PREFIX}accounts/+`;
+    const want = String(id || '').toLowerCase();
     return new Promise((resolve) => {
       let done = false;
       const finish = (v) => {
@@ -111,10 +113,12 @@ export class RecordsBoard {
         resolve(v);
       };
       const handler = (t, payload) => {
-        if (t !== topic) return;
+        if (!t.startsWith(`${ROOM_PREFIX}accounts/`)) return;
         try {
           const m = JSON.parse(payload.toString());
-          if (m && m.id === id) finish({ ok: true, meta: m });
+          if (m && typeof m.id === 'string' && m.id.toLowerCase() === want) {
+            finish({ ok: true, meta: m });
+          }
         } catch (e) { /* 무시 */ }
       };
       try {

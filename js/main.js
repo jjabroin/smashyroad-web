@@ -42,9 +42,9 @@ import { createGarage } from './garage.js?v=ad23ff';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=11466e';
-import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
+import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=bd206a';
 import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull, migrateToAccount as migrateGacha } from './gacha.js?v=3576ae';
-import { FriendNet, loadFriends, saveFriends, validFriendId } from './friends.js?v=900410';
+import { FriendNet, loadFriends, saveFriends, validFriendId } from './friends.js?v=99189b';
 import { SkidTrails } from './skids.js?v=591055';
 
 const canvas = document.getElementById('game');
@@ -370,11 +370,6 @@ function buildRace(playerDef, tdef, opts = {}) {
     const pool = CAR_DEFS.filter((d) => d.id !== playerDef.id);
     while (defs.length < 4) defs.push(pool[(defs.length - 1) % pool.length]);
   }
-  // 공정 출발: 그리드 셔플 (플레이어도 랜덤 슬롯)
-  for (let i = defs.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [defs[i], defs[j]] = [defs[j], defs[i]];
-  }
 
   const paces = [1, 0.94, 0.965, 0.92];
   const lanes = [0, 1, -1, 0.5];
@@ -387,20 +382,19 @@ function buildRace(playerDef, tdef, opts = {}) {
     mesh.position.set(s.x, 0, s.z);
     mesh.rotation.y = -s.heading;
     scene.add(mesh);
-    const mine = def === playerDef;
     racers.push({
       car, mesh,
-      isPlayer: mine,
+      isPlayer: i === 0,
       local: true,
-      name: mine ? `YOU (${def.name})` : `CPU ${i} (${def.name})`,
-      ai: mine ? null : { pace: paces[i % paces.length], lane: lanes[i % lanes.length] },
+      name: i === 0 ? `YOU (${def.name})` : `CPU ${i} (${def.name})`,
+      ai: i === 0 ? null : { pace: paces[i % paces.length], lane: lanes[i % lanes.length] },
       slot: i,
       peerId: null,
       smokeAcc: 0,
       shieldMesh: newShieldMesh(),
     });
   });
-  playerIdx = defs.indexOf(playerDef);
+  playerIdx = 0;
   raceTime = 0;
   spectateIdx = null;
   // 타임어택에선 순위 박스 숨김
@@ -1949,7 +1943,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-08';
+const APP_VERSION = '20260925-09';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {
@@ -2029,6 +2023,9 @@ function checkUpdate() {
       .then((r) => (r.ok ? r.json() : null))
       .then((v) => {
         if (v && v.version && v.version !== APP_VERSION) {
+          try {
+            if (localStorage.getItem('blockyracer-update-dismissed') === v.version) return;
+          } catch (e) { /* 무시 */ }
           const b = document.getElementById('updateBanner');
           if (b) b.style.display = 'flex';
         }
@@ -2127,6 +2124,23 @@ document.getElementById('updateReload').addEventListener('click', () => {
     location.href = location.pathname + '?up=' + Date.now();
   } catch (e) {
     location.reload();
+  }
+});
+document.getElementById('updateLater').addEventListener('click', () => {
+  try {
+    fetch('version.json', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((v) => {
+        if (v && v.version) {
+          try { localStorage.setItem('blockyracer-update-dismissed', v.version); } catch (e) { /* 무시 */ }
+        }
+        document.getElementById('updateBanner').style.display = 'none';
+      })
+      .catch(() => {
+        document.getElementById('updateBanner').style.display = 'none';
+      });
+  } catch (e) {
+    document.getElementById('updateBanner').style.display = 'none';
   }
 });
 // 온라인 화면 열기 (차고 후크·패널 api 공유)
@@ -2302,15 +2316,17 @@ garageCtl = createGarage(
         return;
       }
       say('계정 확인 중...');
-      board.net.fetchAccount(clean, 8000).then((found) => {
+      board.net.fetchAccount(clean, 12000).then((found) => {
         if (found.ok) {
+          // 저장된 원본 ID로 보관 (presence 토픽 일치용)
+          const fid = found.meta && found.meta.id ? found.meta.id : clean;
           const list = loadFriends(owner);
-          if (!list.includes(clean)) {
-            list.push(clean);
+          if (!list.includes(fid)) {
+            list.push(fid);
             saveFriends(owner, list);
           }
-          friendNet.watch([clean]);
-          say(`${clean} 추가됨`);
+          friendNet.watch([fid]);
+          say(`${fid} 추가됨`);
         } else if (found.reason === 'offline') {
           say('온라인 연결이 필요합니다. 잠시 후 다시 시도하세요.');
           return;

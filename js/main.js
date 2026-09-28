@@ -5,7 +5,7 @@ import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
   distDiff,
-} from './race.js?v=fadfbc';
+} from './race.js?v=939de1';
 
 // 입체 트랙 층간 오작동 방지: 다른 층 픽업 무시 (dist 윈도우, 구맵 무영향)
 function sameLevel(featD, carD) {
@@ -38,7 +38,7 @@ function corridorGroundY(x, z) {
   return null;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
-import { createGarage } from './garage.js?v=a3ab83';
+import { createGarage } from './garage.js?v=068a00';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=11466e';
@@ -1925,7 +1925,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-06';
+const APP_VERSION = '20260925-07';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

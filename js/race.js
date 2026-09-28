@@ -13,7 +13,7 @@ export const CAR_DEFS = [
     grade: '전설',
     color: 0xe23b2e,
     accent: 0xffffff,
-    stats: { speed: 5, handling: 4, durability: 2 },
+    stats: { speed: 98, handling: 76, durability: 63 }, lv: { speed: 5, handling: 4, durability: 2 },
     maxSpeed: 62, accel: 40, brake: 70, reverseMax: 18,
     turnRate: 2.2, grip: 5.2, drag: 0.35,
   },
@@ -23,7 +23,7 @@ export const CAR_DEFS = [
     grade: '레어',
     color: 0xf2f3f5,
     accent: 0x1c2733,
-    stats: { speed: 4, handling: 3, durability: 3 },
+    stats: { speed: 89, handling: 69, durability: 75 }, lv: { speed: 4, handling: 3, durability: 3 },
     maxSpeed: 56, accel: 34, brake: 64, reverseMax: 16,
     turnRate: 2.0, grip: 6.0, drag: 0.4,
   },
@@ -33,7 +33,7 @@ export const CAR_DEFS = [
     grade: '일반',
     color: 0x23262b,
     accent: 0x3a3f47,
-    stats: { speed: 3, handling: 3, durability: 5 },
+    stats: { speed: 79, handling: 66, durability: 100 }, lv: { speed: 3, handling: 3, durability: 5 },
     maxSpeed: 50, accel: 30, brake: 60, reverseMax: 15,
     turnRate: 1.9, grip: 6.4, drag: 0.45,
   },
@@ -43,7 +43,7 @@ export const CAR_DEFS = [
     grade: '일반',
     color: 0x1f4fa8,
     accent: 0xdfe6f2,
-    stats: { speed: 3, handling: 2, durability: 5 },
+    stats: { speed: 76, handling: 59, durability: 100 }, lv: { speed: 3, handling: 2, durability: 5 },
     maxSpeed: 48, accel: 28, brake: 58, reverseMax: 14,
     turnRate: 1.7, grip: 6.8, drag: 0.5,
   },
@@ -53,7 +53,7 @@ export const CAR_DEFS = [
     grade: '일반',
     color: 0xf2b90c,
     accent: 0x1c2733,
-    stats: { speed: 3, handling: 4, durability: 3 },
+    stats: { speed: 83, handling: 72, durability: 75 }, lv: { speed: 3, handling: 4, durability: 3 },
     maxSpeed: 52, accel: 34, brake: 64, reverseMax: 16,
     turnRate: 2.1, grip: 6.2, drag: 0.4,
   },
@@ -63,7 +63,7 @@ export const CAR_DEFS = [
     grade: '레어',
     color: 0x1f6fd6,
     accent: 0xffffff,
-    stats: { speed: 4, handling: 5, durability: 3 },
+    stats: { speed: 90, handling: 83, durability: 75 }, lv: { speed: 4, handling: 5, durability: 3 },
     maxSpeed: 57, accel: 36, brake: 66, reverseMax: 16,
     turnRate: 2.4, grip: 5.6, drag: 0.38,
   },
@@ -73,7 +73,7 @@ export const CAR_DEFS = [
     grade: '일반',
     color: 0xe26a1b,
     accent: 0x23262b,
-    stats: { speed: 3, handling: 2, durability: 5 },
+    stats: { speed: 81, handling: 62, durability: 100 }, lv: { speed: 3, handling: 2, durability: 5 },
     maxSpeed: 51, accel: 32, brake: 60, reverseMax: 15,
     turnRate: 1.8, grip: 7.2, drag: 0.45,
   },
@@ -83,7 +83,7 @@ export const CAR_DEFS = [
     grade: '레어',
     color: 0xf2f3f5,
     accent: 0x1c2733,
-    stats: { speed: 4, handling: 3, durability: 4 },
+    stats: { speed: 92, handling: 69, durability: 88 }, lv: { speed: 4, handling: 3, durability: 4 },
     maxSpeed: 58, accel: 35, brake: 66, reverseMax: 16,
     turnRate: 2.0, grip: 5.8, drag: 0.4,
   },
@@ -93,7 +93,7 @@ export const CAR_DEFS = [
     grade: '레어',
     color: 0x7a2fd6,
     accent: 0x27e0f5,
-    stats: { speed: 3, handling: 5, durability: 1 },
+    stats: { speed: 83, handling: 100, durability: 50 }, lv: { speed: 3, handling: 5, durability: 1 },
     maxSpeed: 52, accel: 36, brake: 68, reverseMax: 16,
     turnRate: 2.9, grip: 5.4, drag: 0.36,
   },
@@ -104,7 +104,7 @@ export const CAR_DEFS = [
     grade: '레어',
     color: 0x14161a,
     accent: 0x8a93a3,
-    stats: { speed: 5, handling: 4, durability: 2 },
+    stats: { speed: 100, handling: 76, durability: 63 }, lv: { speed: 5, handling: 4, durability: 2 },
     maxSpeed: 63, accel: 40, brake: 70, reverseMax: 18,
     turnRate: 2.2, grip: 5.2, drag: 0.35,
     locked: true, stars: 4,
@@ -115,7 +115,7 @@ export const CAR_DEFS = [
     grade: '레어',
     color: 0xf2b90c,
     accent: 0x6b4a00,
-    stats: { speed: 4, handling: 3, durability: 3 },
+    stats: { speed: 90, handling: 69, durability: 75 }, lv: { speed: 4, handling: 3, durability: 3 },
     maxSpeed: 57, accel: 34, brake: 64, reverseMax: 16,
     turnRate: 2.0, grip: 6.0, drag: 0.4,
     locked: true, stars: 4,
@@ -126,7 +126,7 @@ export const CAR_DEFS = [
     grade: '레어',
     color: 0x0e4d4e,
     accent: 0x27e0f5,
-    stats: { speed: 4, handling: 5, durability: 3 },
+    stats: { speed: 92, handling: 83, durability: 75 }, lv: { speed: 4, handling: 5, durability: 3 },
     maxSpeed: 58, accel: 36, brake: 66, reverseMax: 16,
     turnRate: 2.4, grip: 5.6, drag: 0.38,
     locked: true, stars: 4,
@@ -137,7 +137,7 @@ export const CAR_DEFS = [
     grade: '전설',
     color: 0x27e0f5,
     accent: 0x7a2fd6,
-    stats: { speed: 4, handling: 5, durability: 2 },
+    stats: { speed: 95, handling: 100, durability: 63 }, lv: { speed: 4, handling: 5, durability: 2 },
     maxSpeed: 60, accel: 38, brake: 68, reverseMax: 17,
     turnRate: 2.9, grip: 5.4, drag: 0.34,
     locked: true, stars: 5,
@@ -148,7 +148,7 @@ export const CAR_DEFS = [
     grade: '전설',
     color: 0xa31226,
     accent: 0xffd75d,
-    stats: { speed: 4, handling: 2, durability: 5 },
+    stats: { speed: 87, handling: 62, durability: 100 }, lv: { speed: 4, handling: 2, durability: 5 },
     maxSpeed: 55, accel: 34, brake: 60, reverseMax: 15,
     turnRate: 1.8, grip: 7.2, drag: 0.42,
     locked: true, stars: 5,
@@ -159,7 +159,7 @@ export const CAR_DEFS = [
     grade: '전설',
     color: 0x101820,
     accent: 0x2f6bff,
-    stats: { speed: 5, handling: 3, durability: 4 },
+    stats: { speed: 97, handling: 69, durability: 88 }, lv: { speed: 5, handling: 3, durability: 4 },
     maxSpeed: 61, accel: 36, brake: 66, reverseMax: 16,
     turnRate: 2.0, grip: 5.8, drag: 0.38,
     locked: true, stars: 5,
@@ -167,7 +167,7 @@ export const CAR_DEFS = [
 ];
 
 export function makeCarState(def, x, z, heading) {
-  const maxHp = 60 + def.stats.durability * 20;
+  const maxHp = 60 + (def.lv ? def.lv.durability : def.stats.durability / 20) * 20;
   return {
     def,
     x, z, heading,
@@ -261,7 +261,7 @@ export function stepCar(car, input, dt, circuit, roadHalf) {
   // 경사: 오르막 감속 · 내리막 가속
   fwd -= trackSlope(circuit, car.dist) * 40 * dt;
 
-  const tough = d.stats.durability / 5; // 0.4~1
+  const tough = (d.lv ? d.lv.durability : d.stats.durability / 20) / 5; // 0.4~1
   const hpRatio = car.hp / car.maxHp;
   // HP가 낮을수록 최고속도 저하 (0% → 78%)
   let cap = d.maxSpeed * (0.78 + 0.22 * hpRatio);
@@ -391,8 +391,8 @@ export function resolveCollisions(cars, dt) {
         const rel = avn - bvn;
         if (rel > 0) {
           maxImpact = Math.max(maxImpact, rel);
-          const dampA = 0.85 + 0.1 * (a.def.stats.durability / 5);
-          const dampB = 0.85 + 0.1 * (b.def.stats.durability / 5);
+          const dampA = 0.85 + 0.1 * ((a.def.lv ? a.def.lv.durability : a.def.stats.durability / 20) / 5);
+          const dampB = 0.85 + 0.1 * ((b.def.lv ? b.def.lv.durability : b.def.stats.durability / 20) / 5);
           a.vx -= nx * rel * dampA;
           a.vz -= nz * rel * dampA;
           b.vx += nx * rel * dampB;

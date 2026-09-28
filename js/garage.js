@@ -1,6 +1,6 @@
 // 차고 메인메뉴 (사진 스타일): 3D 턴테이블 + 차량/맵/모드 카드 + 서브패널
 import * as THREE from 'three';
-import { CAR_DEFS } from './race.js?v=fadfbc';
+import { CAR_DEFS } from './race.js?v=939de1';
 import { TRACK_DEFS, buildTrack } from './track.js?v=b02c69';
 import { CAR_BUILDERS, makeDriver } from './voxel.js?v=4a85b8';
 import { BOXES, STARS } from './gacha.js?v=162cf9';
@@ -80,7 +80,7 @@ export function createGarage(onStart, hooks = {}) {
   window.addEventListener('resize', resize);
 
   function statBar(v) {
-    return `<div class="stat"><i style="width:${v * 10}%"></i></div><span class="statnum">${v}/5</span>`;
+    return `<div class="stat"><i style="width:${v / 2}%"></i></div><span class="statnum">${v}/100</span>`;
   }
 
   function refreshCards() {

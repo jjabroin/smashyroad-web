@@ -71,7 +71,7 @@ img {
 .g-stats { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .srow { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: #fff; }
 .srow span { width: 92px; flex-shrink: 0; }
-.statnum { width: 34px; flex-shrink: 0; text-align: right; color: #ffd75d; font-size: 13px; }
+.statnum { width: 40px; min-width: 40px; flex-shrink: 0; text-align: right; color: #ffd75d; font-size: 13px; white-space: nowrap; overflow: visible; }
 .stat { flex: 1; height: 14px; background: rgba(0,0,0,.35); border-radius: 3px; overflow: hidden; }
 .stat i { display: block; height: 100%; background: #fff; border-radius: 3px; }
 #garageCanvas {

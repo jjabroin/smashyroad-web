@@ -81,7 +81,7 @@ export function createGarage(onStart, hooks = {}) {
 
   function statBar(v) {
     const n = Math.max(0, Math.min(100, v | 0));
-    return `<div class="stat"><i style="width:${n / 2}%"></i></div><span class="statnum">${n}/100</span>`;
+    return `<div class="stat"><i style="width:${n}%"></i></div><span class="statnum">${n}/100</span>`;
   }
 
   function refreshCards() {

@@ -5,14 +5,14 @@ import {
   CAR_DEFS, makeCarState, stepCar, checkLap, damageWithShield,
   resolveCollisions, collideObstacles, collideWalls, collideCorridor, ptSegDist, aiInput, progressOf,
   distDiff,
-} from './race.js?v=aba3e2';
+} from './race.js?v=fadfbc';
 
 // 입체 트랙 층간 오작동 방지: 다른 층 픽업 무시 (dist 윈도우, 구맵 무영향)
 function sameLevel(featD, carD) {
   if (featD === undefined || featD === null) return true;
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
-import { CAR_BUILDERS } from './voxel.js?v=35aa4d';
+import { CAR_BUILDERS } from './voxel.js?v=4a85b8';
 import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=cfbedc';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
@@ -38,11 +38,12 @@ function corridorGroundY(x, z) {
   return null;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
-import { createGarage } from './garage.js?v=a2ffa3';
+import { createGarage } from './garage.js?v=9d5449';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
 import { createOnlinePanel } from './online.js?v=8fad8a';
 import { Board } from './board.js?v=11466e';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=7e6ad7';
+import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull } from './gacha.js?v=24abbe';
 import { SkidTrails } from './skids.js?v=591055';
 
 const canvas = document.getElementById('game');
@@ -73,6 +74,20 @@ let timeAttack = false; // 1인 타임어택 모드
 let soloTA = false; // 솔로 시작 모드 기억 (다시 달리기용)
 // 순위표 단일 진실 원천 (board.js) — 메모리+저장소+공유 병합
 const board = new Board((url, opts) => window.mqtt.connect(url, opts));
+// 뽑기 재화 (소유자=계정ID·기기태그별)
+function gachaOwner() {
+  try {
+    const s = loadSession();
+    if (s) return 'acc:' + s.id;
+  } catch (e) { /* 무시 */ }
+  return 'dev:' + deviceTag();
+}
+let gachaSt = null;
+function gachaState() {
+  const o = gachaOwner();
+  if (!gachaSt || gachaSt.owner !== o) gachaSt = loadGacha(o);
+  return gachaSt;
+}
 // 저장된 계정 세션 복원 (로그인 유지)
 try {
   const s = loadSession();
@@ -1210,6 +1225,25 @@ function onLocalFinish() {
     showFinishBanner(`🏁 ${pos}${ordSuffix(pos)} FINISH`, `기록 ${raceTime.toFixed(1)}s`);
   }
   updateSpectateUI();
+  // 코인 지급 (완주 보상)
+  try {
+    let earn = 0;
+    if (timeAttack) {
+      earn = 50 + (lastTARank === 0 ? 100 : 0);
+    } else if (onlineCtl) {
+      earn = 80;
+    } else {
+      const order = raceOrder();
+      const p = order.indexOf(me) + 1;
+      earn = [100, 60, 40, 30][Math.min(3, Math.max(0, p - 1))];
+    }
+    if (earn > 0) {
+      gachaAddCoins(gachaState(), earn);
+      const b = document.getElementById('coinBal');
+      if (b) b.textContent = gachaState().coins;
+      try { hud.message(`+${earn} COIN`, '', 1200); } catch (e) { /* 무시 */ }
+    }
+  } catch (e) { /* 무시 */ }
 }
 
 function enterFinishedWrecked() {
@@ -1808,7 +1842,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-03';
+const APP_VERSION = '20260925-04';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {
@@ -2111,6 +2145,35 @@ garageCtl = createGarage(
   },
   onNoticeOpen: () => {
     renderNotices();
+  },
+  gachaState: () => gachaState(),
+  gachaPull: (boxId, count) => {
+    const r = gachaPull(gachaState(), boxId, count, Math.random);
+    try {
+      const b = document.getElementById('coinBal');
+      if (b) b.textContent = gachaState().coins;
+    } catch (e) { /* 무시 */ }
+    return r;
+  },
+  isCarUnlocked: (carId) => {
+    try {
+      const def = CAR_DEFS.find((d) => d.id === carId);
+      if (!def || !def.locked) return true;
+      return gachaState().unlocked.includes(carId);
+    } catch (e) {
+      return true;
+    }
+  },
+  sfx: (stars) => {
+    try {
+      if (stars === 0) beeper.boost();
+      else if (stars >= 5) beeper.finish();
+      else if (stars === 4) beeper.boost();
+      else beeper.count();
+    } catch (e) { /* 무시 */ }
+  },
+  lockedMsg: () => {
+    try { hud.message('상자에서 획득하세요!', '', 1500); } catch (e) { /* 무시 */ }
   },
   }
 );

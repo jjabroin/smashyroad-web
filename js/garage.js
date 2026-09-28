@@ -1,8 +1,9 @@
 // 차고 메인메뉴 (사진 스타일): 3D 턴테이블 + 차량/맵/모드 카드 + 서브패널
 import * as THREE from 'three';
-import { CAR_DEFS } from './race.js?v=3d5ad3';
+import { CAR_DEFS } from './race.js?v=fadfbc';
 import { TRACK_DEFS, buildTrack } from './track.js?v=b02c69';
-import { CAR_BUILDERS, makeDriver } from './voxel.js?v=35aa4d';
+import { CAR_BUILDERS, makeDriver } from './voxel.js?v=4a85b8';
+import { BOXES, STARS } from './gacha.js?v=24abbe';
 
 const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };
 const MODE_LABEL = { race: '레이싱', item: '아이템전', ta: '타임어택', online: '온라인' };
@@ -87,6 +88,7 @@ export function createGarage(onStart, hooks = {}) {
     document.getElementById('curTrack').textContent = TRACK_DEFS[trackIdx].name;
     document.getElementById('curMode').textContent = MODE_LABEL[mode];
     document.getElementById('raceLabel').textContent = MODE_START[mode];
+    refreshCoins();
   }
 
   function render(idxNew) {
@@ -109,8 +111,9 @@ export function createGarage(onStart, hooks = {}) {
 
     document.getElementById('carName').textContent = def.name;
     const grade = document.getElementById('carGrade');
-    grade.textContent = def.grade;
-    grade.style.color = GRADE_COLOR[def.grade] || '#fff';
+    const locked = def.locked && hooks.isCarUnlocked && !hooks.isCarUnlocked(def.id);
+    grade.textContent = locked ? 'LOCKED · 상자에서 획득' : def.grade;
+    grade.style.color = locked ? '#8fa0b3' : (GRADE_COLOR[def.grade] || '#fff');
     document.getElementById('statSpeed').innerHTML = statBar(def.stats.speed);
     document.getElementById('statHandling').innerHTML = statBar(def.stats.handling);
     document.getElementById('statTough').innerHTML = statBar(def.stats.durability);
@@ -146,7 +149,7 @@ export function createGarage(onStart, hooks = {}) {
   }
 
   // --- 서브패널 ---
-  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelBoard', 'panelHelp', 'panelAccount', 'panelNotice'];
+  const PANELS = ['panelCar', 'panelTrack', 'panelMode', 'panelBoard', 'panelHelp', 'panelAccount', 'panelNotice', 'panelBox'];
   function openPanel(id) {
     closePanels();
     const e = document.getElementById(id);
@@ -183,6 +186,10 @@ export function createGarage(onStart, hooks = {}) {
     } catch (e) { exOnline('row', e); }
   });
   document.getElementById('boardBtn').addEventListener('click', () => openPanel('panelBoard'));
+  document.getElementById('boxBtn').addEventListener('click', () => {
+    openPanel('panelBox');
+    renderBox();
+  });
   document.getElementById('noticeBtn').addEventListener('click', () => {
     openPanel('panelNotice');
     if (hooks.onNoticeOpen) hooks.onNoticeOpen();
@@ -364,8 +371,126 @@ export function createGarage(onStart, hooks = {}) {
     } catch (e) { /* 무시 */ }
   }
 
+  // 상자 뽑기 UI
+  const STAR_COLOR = { 3: '#9aa4b2', 4: '#b06cf0', 5: '#ffd75d' };
+  function carNameOf(id) {
+    const d = CAR_DEFS.find((c) => c.id === id);
+    return d ? d.name : id;
+  }
+  function refreshCoins() {
+    try {
+      const st = hooks.gachaState ? hooks.gachaState() : null;
+      const b = document.getElementById('coinBal');
+      if (b) b.textContent = st ? st.coins : 0;
+    } catch (e) { /* 무시 */ }
+  }
+  function renderBox() {
+    refreshCoins();
+    const box = document.getElementById('boxList');
+    if (!box) return;
+    box.innerHTML = '';
+    const st = hooks.gachaState ? hooks.gachaState() : { coins: 0, pity: {} };
+    document.getElementById('boxResults').innerHTML = '';
+    for (const b of BOXES) {
+      const pityLeft = b.pity5 - ((st.pity && st.pity[b.id]) | 0);
+      const row = document.createElement('div');
+      row.className = 'boxrow';
+      row.innerHTML =
+        `<div class="boxinfo"><b>${b.name}</b>` +
+        `<small>5★ ${(b.weights[5] || 0)}% · 5★ 확정까지 ${pityLeft}회</small></div>` +
+        `<div class="boxbtns"></div>`;
+      const btns = row.querySelector('.boxbtns');
+      const b1 = document.createElement('button');
+      b1.className = 'mbtn';
+      b1.textContent = `1회 (${b.price})`;
+      b1.addEventListener('click', () => doPull(b.id, 1));
+      const b10 = document.createElement('button');
+      b10.className = 'mbtn';
+      b10.textContent = `10회 (${b.price10})`;
+      b10.addEventListener('click', () => doPull(b.id, 10));
+      btns.appendChild(b1);
+      btns.appendChild(b10);
+      box.appendChild(row);
+    }
+    const rt = document.getElementById('boxRates');
+    if (rt) {
+      rt.innerHTML = BOXES.map((b) =>
+        `${b.name}: 3★ ${b.weights[3] || 0}% / 4★ ${b.weights[4] || 0}% / 5★ ${b.weights[5] || 0}% (5★ ${b.pity5}회 천장)`
+      ).join('<br>');
+    }
+  }
+  let pulling = false;
+  function doPull(boxId, count) {
+    if (pulling) return;
+    const r = hooks.gachaPull ? hooks.gachaPull(boxId, count) : { ok: false, reason: 'no-hooks' };
+    if (!r.ok) {
+      const m = document.getElementById('boxResults');
+      if (m) {
+        m.innerHTML = `<div class="o-hint">${r.reason === 'no-coins' ? '코인이 부족합니다. 경주를 달려 모으세요!' : '뽑기 실패'}</div>`;
+      }
+      return;
+    }
+    pulling = true;
+    const anim = document.getElementById('boxAnim');
+    const chest = document.getElementById('boxChest');
+    const resBox = document.getElementById('boxResults');
+    resBox.innerHTML = '';
+    anim.style.display = 'block';
+    chest.classList.remove('open');
+    void chest.offsetWidth;
+    chest.classList.add('shake');
+    let skipped = false;
+    const skip = () => { skipped = true; };
+    anim.onclick = skip;
+    const showAt = (i) => {
+      if (i >= r.results.length) {
+        anim.style.display = 'none';
+        anim.onclick = null;
+        pulling = false;
+        renderBox();
+        render(idx);
+        return;
+      }
+      const it = r.results[i];
+      const div = document.createElement('div');
+      const col = STAR_COLOR[it.stars] || '#fff';
+      div.className = 'pullres';
+      div.style.borderColor = col;
+      div.style.boxShadow = `0 0 12px ${col}`;
+      if (it.kind === 'car') {
+        div.innerHTML =
+          `<b style="color:${col}">${it.stars}★ ${carNameOf(it.carId)}</b>` +
+          `<small>${it.dup ? '중복 → 코인 전환' : '신규 획득!'}${it.pity ? ' (천장)' : ''}</small>`;
+      } else {
+        div.innerHTML =
+          `<b style="color:${col}">${it.stars}★ ${it.amount} 코인</b>` +
+          `<small>${it.dup ? '중복 전환' : ''}${it.pity ? ' (천장)' : ''}</small>`;
+      }
+      resBox.appendChild(div);
+      if (hooks.sfx) {
+        try { hooks.sfx(it.stars); } catch (e) { /* 무시 */ }
+      }
+      setTimeout(() => showAt(i + 1), skipped ? 60 : (it.stars >= 5 ? 700 : it.stars === 4 ? 400 : 220));
+    };
+    setTimeout(() => {
+      chest.classList.remove('shake');
+      chest.classList.add('open');
+      if (hooks.sfx) {
+        try { hooks.sfx(0); } catch (e) { /* 무시 */ }
+      }
+      setTimeout(() => showAt(0), skipped ? 60 : 500);
+    }, skipped ? 60 : 900);
+  }
+
   // 시작하기 (모드별 분기: 온라인은 바로 방 만들기 화면)
   function pressStart() {
+    const def0 = CAR_DEFS[idx];
+    if (def0.locked && hooks.isCarUnlocked && !hooks.isCarUnlocked(def0.id)) {
+      if (hooks.lockedMsg) hooks.lockedMsg();
+      openPanel('panelBox');
+      renderBox();
+      return;
+    }
     if (mode === 'online') {
       try {
         traceOnline('start-click mode=online');

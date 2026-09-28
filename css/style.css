@@ -834,3 +834,46 @@ html, body {
   font-size: 26px; padding: 0 0 6px;
 }
 #raceBtn:active { transform: scale(.96); }
+
+/* ===== 상자 뽑기 ===== */
+.menu-coins { display: flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 900; color: #ffd75d; margin-top: 6px; }
+.menu-coins svg { width: 16px; height: 16px; }
+.boxrow { background: #1f2833; border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+.boxinfo b { font-size: 15px; }
+.boxinfo small { display: block; color: #8fa0b3; font-size: 12px; margin-top: 2px; }
+.boxbtns { display: flex; gap: 6px; margin-top: 8px; }
+.boxbtns .mbtn { flex: 1; }
+.chest {
+  width: 84px; height: 84px; margin: 12px auto;
+  border-radius: 14px;
+  background: linear-gradient(165deg, #8a4fd0, #4a2390);
+  border: 3px solid #ffd75d;
+  position: relative;
+}
+.chest::after {
+  content: ''; position: absolute; left: 8px; right: 8px; top: 50%;
+  height: 4px; margin-top: -2px; background: #ffd75d; border-radius: 2px;
+}
+.chest.shake { animation: chestshake .12s linear infinite; }
+@keyframes chestshake {
+  0% { transform: rotate(-6deg) scale(1); }
+  50% { transform: rotate(6deg) scale(1.06); }
+  100% { transform: rotate(-6deg) scale(1); }
+}
+.chest.open { animation: chestopen .3s ease-out; border-color: #fff; }
+@keyframes chestopen {
+  0% { transform: scale(1); }
+  60% { transform: scale(1.25); box-shadow: 0 0 30px #fff; }
+  100% { transform: scale(1.1); }
+}
+.pullres {
+  background: #1f2833; border: 2px solid #fff; border-radius: 10px;
+  padding: 8px 10px; margin-bottom: 6px;
+  animation: pullin .25s ease-out;
+}
+.pullres b { font-size: 15px; }
+.pullres small { display: block; color: #8fa0b3; font-size: 12px; }
+@keyframes pullin {
+  0% { transform: scale(.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}

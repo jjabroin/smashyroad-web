@@ -182,6 +182,11 @@ export function makePolice(color = 0xf2f3f5, accent = 0x1c2733) {
 
 const _builders = { taxi: makeTaxi, rally: makeRally, monster: makeMonster, police: makePolice, comet: makeComet };
 Object.assign(CAR_BUILDERS, _builders);
+// 뽑기 전용 변형 (기존 빌더 재사용)
+Object.assign(CAR_BUILDERS, {
+  f1shadow: makeF1, gtsgold: makeSports, rallystorm: makeRally,
+  cometneo: makeComet, monsterking: makeMonster, policex: makePolice,
+});
 
 // 날렵한 코멧 (핸들링 특화)
 export function makeComet(color = 0x7a2fd6, accent = 0x27e0f5) {

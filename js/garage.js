@@ -80,7 +80,7 @@ export function createGarage(onStart, hooks = {}) {
   window.addEventListener('resize', resize);
 
   function statBar(v) {
-    return `<div class="stat"><i style="width:${v * 20}%"></i></div>`;
+    return `<div class="stat"><i style="width:${v * 10}%"></i></div>`;
   }
 
   function refreshCards() {

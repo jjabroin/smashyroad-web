@@ -1594,7 +1594,8 @@ function onRaceNetEvent(ev) {
   const room = onlineCtl.room;
   if (ev.type === 'state') {
     for (const s of ev.cars) {
-      const r = racers[s.slot];
+      // 셔플 대응: 슬롯 ID로 탐색 (인덱스 아님)
+      const r = racers.find((x) => x && x.slot === s.slot);
       if (!r) continue;
       // 자기 차는 예측 + 부드러운 보정, 타인 차는 스냅샷 추종
       blendSnapshot(r.car, s, r.isPlayer ? 0.3 : 0.45);

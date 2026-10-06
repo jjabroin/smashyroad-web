@@ -1,5 +1,5 @@
 // 온라인 로비 패널: 방 생성/코드 참가·플레이어 목록·출발 (P2P 직접 연결, 호스트 권위)
-import { NetRoom, RTC_CONFIG, resolveRTCConfig, getTurnSettings, saveTurnSettings } from './net.js?v=a3bf2b';
+import { NetRoom, RTC_CONFIG, resolveRTCConfig, getTurnSettings, saveTurnSettings } from './net.js?v=22562e';
 import { TRACK_DEFS } from './track.js?v=b02c69';
 import { CAR_DEFS } from './race.js?v=939de1';
 
@@ -32,9 +32,9 @@ export function createOnlinePanel(api) {
   let room = null;
   let rtcConfig = RTC_CONFIG;
 
-  const peerFactory = (id, config) => {
-    if (!window.Peer) throw new Error('PeerJS CDN 로드 실패');
-    return new window.Peer(id, { debug: 0, config: config || rtcConfig });
+  const sigFactory = (url, opts) => {
+    if (!window.mqtt) throw new Error('MQTT 로드 실패');
+    return window.mqtt.connect(url, opts);
   };
 
   function show(view) {
@@ -145,7 +145,7 @@ export function createOnlinePanel(api) {
     status('방 만드는 중...');
     try {
       rtcConfig = await resolveRTCConfig().catch(() => RTC_CONFIG);
-      room = new NetRoom(peerFactory);
+      room = new NetRoom(sigFactory);
       bindRoomEvents(room);
       const maxPlayers = +(el('maxPlayers') && el('maxPlayers').value ? el('maxPlayers').value : 4);
       await room.hostRoom({
@@ -161,7 +161,9 @@ export function createOnlinePanel(api) {
       status('');
       refreshLobby(room.players, api.getTrack().id, true, room.myId);
     } catch (e) {
-      status('방 생성 실패: ' + e.message);
+      status('방 생성 실패: ' + (e.message === 'relay unreachable'
+        ? '중계서버 연결 실패: 인터넷 확인 후 재시도해주세요.'
+        : e.message));
     }
   });
 
@@ -171,10 +173,10 @@ export function createOnlinePanel(api) {
       status('코드 4글자를 입력하세요.');
       return;
     }
-    status('참가 중... (최대 20초)');
+    status('참가 중... (최대 15초)');
     try {
       rtcConfig = await resolveRTCConfig().catch(() => RTC_CONFIG);
-      room = new NetRoom(peerFactory);
+      room = new NetRoom(sigFactory);
       bindRoomEvents(room);
       await room.joinRoom(code, api.getCar().id);
       if (api.onRoom) api.onRoom(room);
@@ -185,7 +187,9 @@ export function createOnlinePanel(api) {
         ? '방을 찾을 수 없음: 코드 4글자 + 호스트가 방을 연 상태인지 확인해주세요.'
         : e.message === 'host unreachable'
           ? '호스트에 닿지 않습니다. 같은 와이파이가 아니라면 아래 중계 설정이 필요합니다.'
-          : e.message));
+          : e.message === 'relay unreachable'
+            ? '중계서버 연결 실패: 인터넷 확인 후 재시도해주세요.'
+            : e.message));
       if (room) {
         room.destroy();
         room = null;

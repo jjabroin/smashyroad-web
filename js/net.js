@@ -1,5 +1,6 @@
 // 네트워크 순수 함수 (스냅샷·보간·그리드 배치) — 중계/직접 공통 사용
-// 경주 데이터는 브라우저끼리 직접 교환. transport 주입식이라 node 테스트 가능.
+// 경주 데이터는 브라우저끼리 직접 교환 (WebRTC DataChannel).
+// 시그널링(offer/answer/ICE)은 동작 확인된 MQTT 브로커 경유 (js/sig.js) — PeerJS 미사용.
 //
 // 메시지 규격:
 //  guest→host: {t:'hello', carId} / {t:'car', carId}
@@ -146,14 +147,60 @@ export function planOnlineGrid(players, aiCarIds, myId, isHost) {
   return entries;
 }
 
-// peerFactory: () => PeerJS 호환 객체 (new Peer(id?))
-//   - peer.on('open'|'connection'|'error'|'disconnected')
-//   - peer.connect(id) -> conn {on('open'|'data'|'close'|'error'), send, close, peer}
-//   - 테스트에선 인메모리 mock 주입
+// mqttFactory: (url, opts) => mqtt 연결 객체 (main.js와 동일한 주입식)
+// 순수 함수(스냅샷·그리드)는 node 테스트 가능, 전송부(NetRoom)는 브라우저 WebRTC 필요
+import { MqttSig, checkRoom, HOST_TAG } from './sig.js?v=dev';
+
+// 네이티브 DataChannel → 기존 conn 인터페이스 래퍼
+// {peer, send(obj), close(), on('open'|'data'|'close'|'error'), peerConnection}
+class RawConn {
+  constructor(id, pc, chan) {
+    this.peer = id;
+    this.peerConnection = pc;
+    this._chan = chan;
+    this._handlers = { open: [], data: [], close: [], error: [] };
+    try {
+      chan.onopen = () => this._fire('open');
+      chan.onmessage = (ev) => {
+        let msg = null;
+        try {
+          msg = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data;
+        } catch (e) { /* 무시 */ }
+        if (msg) this._fire('data', msg);
+      };
+      chan.onclose = () => this._fire('close');
+      chan.onerror = () => this._fire('error');
+    } catch (e) { /* 무시 */ }
+  }
+  on(ev, fn) {
+    if (this._handlers[ev]) this._handlers[ev].push(fn);
+    return this;
+  }
+  _fire(ev, arg) {
+    for (const fn of [...(this._handlers[ev] || [])]) {
+      try { fn(arg); } catch (e) { /* 무시 */ }
+    }
+  }
+  send(obj) {
+    try {
+      if (this._chan && this._chan.readyState === 'open') {
+        this._chan.send(JSON.stringify(obj));
+      }
+    } catch (e) { /* 무시 */ }
+  }
+  close() {
+    try { if (this._chan) this._chan.close(); } catch (e) { /* 무시 */ }
+    try { if (this.peerConnection) this.peerConnection.close(); } catch (e) { /* 무시 */ }
+  }
+}
+
 export class NetRoom {
-  constructor(peerFactory) {
-    this.peerFactory = peerFactory;
-    this.peer = null;
+  constructor(mqttFactory) {
+    this.mqttFactory = mqttFactory;
+    this.sig = null;
+    this.rtcConfig = RTC_CONFIG;
+    this.pcs = new Map(); // guestId/hostId -> RTCPeerConnection
+    this.aliveTimer = null;
     this.isHost = false;
     this.code = null;
     this.myId = null;
@@ -178,61 +225,141 @@ export class NetRoom {
     }
   }
 
-  _newPeer(id) {
-    return new Promise((resolve, reject) => {
-      (async () => {
-        let peer;
-        try {
-          const config = await resolveRTCConfig();
-          peer = this.peerFactory(id, config);
-        } catch (e) {
-          reject(e);
-          return;
-        }
-        const timer = setTimeout(() => reject(new Error('signaling timeout')), 30000);
-      peer.on('open', (pid) => {
-        clearTimeout(timer);
-        const first = !this.peer;
-        this.peer = peer;
-        this.myId = pid;
-        if (!first) this._onReopen();
-        resolve(pid);
-      });
-      peer.on('error', (err) => {
-        const type = err && err.type;
-        if (type === 'peer-unavailable') {
-          this._emit({ type: 'error', msg: '방을 찾을 수 없음: 코드 4글자 + 호스트가 방을 연 상태인지 확인해주세요.' });
-        } else if (type === 'webrtc') {
-          this._emit({ type: 'error', msg: '이 브라우저는 WebRTC 미지원: 크롬/사파리 앱으로 직접 열어주세요. (카톡 인앱브라우저 등에서는 안 됩니다)' });
-        } else if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
-          this._emit({ type: 'error', msg: `시그널링 연결 문제(${type}): 인터넷 확인 후 재시도해주세요.` });
-        }
-      });
-      peer.on('disconnected', () => {
-        try { peer.reconnect(); } catch (e) { /* 무시 */ }
-      });
-      })();
-    });
+  _newPC() {
+    try {
+      return new RTCPeerConnection(this.rtcConfig);
+    } catch (e) {
+      this._emit({ type: 'error', msg: '이 브라우저는 WebRTC 미지원: 크롬/사파리 앱으로 직접 열어주세요. (카톡 인앱브라우저 등에서는 안 됩니다)' });
+      throw e;
+    }
   }
 
-  // 재접속 시 (모바일 네트워크 변경 등): 호스트에 다시 인사 + 이전 id 인계
+  _closePC(id) {
+    try {
+      const pc = this.pcs.get(id);
+      if (pc) {
+        try { pc.close(); } catch (e) { /* 무시 */ }
+      }
+    } catch (e) { /* 무시 */ }
+    this.pcs.delete(id);
+  }
+
+  _iceToSig(pc, to) {
+    try {
+      pc.onicecandidate = (ev) => {
+        if (ev && ev.candidate && this.sig) {
+          try {
+            this.sig.send(to, 'ice', { candidate: ev.candidate.toJSON ? ev.candidate.toJSON() : ev.candidate });
+          } catch (e) { /* 무시 */ }
+        }
+      };
+    } catch (e) { /* 무시 */ }
+  }
+
+  // 재접속 시 (모바일 네트워크 변경 등): 새 id로 다시 offer + 이전 id 인계
   _onReopen() {
     if (this.isHost || this.phase === 'idle' || !this.joinedAs) return;
+    this._guestConnect(this.joinedAs).catch(() => {});
+  }
+
+  // 게스트 연결 본체 (re: 이전 id 인계 시 전달)
+  async _guestConnect(re) {
+    if (!this.sig) throw new Error('host unreachable');
+    if (re) {
+      const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      let s = 'G';
+      for (let i = 0; i < 7; i++) s += abc[Math.floor(Math.random() * abc.length)];
+      this.myId = s;
+    }
+    if (this._offSig) {
+      try { this._offSig(); } catch (e) { /* 무시 */ }
+      this._offSig = null;
+    }
+    const pc = this._newPC();
+    this._closePC(this.hostId);
+    this.pcs.set(this.hostId, pc);
+    this._iceToSig(pc, HOST_TAG);
+    let chan = null;
     try {
-      const conn = this.peer.connect(this.hostId, { reliable: true });
+      chan = pc.createDataChannel('game');
+    } catch (e) {
+      throw new Error('host unreachable');
+    }
+    const conn = new RawConn(this.hostId, pc, chan);
+    this._emit({ type: 'conn-state', id: this.hostId, state: 'searching' });
+    const opened = new Promise((resolve, reject) => {
+      let done = false;
+      const finish = (err) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve();
+      };
+      const timer = setTimeout(() => {
+        try { conn.close(); } catch (e) { /* 무시 */ }
+        finish(new Error('host unreachable'));
+      }, 15000);
       conn.on('open', () => {
         this.conns.set(this.hostId, conn);
         this._wireConn(conn, this.hostId);
-        try { conn.send({ t: 'hello', carId: this.myCarId, re: this.joinedAs }); } catch (e) { /* 무시 */ }
-        this.joinedAs = this.myId;
+        try {
+          const hello = { t: 'hello', carId: this.myCarId };
+          if (re) hello.re = re;
+          conn.send(hello);
+        } catch (e) { /* 무시 */ }
+        finish(null);
       });
-    } catch (e) { /* 무시 */ }
+      conn.on('error', () => finish(new Error('host unreachable')));
+      conn.on('close', () => finish(new Error('host unreachable')));
+    });
+    this._offSig = this.sig.onSignal((msg) => {
+      if (msg.to !== this.sig.sid || msg.from !== HOST_TAG) return;
+      try {
+        if (msg.kind === 'answer' && msg.sdp) {
+          pc.setRemoteDescription(new RTCSessionDescription(msg.sdp)).catch(() => {});
+        } else if (msg.kind === 'ice' && msg.candidate) {
+          pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(() => {});
+        }
+      } catch (e) { /* 무시 */ }
+    });
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      this.sig.send(HOST_TAG, 'offer', { sdp: pc.localDescription });
+    } catch (e) {
+      throw new Error('host unreachable');
+    }
+    await opened;
+    if (re) this.joinedAs = this.myId;
   }
 
   _wireConn(conn, peerId) {
     conn.on('data', (msg) => this._onData(peerId, msg));
     conn.on('close', () => this._onClose(peerId));
     conn.on('error', () => this._onClose(peerId));
+    // 게스트: 네트워크 변경 등으로 끊기면 4초 후 재접속 (이전 id 인계)
+    try {
+      const pcx = conn.peerConnection;
+      if (pcx && !this.isHost) {
+        let rt = null;
+        pcx.addEventListener('connectionstatechange', () => {
+          try {
+            const st = pcx.connectionState;
+            if (st === 'failed' || st === 'disconnected' || st === 'closed') {
+              if (!rt) {
+                rt = setTimeout(() => {
+                  rt = null;
+                  try { this._onReopen(); } catch (e) { /* 무시 */ }
+                }, 4000);
+              }
+            } else if (st === 'connected') {
+              if (rt) { clearTimeout(rt); rt = null; }
+            }
+          } catch (e) { /* 무시 */ }
+        });
+      }
+    } catch (e) { /* 무시 */ }
     // 연결 진단: ICE 상태 전이 + 선택된 후보 종류 보고
     try {
       const pc = conn.peerConnection;
@@ -273,78 +400,103 @@ export class NetRoom {
     this.trackId = trackId || null;
     this.itemsOn = itemsOn !== false;
     this.myCarId = carId || null;
-    await this._newPeer(ROOM_PREFIX + this.code);
+    this.myId = 'H' + this.code;
+    try {
+      this.rtcConfig = await resolveRTCConfig();
+    } catch (e) {
+      this.rtcConfig = RTC_CONFIG;
+    }
+    this.sig = new MqttSig(this.mqttFactory);
+    await this.sig.open(this.code);
+    this.sig.sid = HOST_TAG; // 호스트 수신 태그 고정 (게스트 offer의 to와 일치)
+    await this.sig.publishAlive();
+    try {
+      if (this.aliveTimer) clearInterval(this.aliveTimer);
+    } catch (e) { /* 무시 */ }
+    this.aliveTimer = setInterval(() => {
+      try { if (this.sig) this.sig.publishAlive(); } catch (e) { /* 무시 */ }
+    }, 30000);
     this.players = [{ id: this.myId, carId: this.myCarId }];
     this.phase = 'lobby';
-    this.peer.on('connection', (conn) => {
-      if (this.phase !== 'lobby') {
-        // 경주 중 난입 거부
-        conn.on('open', () => {
-          try { conn.send({ t: 'deny' }); } catch (e) { /* 무시 */ }
-          setTimeout(() => { try { conn.close(); } catch (e) { /* 무시 */ } }, 300);
-        });
+    this._offSig = this.sig.onSignal((msg) => this._onHostSignal(msg));
+    return this.code;
+  }
+
+  _onHostSignal(msg) {
+    if (!this.isHost || msg.to !== HOST_TAG) return;
+    const guestId = msg.from;
+    try {
+      if (msg.kind === 'ice' && msg.candidate) {
+        const pc = this.pcs.get(guestId);
+        if (pc) pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(() => {});
         return;
       }
-      conn.on('open', () => {
-        this.conns.set(conn.peer, conn);
-        this._wireConn(conn, conn.peer);
-      });
-    });
-    return this.code;
+      if (msg.kind !== 'offer' || !msg.sdp) return;
+      const deny = this.phase !== 'lobby' || this.players.length >= this.maxPlayers;
+      this._closePC(guestId);
+      const pc = this._newPC();
+      this.pcs.set(guestId, pc);
+      this._iceToSig(pc, guestId);
+      try {
+        pc.ondatachannel = (ev) => {
+          const conn = new RawConn(guestId, pc, ev.channel);
+          conn.on('open', () => {
+            this.conns.set(guestId, conn);
+            this._wireConn(conn, guestId);
+            if (deny) {
+              try { conn.send({ t: 'deny' }); } catch (e) { /* 무시 */ }
+              setTimeout(() => { try { conn.close(); } catch (e) { /* 무시 */ } }, 300);
+            }
+          });
+        };
+      } catch (e) { /* 무시 */ }
+      pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
+        .then(() => pc.createAnswer())
+        .then((ans) => pc.setLocalDescription(ans))
+        .then(() => {
+          if (this.sig) this.sig.send(guestId, 'answer', { sdp: pc.localDescription });
+        })
+        .catch(() => {
+          this._closePC(guestId);
+        });
+    } catch (e) { /* 무시 */ }
   }
 
   async joinRoom(code, myCarId) {
     this.destroy();
     this.isHost = false;
     this.code = code.trim().toUpperCase();
-    this.hostId = ROOM_PREFIX + this.code;
+    this.hostId = 'H' + this.code;
     this.myCarId = myCarId;
-    await this._newPeer();
+    const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    let g = 'G';
+    for (let i = 0; i < 7; i++) g += abc[Math.floor(Math.random() * abc.length)];
+    this.myId = g;
+    // 방 존재 확인 (없으면 즉시 실패 — 15초 대기 없음)
+    let found = null;
+    try {
+      found = await checkRoom(this.mqttFactory, this.code);
+    } catch (e) {
+      found = { found: false, error: true };
+    }
+    if (!found || !found.found) {
+      if (found && found.error) throw new Error('relay unreachable');
+      throw new Error('room not found');
+    }
+    try {
+      this.rtcConfig = await resolveRTCConfig();
+    } catch (e) {
+      this.rtcConfig = RTC_CONFIG;
+    }
+    this.sig = new MqttSig(this.mqttFactory);
+    try {
+      await this.sig.open(this.code);
+    } catch (e) {
+      throw new Error('relay unreachable');
+    }
     this.joinedAs = this.myId;
     this.phase = 'lobby';
-    const conn = this.peer.connect(this.hostId, { reliable: true });
-    // 연결 전 ICE 진행 상황 표시 (호스트 찾음 vs 직접 연결 중 구분)
-    try {
-      const pc0 = conn.peerConnection;
-      if (pc0) {
-        pc0.addEventListener('iceconnectionstatechange', () => {
-          this._emit({ type: 'conn-state', id: this.hostId, state: pc0.iceConnectionState });
-        });
-      }
-    } catch (e) { /* 구형 브라우저 무시 */ }
-    this._emit({ type: 'conn-state', id: this.hostId, state: 'searching' });
-    await new Promise((resolve, reject) => {
-      let done = false;
-      const finish = (err) => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        try {
-          if (this.peer && this.peer.off) this.peer.off('error', onPeerErr);
-          else if (this.peer && this.peer.removeListener) this.peer.removeListener('error', onPeerErr);
-        } catch (e) { /* 무시 */ }
-        if (err) reject(err);
-        else resolve();
-      };
-      // 다른 망 NAT 뒤에서는 ICE가 늦게 뚫리기도 해서 20초까지 대기
-      const timer = setTimeout(() => {
-        try { conn.close(); } catch (e) { /* 무시 */ }
-        finish(new Error('host unreachable'));
-      }, 20000);
-      // 존재하지 않는 방: 에러가 DataConnection이 아니라 Peer에 옴 → 직접 연결
-      const onPeerErr = (err) => {
-        if (err && err.type === 'peer-unavailable') finish(new Error('room not found'));
-      };
-      try { this.peer.on('error', onPeerErr); } catch (e) { /* 무시 */ }
-      conn.on('open', () => {
-        this.conns.set(this.hostId, conn);
-        this._wireConn(conn, this.hostId);
-        try { conn.send({ t: 'hello', carId: myCarId }); } catch (e) { /* 무시 */ }
-        finish(null);
-      });
-      conn.on('error', () => finish(new Error('host unreachable')));
-      conn.on('close', () => finish(new Error('host unreachable')));
-    });
+    await this._guestConnect(null);
   }
 
   _onData(peerId, msg) {
@@ -528,9 +680,30 @@ export class NetRoom {
     this.conns.clear();
     this.remoteInputs.clear();
     try {
-      if (this.peer) this.peer.destroy();
+      for (const [, pc] of this.pcs) {
+        try { pc.close(); } catch (e) { /* 무시 */ }
+      }
     } catch (e) { /* 무시 */ }
-    this.peer = null;
+    this.pcs.clear();
+    try {
+      if (this.aliveTimer) clearInterval(this.aliveTimer);
+    } catch (e) { /* 무시 */ }
+    this.aliveTimer = null;
+    if (this._offSig) {
+      try { this._offSig(); } catch (e) { /* 무시 */ }
+      this._offSig = null;
+    }
+    try {
+      if (this.sig) {
+        const s = this.sig;
+        if (this.isHost) {
+          try { s.clearAlive(); } catch (e) { /* 무시 */ }
+        }
+        // clear 전송이 브로커에 닿도록 지연 종료 (유령방 방지)
+        setTimeout(() => { try { s.close(); } catch (e) { /* 무시 */ } }, 800);
+      }
+    } catch (e) { /* 무시 */ }
+    this.sig = null;
     this.players = [];
     this.phase = 'idle';
     this.isHost = false;

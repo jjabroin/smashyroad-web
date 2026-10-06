@@ -39,8 +39,8 @@ function corridorGroundY(x, z) {
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
 import { createGarage } from './garage.js?v=d3d0da';
-import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
-import { createOnlinePanel } from './online.js?v=8a7d5f';
+import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=22562e';
+import { createOnlinePanel } from './online.js?v=073cc1';
 import { Board } from './board.js?v=b0a723';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=78ae48';
 import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull, migrateToAccount as migrateGacha } from './gacha.js?v=3576ae';
@@ -1944,7 +1944,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-12';
+const APP_VERSION = '20260925-13';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

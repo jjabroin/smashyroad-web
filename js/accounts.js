@@ -112,7 +112,7 @@ export function createAccountPanel(api) {
     // 메뉴 버튼에 로그인 표시 (패널 안 열어도 보임)
     const ab = document.getElementById('accBtnName');
     if (ab) ab.textContent = s ? s.name : '계정';
-    for (const [id, show] of [['accLogout', !!s], ['accMerge', !!s], ['accPull', !!s]]) {
+    for (const [id, show] of [['accLogout', !!s], ['accMerge', !!s], ['accPull', !!s], ['accCheck', !!s]]) {
       const b = el(id);
       if (b) b.style.display = show ? 'block' : 'none';
     }
@@ -260,6 +260,28 @@ export function createAccountPanel(api) {
       try { api.refresh(); } catch (e) { /* 무시 */ }
     }
     msg(pulled > 0 ? `다른 기기 기록 ${pulled}개를 가져왔습니다.` : '가져올 기록이 없습니다.');
+  });
+
+  el('accCheck').addEventListener('click', async () => {
+    const s = session();
+    if (!s) {
+      msg('로그인 상태가 아닙니다.');
+      return;
+    }
+    msg('서버에서 내 계정 찾는 중... (최대 10초)');
+    try {
+      const found = await board.net.fetchAccount(s.id);
+      if (found.ok) {
+        const devs = Array.isArray(found.meta.devices) ? found.meta.devices.length : 0;
+        msg(`서버에 있음: ${found.meta.name || s.id} (기기 ${devs}대). 친구가 이 ID로 추가 가능합니다.`);
+      } else if (found.reason === 'offline') {
+        msg('서버 연결 실패. 인터넷 확인 후 재시도.');
+      } else {
+        msg('서버에 없음! 로그아웃 후 다시 로그인하면 등록됩니다.');
+      }
+    } catch (e) {
+      msg('확인 실패: ' + ((e && e.message) || e));
+    }
   });
 
   return { render, session };

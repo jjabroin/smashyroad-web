@@ -13,7 +13,7 @@ function sameLevel(featD, carD) {
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
 import { CAR_BUILDERS } from './voxel.js?v=4a85b8';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=cfbedc';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=c1240d';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -40,9 +40,9 @@ function corridorGroundY(x, z) {
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
 import { createGarage } from './garage.js?v=d3d0da';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=a3bf2b';
-import { createOnlinePanel } from './online.js?v=8fad8a';
-import { Board } from './board.js?v=11466e';
-import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=bd206a';
+import { createOnlinePanel } from './online.js?v=8a7d5f';
+import { Board } from './board.js?v=b0a723';
+import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=78ae48';
 import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull, migrateToAccount as migrateGacha } from './gacha.js?v=3576ae';
 import { FriendNet, loadFriends, saveFriends, validFriendId } from './friends.js?v=99189b';
 import { SkidTrails } from './skids.js?v=591055';
@@ -1944,7 +1944,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-11';
+const APP_VERSION = '20260925-12';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

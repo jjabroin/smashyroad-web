@@ -12,7 +12,7 @@ function sameLevel(featD, carD) {
   if (featD === undefined || featD === null) return true;
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
-import { buildCar, preloadModels } from './models.js?v=888186';
+import { buildCar, preloadModels } from './models.js?v=9e153d';
 
 // 외부 에셋 선로드 (최대 9초, 실패 시 복셀 폴백으로 진행)
 try {
@@ -21,7 +21,7 @@ try {
     new Promise((r) => setTimeout(r, 9000)),
   ]);
 } catch (e) { /* 무시 */ }
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=a2e182';
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=2f7966';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -46,7 +46,7 @@ function corridorGroundY(x, z) {
   return null;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
-import { createGarage } from './garage.js?v=725087';
+import { createGarage } from './garage.js?v=0b9fba';
 import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=cf7b12';
 import { createOnlinePanel } from './online.js?v=158abc';
 import { Board } from './board.js?v=b0a723';
@@ -1000,7 +1000,8 @@ function loop(ts) {
     if (sw.length) {
       const wr = r.mesh.userData.wheelR || 1;
       const roll = Math.hypot(c.vx, c.vz) / Math.max(0.2, wr);
-      for (const s of sw) s.rotation.x += roll * dt;
+      const dir = r.mesh.userData.spinDir || 1;
+      for (const s of sw) s.rotation.x += roll * dt * dir;
     }
     const latV = Math.abs(c.vx * -Math.sin(c.heading) + c.vz * Math.cos(c.heading));
     const my = r.mesh.position.y;
@@ -1959,7 +1960,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-14';
+const APP_VERSION = '20260925-15';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { CAR_DEFS } from './race.js?v=939de1';
 import { TRACK_DEFS, buildTrack } from './track.js?v=b02c69';
 import { CAR_BUILDERS, makeDriver } from './voxel.js?v=4a85b8';
-import { buildCar } from './models.js?v=888186';
+import { buildCar } from './models.js?v=9e153d';
 import { BOXES, STARS } from './gacha.js?v=3576ae';
 
 const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };

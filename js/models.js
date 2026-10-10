@@ -115,17 +115,21 @@ function loadGLB(url) {
   return p;
 }
 
-function isFrontWheel(name, z, centerZ, fwd) {
+function isFrontWheel(name) {
   const n = (name || '').toLowerCase();
   if (n.includes('front')) return true;
   if (n.includes('back') || n.includes('rear')) return false;
-  const m = n.match(/wheel-([fb])[lr]/);
+  let m = n.match(/wheel[-_]?([fb])[lr]/);
   if (m) return m[1] === 'f';
-  return (z - centerZ) * fwd > 0;
+  m = n.match(/^([fb])[lr]$/);
+  if (m) return m[1] === 'f';
+  return null; // 위치 판정으로 폴백
 }
 
-// GLB 차량 → 게임 리그 (래퍼 회전으로 +X 전진, 앞바퀴 조향 피벗, 전륜 스핀)
-// userData: frontWheels[](조향, 기존 코드 호환), spinWheels[](구름), wheelR(반지름)
+// GLB 차량 → 게임 리그
+// 구조: wrap(게임 yaw 전용, 회전 0) → align(모델+Z/-Z → +X) → scaler → root
+// 앞바퀴는 원래 부모 아래 조향 피벗으로 감쌈 (프레임 보존)
+// userData: frontWheels[](조향, 기존 코드 호환), spinWheels[](구름), wheelR, spinDir
 export async function rigVehicleAsync(id) {
   const spec = VEHICLES[id];
   if (!spec) return null;
@@ -140,14 +144,20 @@ export async function rigVehicleAsync(id) {
     box.getCenter(center);
     if (!(size.z > 0)) return null;
     const s = spec.len / size.z;
+    // 바퀴 최상위 노드 (멀티프리미티브 분리 메시가 아닌 그룹 단위)
+    const tops = [];
+    root.traverse((o) => {
+      if (/wheel/i.test(o.name || '')) {
+        const p = o.parent;
+        if (!p || !/wheel/i.test(p.name || '') || p === root) tops.push(o);
+      }
+    });
     const frontWheels = [];
     const spinWheels = [];
     let wheelR = 0.5 * s;
-    const wheelNodes = [];
-    root.traverse((o) => {
-      if (o.isMesh && /wheel/i.test(o.name)) wheelNodes.push(o);
-    });
-    for (const wn of wheelNodes) {
+    root.updateMatrixWorld(true);
+    const tmp = new THREE.Vector3();
+    for (const wn of tops) {
       const wb = new THREE.Box3().setFromObject(wn);
       const ws = new THREE.Vector3();
       wb.getSize(ws);
@@ -157,22 +167,30 @@ export async function rigVehicleAsync(id) {
       pivot.userData.steer = true;
       const spin = new THREE.Group();
       spin.userData.spin = true;
+      const parent = wn.parent || root;
       wn.position.set(0, 0, 0);
       if (wn.parent) wn.parent.remove(wn);
       pivot.add(spin);
       spin.add(wn);
-      root.add(pivot);
+      parent.add(pivot);
       spinWheels.push(spin);
-      if (isFrontWheel(wn.name, pivot.position.z, center.z, spec.fwd)) frontWheels.push(pivot);
+      let front = isFrontWheel(wn.name);
+      if (front === null) {
+        wn.getWorldPosition(tmp);
+        front = (tmp.z - center.z) * spec.fwd > 0;
+      }
+      if (front) frontWheels.push(pivot);
     }
     wheelR *= s;
     root.position.set(-center.x, -box.min.y, -center.z);
     const scaler = new THREE.Group();
     scaler.add(root);
     scaler.scale.setScalar(s);
+    const align = new THREE.Group();
+    align.add(scaler);
+    align.rotation.y = spec.fwd * Math.PI / 2; // 모델 전진축 → 게임 +X
     const wrap = new THREE.Group();
-    wrap.add(scaler);
-    wrap.rotation.y = spec.fwd * Math.PI / 2; // 모델 +Z(또는 -Z) → 게임 +X
+    wrap.add(align);
     wrap.traverse((o) => {
       if (o.isMesh) o.castShadow = true;
     });
@@ -190,6 +208,7 @@ export async function rigVehicleAsync(id) {
     wrap.userData.frontWheels = frontWheels;
     wrap.userData.spinWheels = spinWheels;
     wrap.userData.wheelR = wheelR;
+    wrap.userData.spinDir = spec.fwd;
     wrap.userData.glb = true;
     return wrap;
   } catch (e) {

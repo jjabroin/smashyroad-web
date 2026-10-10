@@ -6,7 +6,7 @@ import { trackY } from './track.js?v=b02c69';
 import {
   propMesh, tireStackMesh, buildingMesh, gateMesh, startPlateMesh,
   staticGeo, vertexColorMaterial, groundTexture, skyTexture,
-} from './models.js?v=888186';
+} from './models.js?v=9e153d';
 
 export const ROAD_HALF = 11;
 
@@ -428,7 +428,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const plate = startPlateMesh(RH * 2);
       if (plate) {
         plate.position.set(p0.x, y0 + 0.06, p0.z);
-        plate.rotation.y = ang;
+        plate.rotation.y = ang + Math.PI / 2; // 폭이 도로 가로로 (로컬X=진행방향 보정)
         scene.add(plate);
       }
       for (const s of [-1, 1]) {

@@ -1,8 +1,12 @@
-// three.js 월드: 도로 리본·연석·간트리·장식·조명 (사진 1 스타일)
+// three.js 월드: 도로 리본·연석·간트리·장식·조명 (외부 에셋 + 폴백)
 import * as THREE from 'three';
 import { mat } from './voxel.js?v=4a85b8';
-import { makeBench, makeLamp, makeTree, makeTireStack, makeGantry, makeCactus, makeRock, makeBuilding } from './voxel.js?v=4a85b8';
+import { makeTireStack, makeTree, makeBench, makeLamp, makeCactus, makeRock, makeBuilding, makeGantry } from './voxel.js?v=4a85b8';
 import { trackY } from './track.js?v=b02c69';
+import {
+  propMesh, tireStackMesh, buildingMesh, gateMesh, startPlateMesh,
+  staticGeo, vertexColorMaterial, groundTexture, skyTexture,
+} from './models.js?v=888186';
 
 export const ROAD_HALF = 11;
 
@@ -45,6 +49,13 @@ function ribbonGeometry(circuit, halfW, yFn) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  // 노면 텍스처용 UV (u=가로 0~1, v=거리/8 타일)
+  const uv = new Float32Array(n * 2 * 2);
+  for (let i = 0; i < n; i++) {
+    uv.set([0, circuit.cum[i] / 8], i * 4);
+    uv.set([1, circuit.cum[i] / 8], i * 4 + 2);
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   g.setIndex(idx);
   g.computeVertexNormals();
   return g;
@@ -56,6 +67,12 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   const SKY = theme.sky;
   scene.background = new THREE.Color(SKY);
   scene.fog = new THREE.Fog(SKY, theme.fog[0], theme.fog[1]);
+  // 테마 하늘 HDRI (로드되면 교체, 실패 시 단색 유지)
+  try {
+    skyTexture(themeId).then((t) => {
+      if (t) scene.background = t;
+    });
+  } catch (e) { /* 무시 */ }
 
   // 조명
   scene.add(new THREE.HemisphereLight(0xffffff, 0x3f7a4e, 0.95));
@@ -100,12 +117,23 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
     grassGeo.computeVertexNormals();
   }
-  const grass = new THREE.Mesh(
-    grassGeo,
-    new THREE.MeshLambertMaterial({ color: theme.ground })
-  );
+  const grassMat = new THREE.MeshLambertMaterial({ color: theme.ground });
+  const grass = new THREE.Mesh(grassGeo, grassMat);
   grass.receiveShadow = true;
   scene.add(grass);
+  // 지형 텍스처 (park/forest=잔디, desert=모래, city=아스팔트)
+  try {
+    const gkind = themeId === 'desert' ? 'sand' : themeId === 'city' ? 'asphalt' : 'grass';
+    groundTexture(gkind).then((t) => {
+      if (!t) return;
+      const c = t.clone();
+      c.needsUpdate = true;
+      c.repeat.set(160, 160);
+      grassMat.map = c;
+      grassMat.color.set(0xffffff);
+      grassMat.needsUpdate = true;
+    });
+  } catch (e) { /* 무시 */ }
 
   // 잔디 질감 패치 (도로 겹침 금지 + 경사 맞춤 축소)
   {
@@ -132,12 +160,22 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   }
 
   // 아스팔트 (고도 추종, 양면: 고갯길 아래에서 봐도 뚫려 보이지 않게)
+  const roadMat = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
   const road = new THREE.Mesh(
     ribbonGeometry(circuit, RH, (d) => trackY(circuit, d) + 0.05),
-    new THREE.MeshLambertMaterial({ color: 0x41454e, side: THREE.DoubleSide })
+    roadMat
   );
   road.receiveShadow = true;
   scene.add(road);
+  try {
+    groundTexture('asphalt').then((t) => {
+      if (!t) return;
+      const c = t.clone();
+      c.needsUpdate = true;
+      roadMat.map = c;
+      roadMat.needsUpdate = true;
+    });
+  } catch (e) { /* 무시 */ }
 
   // 고가 지지 기둥 (수직 맵용: 도로가 뜬 곳에 콘크리트 기둥)
   // ※ 아래층 도로를 뚫는 위치는 제외 (기둥이 하부 차선을 막지 않게)
@@ -312,13 +350,24 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xf2c230, side: THREE.DoubleSide })));
   }
 
-  // 빨강/흰 연석
+  // 빨강/흰 연석 (외부 에셋 지오메트리 인스턴싱, 실패 시 박스)
   {
     const step = 7;
     const count = Math.floor(circuit.length / step);
-    const geo = new THREE.BoxGeometry(3.4, 0.35, 1.6);
-    const red = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xd63a2f }), count * 2);
-    const white = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xf4f6f8 }), count * 2);
+    const gR = staticGeo('curbRed');
+    const gW = staticGeo('curbWhite');
+    const mkGeo = () => new THREE.BoxGeometry(3.4, 0.35, 1.6);
+    const geoR = gR || mkGeo();
+    const geoW = gW || mkGeo();
+    const matR = gR ? vertexColorMaterial() : new THREE.MeshLambertMaterial({ color: 0xd63a2f });
+    const matW = gW ? vertexColorMaterial() : new THREE.MeshLambertMaterial({ color: 0xf4f6f8 });
+    const red = new THREE.InstancedMesh(geoR, matR, count * 2);
+    const white = new THREE.InstancedMesh(geoW, matW, count * 2);
+    // 에셋 지오메트리(0.25×0.13×0.12)를 기존 풋프린트(3.4×0.35×1.6)에 맞춤
+    const useAsset = !!(gR && gW);
+    const sx = useAsset ? 3.4 / 0.25 : 1;
+    const sy = useAsset ? 0.35 / 0.13 : 1;
+    const sz = useAsset ? 1.6 / 0.12 : 1;
     let ri = 0;
     let wi = 0;
     for (let i = 0; i < count; i++) {
@@ -329,15 +378,17 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
         const useRed = (i + (side > 0 ? 0 : 1)) % 2 === 0;
         dummy.position.set(
           p.x + -p.dz * side * (RH + 1.4),
-          trackY(circuit, i * step) + 0.18,
+          trackY(circuit, i * step) + (useAsset ? 0.02 : 0.18),
           p.z + p.dx * side * (RH + 1.4)
         );
         dummy.rotation.set(0, ang, 0);
+        dummy.scale.set(sx, sy, sz);
         dummy.updateMatrix();
         if (useRed) red.setMatrixAt(ri++, dummy.matrix);
         else white.setMatrixAt(wi++, dummy.matrix);
       }
     }
+    dummy.scale.set(1, 1, 1);
     red.count = ri;
     white.count = wi;
     red.castShadow = white.castShadow = true;
@@ -368,10 +419,30 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
         scene.add(m);
       }
     }
-    const gantry = makeGantry(RH * 2 + 8);
+    const gantry = gateMesh(RH * 2 + 8) || makeGantry(RH * 2 + 8);
     gantry.position.set(p0.x, y0, p0.z);
     gantry.rotation.y = ang; // 도로를 가로지르게 (로컬 Z = 측면 방향)
     scene.add(gantry);
+    // 스타트 플레이트 + 코너 깃발
+    try {
+      const plate = startPlateMesh(RH * 2);
+      if (plate) {
+        plate.position.set(p0.x, y0 + 0.06, p0.z);
+        plate.rotation.y = ang;
+        scene.add(plate);
+      }
+      for (const s of [-1, 1]) {
+        const flag = propMesh('flag');
+        if (flag) {
+          flag.position.set(
+            p0.x + -p0.dz * s * (RH + 3.2),
+            y0,
+            p0.z + p0.dx * s * (RH + 3.2)
+          );
+          scene.add(flag);
+        }
+      }
+    } catch (e) { /* 무시 */ }
     // 간트리 기둥도 장애물 (도로 양옆, 주행선에서 충분히 벗어남)
     for (const s of [-1, 1]) {
       const v = new THREE.Vector3(0, 0, (s * (RH * 2 + 8)) / 2);
@@ -478,8 +549,14 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     }
     const wallStep = 3.4;
     const wallCount = Math.floor(circuit.length / wallStep);
-    const wallGeo = new THREE.BoxGeometry(3.0, H, 0.7);
-    const white = new THREE.InstancedMesh(wallGeo, new THREE.MeshLambertMaterial({ color: 0xf2f5f9 }), wallCount * 2);
+    const gGuard = staticGeo('guard');
+    const wallGeo = gGuard || new THREE.BoxGeometry(3.0, H, 0.7);
+    const wallMat = gGuard ? vertexColorMaterial() : new THREE.MeshLambertMaterial({ color: 0xf2f5f9 });
+    // 에셋(1×0.13×0.12)을 기존 풋프린트(3.0×1.1×0.7)에 맞춤
+    const wsx = gGuard ? 3.0 : 1;
+    const wsy = gGuard ? H / 0.13 : 1;
+    const wsz = gGuard ? 0.7 / 0.12 : 1;
+    const white = new THREE.InstancedMesh(wallGeo, wallMat, wallCount * 2);
     let wi = 0;
     for (let i = 0; i < wallCount; i++) {
       const d = i * wallStep;
@@ -488,12 +565,14 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const p = circuit.pointAt(d);
       const y = trackY(circuit, d);
       for (const side of [1, -1]) {
-        dummy.position.set(p.x + -p.dz * side * off, y + H / 2, p.z + p.dx * side * off);
+        dummy.position.set(p.x + -p.dz * side * off, y + (gGuard ? 0.02 : H / 2), p.z + p.dx * side * off);
         dummy.rotation.set(0, -Math.atan2(p.dz, p.dx), 0);
+        dummy.scale.set(wsx, wsy, wsz);
         dummy.updateMatrix();
         white.setMatrixAt(wi++, dummy.matrix);
       }
     }
+    dummy.scale.set(1, 1, 1);
     white.count = wi;
     white.castShadow = true;
     white.receiveShadow = true;
@@ -594,7 +673,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
       const p = circuit.pointAt(d);
       const lat = bi % 2 === 0 ? 6.5 : -6.5;
       bi++;
-      const stack = makeTireStack();
+      const stack = tireStackMesh() || makeTireStack();
       stack.position.set(
         p.x + -p.dz * lat,
         trackY(circuit, d),
@@ -635,6 +714,7 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const placed = [];
   const tryPlace = (obj, minOff, maxOff) => {
+    if (!obj) return false;
     for (let t = 0; t < 24; t++) {
       const d = rnd() * circuit.length;
       const side = rnd() > 0.5 ? 1 : -1;
@@ -676,27 +756,28 @@ export function createWorld(scene, circuit, themeId = 'park', shortcuts = false,
     return false;
   };
   if (themeId === 'park') {
-    for (let i = 0; i < 26; i++) tryPlace(makeTree(), 26, 120);
-    for (let i = 0; i < 10; i++) tryPlace(makeBench(), 20, 32);
-    for (let i = 0; i < 12; i++) tryPlace(makeLamp(), 19, 27);
-    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 20, 28);
+    for (let i = 0; i < 26; i++) tryPlace(propMesh('tree') || makeTree(), 26, 120);
+    for (let i = 0; i < 10; i++) tryPlace(propMesh('bench') || makeBench(), 20, 32);
+    for (let i = 0; i < 12; i++) tryPlace(propMesh('lamp') || makeLamp(), 19, 27);
+    for (let i = 0; i < 8; i++) tryPlace(tireStackMesh() || makeTireStack(), 20, 28);
   } else if (themeId === 'desert') {
-    for (let i = 0; i < 22; i++) tryPlace(makeCactus(), 24, 110);
-    for (let i = 0; i < 16; i++) tryPlace(makeRock(), 22, 90);
-    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 20, 28);
+    for (let i = 0; i < 22; i++) tryPlace(propMesh('cactus') || makeCactus(), 24, 110);
+    for (let i = 0; i < 16; i++) tryPlace((Math.random() < 0.5 ? propMesh('rock') : propMesh('rock2')) || makeRock(), 22, 90);
+    for (let i = 0; i < 8; i++) tryPlace(tireStackMesh() || makeTireStack(), 20, 28);
   } else if (themeId === 'forest') {
-    for (let i = 0; i < 64; i++) tryPlace(makeTree(), 20, 70);
-    for (let i = 0; i < 12; i++) tryPlace(makeRock(), 16, 50);
-    for (let i = 0; i < 6; i++) tryPlace(makeTireStack(), 20, 28);
+    for (let i = 0; i < 64; i++) tryPlace((i % 3 === 0 ? propMesh('pine') : propMesh('tree')) || makeTree(), 20, 70);
+    for (let i = 0; i < 12; i++) tryPlace(propMesh('rock2') || makeRock(), 16, 50);
+    for (let i = 0; i < 6; i++) tryPlace(tireStackMesh() || makeTireStack(), 20, 28);
   } else {
     // 입체 트랙: 고층 빌딩은 고가도로와 겹칠 수 있어 낮은 소품만
     if (!circuit.hasOverlap) {
-      for (let i = 0; i < 20; i++) tryPlace(makeBuilding(), 34, 130);
+      for (let i = 0; i < 20; i++) tryPlace(buildingMesh() || makeBuilding(), 34, 130);
+      for (let i = 0; i < 6; i++) tryPlace(propMesh('billboard'), 40, 70);
     } else {
-      for (let i = 0; i < 10; i++) tryPlace(makeLamp(), 19, 40);
+      for (let i = 0; i < 10; i++) tryPlace(propMesh('lamp') || makeLamp(), 19, 40);
     }
-    for (let i = 0; i < 14; i++) tryPlace(makeLamp(), 19, 27);
-    for (let i = 0; i < 8; i++) tryPlace(makeTireStack(), 20, 28);
+    for (let i = 0; i < 14; i++) tryPlace(propMesh('lamp') || makeLamp(), 19, 27);
+    for (let i = 0; i < 8; i++) tryPlace(tireStackMesh() || makeTireStack(), 20, 28);
   }
 
   // 물 + 목재 부두 (공원 테마만, 남쪽 바깥)

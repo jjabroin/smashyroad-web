@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { CAR_DEFS } from './race.js?v=939de1';
 import { TRACK_DEFS, buildTrack } from './track.js?v=b02c69';
 import { CAR_BUILDERS, makeDriver } from './voxel.js?v=4a85b8';
+import { buildCar } from './models.js?v=888186';
 import { BOXES, STARS } from './gacha.js?v=3576ae';
 
 const GRADE_COLOR = { 전설: '#ff5252', 레어: '#4da3ff', 일반: '#9aa4b2' };
@@ -103,7 +104,7 @@ export function createGarage(onStart, hooks = {}) {
       stand.remove(driverMesh);
       driverMesh = null;
     }
-    carMesh = CAR_BUILDERS[def.id](def.color, def.accent);
+    carMesh = buildCar(def.id, def.color, def.accent);
     carMesh.rotation.y = -Math.PI / 2 + 0.5;
     stand.add(carMesh);
     driverMesh = makeDriver();
@@ -737,7 +738,7 @@ export function createGarage(onStart, hooks = {}) {
         cardScene.remove(cardCarMesh);
         cardCarMesh = null;
       }
-      cardCarMesh = CAR_BUILDERS[def.id](def.color, def.accent);
+      cardCarMesh = buildCar(def.id, def.color, def.accent);
       cardCarMesh.rotation.y = -1.93;
       cardScene.add(cardCarMesh);
       try {

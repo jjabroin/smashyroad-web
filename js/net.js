@@ -149,7 +149,7 @@ export function planOnlineGrid(players, aiCarIds, myId, isHost) {
 
 // mqttFactory: (url, opts) => mqtt 연결 객체 (main.js와 동일한 주입식)
 // 순수 함수(스냅샷·그리드)는 node 테스트 가능, 전송부(NetRoom)는 브라우저 WebRTC 필요
-import { MqttSig, checkRoom, HOST_TAG } from './sig.js?v=dev';
+import { MqttSig, checkRoom, HOST_TAG } from './sig.js?v=9c0cbb';
 
 // 네이티브 DataChannel → 기존 conn 인터페이스 래퍼
 // {peer, send(obj), close(), on('open'|'data'|'close'|'error'), peerConnection}

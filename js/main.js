@@ -12,8 +12,16 @@ function sameLevel(featD, carD) {
   if (featD === undefined || featD === null) return true;
   return Math.abs(distDiff(carD, featD, circuit.length)) <= 25;
 }
-import { CAR_BUILDERS } from './voxel.js?v=4a85b8';
-import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=c1240d';
+import { buildCar, preloadModels } from './models.js?v=888186';
+
+// 외부 에셋 선로드 (최대 9초, 실패 시 복셀 폴백으로 진행)
+try {
+  await Promise.race([
+    preloadModels(),
+    new Promise((r) => setTimeout(r, 9000)),
+  ]);
+} catch (e) { /* 무시 */ }
+import { createWorld, gridSlots, ROAD_HALF } from './world.js?v=a2e182';
 
 // 현재 트랙의 도로 반폭 (village 등 좁은 길 대응)
 function roadHalf() {
@@ -38,9 +46,9 @@ function corridorGroundY(x, z) {
   return null;
 }
 import { createHUD, createInput, createBeeper, setSteerHint, fmtTime } from './hud.js?v=01336d';
-import { createGarage } from './garage.js?v=d3d0da';
-import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=22562e';
-import { createOnlinePanel } from './online.js?v=073cc1';
+import { createGarage } from './garage.js?v=725087';
+import { carSnapshot, blendSnapshot, extrapolateRemote, planOnlineGrid, STATE_HZ } from './net.js?v=cf7b12';
+import { createOnlinePanel } from './online.js?v=158abc';
 import { Board } from './board.js?v=b0a723';
 import { createAccountPanel, loadSession, deviceTag } from './accounts.js?v=78ae48';
 import { loadState as loadGacha, addCoins as gachaAddCoins, pull as gachaPull, migrateToAccount as migrateGacha } from './gacha.js?v=3576ae';
@@ -378,7 +386,7 @@ function buildRace(playerDef, tdef, opts = {}) {
     const car = makeCarState(def, s.x, s.z, s.heading);
     car.dist = s.d !== undefined ? s.d : 0;
     car.lapStart = 0;
-    const mesh = CAR_BUILDERS[def.id](def.color, def.accent);
+    const mesh = buildCar(def.id, def.color, def.accent);
     mesh.position.set(s.x, 0, s.z);
     mesh.rotation.y = -s.heading;
     scene.add(mesh);
@@ -987,6 +995,13 @@ function loop(ts) {
     }
     const fw = r.mesh.userData.frontWheels || [];
     for (const w of fw) w.rotation.y = -c.steerVis * 0.45;
+    // 바퀴 구름 (GLB 분리바퀴, 복셀 폴백은 빈 배열)
+    const sw = r.mesh.userData.spinWheels || [];
+    if (sw.length) {
+      const wr = r.mesh.userData.wheelR || 1;
+      const roll = Math.hypot(c.vx, c.vz) / Math.max(0.2, wr);
+      for (const s of sw) s.rotation.x += roll * dt;
+    }
     const latV = Math.abs(c.vx * -Math.sin(c.heading) + c.vz * Math.cos(c.heading));
     const my = r.mesh.position.y;
     if ((latV > 14 || c.offTrack || c.drifting) && Math.hypot(c.vx, c.vz) > 12 && Math.random() < 0.6) {
@@ -1180,7 +1195,7 @@ function startGhostRace(trackId, entry) {
   document.getElementById('garage').style.display = 'none';
   buildRace(carDef, tdef, { timeAttack: true });
   const gdef = CAR_DEFS.find((x) => x.id === entry.car) || carDef;
-  const mesh = CAR_BUILDERS[gdef.id](gdef.color, gdef.accent);
+  const mesh = buildCar(gdef.id, gdef.color, gdef.accent);
   mesh.traverse((o) => {
     if (o.isMesh) {
       o.material = o.material.clone();
@@ -1573,7 +1588,7 @@ function buildRaceOnline(info) {
     const car = makeCarState(e.def, s.x, s.z, s.heading);
     car.dist = s.d !== undefined ? s.d : 0;
     car.lapStart = 0;
-    const mesh = CAR_BUILDERS[e.def.id](e.def.color, e.def.accent);
+    const mesh = buildCar(e.def.id, e.def.color, e.def.accent);
     mesh.position.set(s.x, 0, s.z);
     mesh.rotation.y = -s.heading;
     scene.add(mesh);
@@ -1944,7 +1959,7 @@ try {
 } catch (e) { /* 무시 */ }
 
 // 부트: 차고 → 레이스 (솔로) / 온라인 패널
-const APP_VERSION = '20260925-13';
+const APP_VERSION = '20260925-14';
 // 기기 내 진단 로그 (버전 5연타로 표시)
 const dbgLogArr = [];
 function dbgLog(m) {

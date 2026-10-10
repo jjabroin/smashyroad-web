@@ -13,7 +13,7 @@ for f in js/*.js; do
 done
 python3 - <<'EOF'
 import re, hashlib
-files = ['js/track.js','js/race.js','js/voxel.js','js/world.js','js/net.js','js/sig.js','js/online.js','js/garage.js','js/hud.js','js/board.js','js/records.js','js/accounts.js','js/gacha.js','js/friends.js','js/relay-config.js','js/skids.js','js/main.js']
+files = ['js/track.js','js/race.js','js/voxel.js','js/world.js','js/net.js','js/sig.js','js/models.js','js/online.js','js/garage.js','js/hud.js','js/board.js','js/records.js','js/accounts.js','js/gacha.js','js/friends.js','js/relay-config.js','js/skids.js','js/main.js']
 actual = {f[3:-3]: hashlib.md5(open(f,'rb').read()).hexdigest()[:6] for f in files}
 bad = 0
 for t in ['js/main.js','js/garage.js','js/online.js','js/board.js','index.html']:
